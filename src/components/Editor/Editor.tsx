@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdown } from '../../lib/markdown/parser'
 import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
@@ -31,7 +31,7 @@ function parseBlocks(content: string): Block[] {
       blocks.push({
         id: `block-${blocks.length}`,
         content: currentBlock.join('\n'),
-        type: currentType
+        type: currentType,
       })
       currentBlock = []
     }
@@ -82,7 +82,7 @@ function parseBlocks(content: string): Block[] {
 
 // 将块合并回 Markdown 内容
 function blocksToContent(blocks: Block[]): string {
-  return blocks.map(b => b.content).join('\n\n')
+  return blocks.map((b) => b.content).join('\n\n')
 }
 
 export function Editor() {
@@ -90,24 +90,26 @@ export function Editor() {
   const [blocks, setBlocks] = useState<Block[]>(() => parseBlocks(content))
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const prevContentRef = useRef(content)
 
   // 当外部更新 content 时（如打开文件），同步 blocks
+  // 这是 props-to-state 同步的标准模式
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!activeBlockId) {
-      const currentContent = blocksToContent(blocks)
-      if (content !== currentContent) {
-        setBlocks(parseBlocks(content))
-      }
+    if (content !== prevContentRef.current && !activeBlockId) {
+      prevContentRef.current = content
+      setBlocks(parseBlocks(content))
     }
-  }, [content, activeBlockId, blocks])
+  }, [content, activeBlockId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // 同步内容到 store
+  // 同步内容到 store - 使用 useMemo 避免不必要的计算
+  const blocksContent = useMemo(() => blocksToContent(blocks), [blocks])
   useEffect(() => {
-    const newContent = blocksToContent(blocks)
-    if (newContent !== content) {
-      setContent(newContent)
+    if (blocksContent !== content) {
+      setContent(blocksContent)
     }
-  }, [blocks])
+  }, [blocksContent, content, setContent])
 
   // 处理块聚焦
   const handleBlockFocus = useCallback((blockId: string) => {
@@ -116,9 +118,7 @@ export function Editor() {
 
   // 处理块失焦
   const handleBlockBlur = useCallback((blockId: string, newContent: string) => {
-    setBlocks(prev => prev.map(b =>
-      b.id === blockId ? { ...b, content: newContent } : b
-    ))
+    setBlocks((prev) => prev.map((b) => (b.id === blockId ? { ...b, content: newContent } : b)))
     setActiveBlockId(null)
   }, [])
 
@@ -157,17 +157,27 @@ interface BlockRendererProps {
   textareaRef?: React.RefObject<HTMLTextAreaElement | null>
 }
 
-function BlockRenderer({ block, isActive, onFocus, onBlur, onKeyDown, textareaRef }: BlockRendererProps) {
-  const [editContent, setEditContent] = useState(block.content)
+function BlockRenderer({
+  block,
+  isActive,
+  onFocus,
+  onBlur,
+  onKeyDown,
+  textareaRef,
+}: BlockRendererProps) {
+  // 使用 block.content 作为初始值
+  const [editContent, setEditContent] = useState(() => block.content)
   const [isTransitioning, setIsTransitioning] = useState(false)
   const { formatText, toggleBlockPrefix } = useTextFormat()
   const internalTextareaRef = useRef<HTMLTextAreaElement>(null)
   const actualRef = textareaRef || internalTextareaRef
 
-  // 同步 block.content 变化
+  // 同步 block.content 变化 - 这是 props-to-state 同步的标准模式
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setEditContent(block.content)
   }, [block.content])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // 监听格式化事件
   useEffect(() => {
@@ -183,7 +193,10 @@ function BlockRenderer({ block, isActive, onFocus, onBlur, onKeyDown, textareaRe
 
       // 块级格式化
       if (['h1', 'h2', 'h3', 'quote', 'list'].includes(format)) {
-        const newText = toggleBlockPrefix(editContent, format as 'h1' | 'h2' | 'h3' | 'quote' | 'list')
+        const newText = toggleBlockPrefix(
+          editContent,
+          format as 'h1' | 'h2' | 'h3' | 'quote' | 'list'
+        )
         setEditContent(newText)
         return
       }

@@ -2,15 +2,16 @@ import { useEditorStore, type RecentFile } from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
 
 export function Sidebar() {
-  const { showSidebar, content, recentFiles, isDirty, fileName, clearRecentFiles } = useEditorStore()
+  const { showSidebar, content, recentFiles, isDirty, fileName, clearRecentFiles } =
+    useEditorStore()
 
   if (!showSidebar) return null
 
   // 简单的大纲提取
   const headings = content
     .split('\n')
-    .filter(line => line.startsWith('#'))
-    .map(line => {
+    .filter((line) => line.startsWith('#'))
+    .map((line) => {
       const level = line.match(/^#+/)?.[0].length || 1
       const text = line.replace(/^#+\s*/, '')
       return { level, text }
@@ -65,8 +66,18 @@ export function Sidebar() {
                 className="text-sm text-gray-600 dark:text-gray-300 hover:text-[var(--accent-color)] cursor-pointer truncate flex items-center gap-1"
                 title={file.path}
               >
-                <svg className="w-3 h-3 flex-shrink-0 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <svg
+                  className="w-3 h-3 flex-shrink-0 opacity-50"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
                 </svg>
                 <span className="truncate">{file.name}</span>
               </li>
@@ -81,9 +92,7 @@ export function Sidebar() {
           Outline
         </h3>
         {headings.length === 0 ? (
-          <div className="text-sm text-gray-400 italic">
-            No headings
-          </div>
+          <div className="text-sm text-gray-400 italic">No headings</div>
         ) : (
           <ul className="space-y-1">
             {headings.map((heading, index) => (

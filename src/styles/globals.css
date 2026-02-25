@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 /* Highlight.js 代码高亮样式 - 基于 GitHub 主题 */
 .hljs {
@@ -158,14 +158,17 @@
   box-sizing: border-box;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   margin: 0;
   padding: 0;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
   background-color: var(--editor-bg);
   color: var(--editor-text);
   line-height: 1.6;
@@ -244,7 +247,8 @@ body {
   color: #aaa;
 }
 
-.markdown-body ul, .markdown-body ol {
+.markdown-body ul,
+.markdown-body ol {
   padding-left: 2em;
   margin-bottom: 1em;
 }
@@ -255,7 +259,8 @@ body {
   margin-bottom: 1em;
 }
 
-.markdown-body th, .markdown-body td {
+.markdown-body th,
+.markdown-body td {
   border: 1px solid var(--editor-border);
   padding: 8px 12px;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { openFile, saveFile, saveFileAs, newFile } from '../lib/fileOps'
 import { useEditorStore } from '../stores/editorStore'
 
@@ -33,33 +33,37 @@ export function useKeyboardShortcuts() {
     }
   }, [isDirty])
 
-  const shortcuts: ShortcutHandler[] = [
-    {
-      key: 'o',
-      metaKey: true,
-      handler: openFile,
-      description: 'Open file',
-    },
-    {
-      key: 's',
-      metaKey: true,
-      handler: saveFile,
-      description: 'Save file',
-    },
-    {
-      key: 's',
-      metaKey: true,
-      shiftKey: true,
-      handler: saveFileAs,
-      description: 'Save file as',
-    },
-    {
-      key: 'n',
-      metaKey: true,
-      handler: handleNewFile,
-      description: 'New file',
-    },
-  ]
+  // 使用 useMemo 避免每次渲染重新创建数组
+  const shortcuts: ShortcutHandler[] = useMemo(
+    () => [
+      {
+        key: 'o',
+        metaKey: true,
+        handler: openFile,
+        description: 'Open file',
+      },
+      {
+        key: 's',
+        metaKey: true,
+        handler: saveFile,
+        description: 'Save file',
+      },
+      {
+        key: 's',
+        metaKey: true,
+        shiftKey: true,
+        handler: saveFileAs,
+        description: 'Save file as',
+      },
+      {
+        key: 'n',
+        metaKey: true,
+        handler: handleNewFile,
+        description: 'New file',
+      },
+    ],
+    [handleNewFile]
+  )
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
