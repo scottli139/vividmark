@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { useTextFormat, type FormatType } from '../useTextFormat'
+import { useTextFormat } from '../useTextFormat'
 
 describe('useTextFormat', () => {
   const { result } = renderHook(() => useTextFormat())

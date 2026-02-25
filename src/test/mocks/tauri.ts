@@ -26,7 +26,7 @@ export function resetTauriMocks() {
 
 // Helper to setup default successful file operations
 export function setupDefaultTauriMocks() {
-  mockInvoke.mockImplementation(async (cmd: string, _args?: Record<string, unknown>) => {
+  mockInvoke.mockImplementation(async (cmd: string) => {
     switch (cmd) {
       case 'read_file':
         return {
