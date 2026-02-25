@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdown } from '../../lib/markdown/parser'
 import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
+import { editorLogger } from '../../lib/logger'
 import '../../styles/globals.css'
 
 interface Block {
@@ -102,6 +103,9 @@ export function Editor() {
       // 标记这是外部更新
       isExternalUpdateRef.current = true
       prevContentRef.current = content
+      editorLogger.debug('External content update, syncing blocks:', {
+        contentLength: content.length,
+      })
       setBlocks(parseBlocks(content))
     }
   }, [content, activeBlockId])
@@ -114,12 +118,17 @@ export function Editor() {
       isExternalUpdateRef.current = false
       // 更新 prevContentRef 以保持一致
       prevContentRef.current = blocksContent
+      editorLogger.debug('Skipping sync - external update')
       return
     }
     if (blocksContent !== content && !activeBlockId) {
+      editorLogger.debug('Syncing blocks to store:', {
+        blocksCount: blocks.length,
+        contentLength: blocksContent.length,
+      })
       setContent(blocksContent)
     }
-  }, [blocksContent, content, setContent, activeBlockId])
+  }, [blocksContent, content, setContent, activeBlockId, blocks.length])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // 处理块聚焦

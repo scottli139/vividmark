@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect } from 'react'
 import { useEditorStore } from '../stores/editorStore'
+import { dragDropLogger } from '../lib/logger'
 
 interface DragState {
   isDragging: boolean
@@ -83,6 +84,8 @@ export function useFileDragDrop() {
       try {
         const content = await file.text()
 
+        dragDropLogger.info('File dropped:', { name: file.name, size: content.length })
+
         // 使用 Tauri 的 API 获取文件路径
         // 在 Tauri 2.0 中，我们需要使用 @tauri-apps/plugin-fs
         // 但对于拖放，我们需要直接使用文件路径
@@ -93,7 +96,7 @@ export function useFileDragDrop() {
         store.setFilePath('') // 拖放的文件没有完整路径
         store.setDirty(true) // 标记为已修改，因为没有完整路径无法保存
       } catch (error) {
-        console.error('Failed to read dropped file:', error)
+        dragDropLogger.error('Failed to read dropped file:', error)
         alert('Failed to read file')
       }
     },

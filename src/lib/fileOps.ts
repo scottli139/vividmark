@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { useEditorStore } from '../stores/editorStore'
+import { fileOpsLogger } from './logger'
 
 interface FileInfo {
   path: string
@@ -37,17 +38,22 @@ export async function saveFile(): Promise<boolean> {
     return saveFileAs()
   }
 
+  fileOpsLogger.time('save')
+  fileOpsLogger.debug('Saving file:', { path: filePath, size: content.length })
+
   const result = await invoke<SaveResult>('save_file', {
     path: filePath,
     content,
   })
 
   if (result.success) {
+    fileOpsLogger.timeEnd('save')
+    fileOpsLogger.info('File saved:', { path: filePath })
     store.setDirty(false)
     return true
   }
 
-  console.error('Save failed:', result.error)
+  fileOpsLogger.error('Save failed:', result.error)
   return false
 }
 
@@ -65,6 +71,8 @@ export async function saveFileAs(): Promise<boolean> {
   })
 
   if (selected && typeof selected === 'string') {
+    fileOpsLogger.debug('Save as:', { path: selected })
+
     const result = await invoke<SaveResult>('save_file', {
       path: selected,
       content,
@@ -77,10 +85,11 @@ export async function saveFileAs(): Promise<boolean> {
       store.setFilePath(path)
       store.setFileName(name)
       store.setDirty(false)
+      fileOpsLogger.info('File saved as:', { path })
       return true
     }
 
-    console.error('Save failed:', result.error)
+    fileOpsLogger.error('Save as failed:', result.error)
   }
 
   return false
@@ -94,6 +103,9 @@ export function newFile(): void {
 
 // 通过路径打开文件 (用于拖放打开和最近文件)
 export async function openFileByPath(path: string): Promise<boolean> {
+  fileOpsLogger.time('open')
+  fileOpsLogger.debug('Opening file:', { path })
+
   try {
     const fileInfo = await invoke<FileInfo>('read_file', { path })
     const store = useEditorStore.getState()
@@ -104,9 +116,16 @@ export async function openFileByPath(path: string): Promise<boolean> {
     store.setDirty(false)
     // 添加到最近文件列表
     store.addRecentFile(fileInfo.path, fileInfo.name)
+
+    fileOpsLogger.timeEnd('open')
+    fileOpsLogger.info('File opened:', {
+      path: fileInfo.path,
+      name: fileInfo.name,
+      size: fileInfo.content.length,
+    })
     return true
   } catch (error) {
-    console.error('Failed to open file:', error)
+    fileOpsLogger.error('Failed to open file:', error)
     return false
   }
 }

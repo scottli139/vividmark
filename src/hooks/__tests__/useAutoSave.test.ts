@@ -161,7 +161,11 @@ describe('useAutoSave', () => {
     })
 
     expect(mockSaveFile).toHaveBeenCalled()
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Auto-save failed:', expect.any(Error))
+    // Logger formats the message with timestamp and module prefix
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[AutoSave] ERROR: Auto-save failed:'),
+      expect.any(Error)
+    )
 
     consoleErrorSpy.mockRestore()
   })

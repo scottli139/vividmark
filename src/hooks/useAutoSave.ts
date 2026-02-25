@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import { saveFile } from '../lib/fileOps'
+import { autoSaveLogger } from '../lib/logger'
 
 const AUTO_SAVE_DELAY = 2000 // 2 秒后自动保存
 
@@ -20,12 +21,13 @@ export function useAutoSave() {
       return
     }
 
+    autoSaveLogger.debug('Triggering auto-save:', { path: filePath })
     isSavingRef.current = true
     try {
       await saveFile()
-      console.log('Auto-saved:', new Date().toLocaleTimeString())
+      autoSaveLogger.info('Auto-saved successfully')
     } catch (error) {
-      console.error('Auto-save failed:', error)
+      autoSaveLogger.error('Auto-save failed:', error)
     } finally {
       isSavingRef.current = false
     }
