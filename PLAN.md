@@ -6,7 +6,7 @@
 
 - **项目名称**: VividMark
 - **技术栈**: Tauri 2.0 + React + TypeScript
-- **仓库**: https://github.com/scottli139/vivimark
+- **仓库**: https://github.com/scottli139/vividmark
 
 ---
 
@@ -77,6 +77,61 @@
 
 ---
 
+## 工程化改进 (后续 Session)
+
+### Phase 8: 代码规范配置
+
+- [ ] 配置 ESLint 规则 (extends, rules)
+- [ ] 配置 Prettier 格式化规则
+- [ ] 配置 TypeScript 严格模式
+- [ ] 添加 .editorconfig 统一编辑器配置
+- [ ] 添加 pre-commit hooks (husky + lint-staged)
+- [ ] 创建 CONTRIBUTING.md 文档
+
+**建议配置文件：**
+```
+.prettierrc      # Prettier 配置
+.prettierignore  # Prettier 忽略文件
+.eslintrc.js     # ESLint 配置 (如需自定义)
+.editorconfig    # 编辑器统一配置
+```
+
+### Phase 9: 自动化测试
+
+- [ ] 配置 Vitest 单元测试
+- [ ] 添加 React Testing Library 组件测试
+- [ ] 配置 Tauri E2E 测试 (WebDriver/Playwright)
+- [ ] 配置 GitHub Actions CI/CD
+  - [ ] 自动运行测试
+  - [ ] 自动构建多平台版本
+  - [ ] 自动发布 Release
+
+**测试策略：**
+- 单元测试：hooks, utils, store
+- 组件测试：Editor, Toolbar, Sidebar
+- E2E 测试：文件操作、编辑流程
+
+### Phase 10: 品牌设计
+
+- [ ] 设计应用 Logo 图标
+  - 考虑使用 AI 图像生成 API (如 Seedream)
+  - 需要生成多尺寸图标
+- [ ] 创建图标文件
+  - [ ] 32x32.png
+  - [ ] 128x128.png
+  - [ ] 128x128@2x.png
+  - [ ] icon.icns (macOS)
+  - [ ] icon.ico (Windows)
+- [ ] 设计应用启动画面 (Splash Screen)
+- [ ] 设计网站/README 横幅图
+
+**Logo 设计思路：**
+- 体现 Markdown 编辑器特性
+- 简洁现代的设计风格
+- 支持深色/浅色两种变体
+
+---
+
 ## 技术细节
 
 ### 核心依赖
@@ -124,21 +179,18 @@ vividmark/
 
 ## 下一步行动
 
-### 当前 Session 可完成
+### 优先级高
 
-1. **完成文件操作功能**
-   - 测试文件打开/保存
-   - 添加快捷键绑定
+1. **Phase 8: 代码规范配置** - 保证代码风格统一
+2. **Phase 9: 自动化测试** - 保证代码质量
+3. **Phase 10: 品牌设计** - 提升产品形象
 
-2. **优化编辑器体验**
-   - 修复块级切换闪烁
-   - 添加代码高亮
+### 功能开发
 
-### 下次 Session
-
-1. 添加格式化工具栏
-2. 实现拖拽打开文件
-3. 添加表格编辑支持
+1. 添加表格编辑支持
+2. 添加图片插入与预览
+3. 实现撤销/重做功能
+4. 添加多标签页支持
 
 ---
 

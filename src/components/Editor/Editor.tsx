@@ -91,6 +91,16 @@ export function Editor() {
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
+  // 当外部更新 content 时（如打开文件），同步 blocks
+  useEffect(() => {
+    if (!activeBlockId) {
+      const currentContent = blocksToContent(blocks)
+      if (content !== currentContent) {
+        setBlocks(parseBlocks(content))
+      }
+    }
+  }, [content, activeBlockId, blocks])
+
   // 同步内容到 store
   useEffect(() => {
     const newContent = blocksToContent(blocks)

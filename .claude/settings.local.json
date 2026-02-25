@@ -9,7 +9,9 @@
       "Bash(git remote set-url:*)",
       "Bash(git push:*)",
       "Bash(pnpm exec tsc:*)",
-      "Bash(pnpm build:*)"
+      "Bash(pnpm build:*)",
+      "Bash(mdfind:*)",
+      "Bash(cargo test:*)"
     ]
   }
 }
