@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pgrep:*)",
+      "Bash(pkill:*)",
+      "Bash(source:*)",
+      "Bash(pnpm tauri dev:*)",
+      "Bash(pnpm add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git push:*)",
+      "Bash(pnpm exec tsc:*)",
+      "Bash(pnpm build:*)"
+    ]
+  }
+}

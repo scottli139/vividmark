@@ -7,7 +7,7 @@ const md = new MarkdownIt({
   linkify: true,
   typographer: true,
   breaks: true,
-  highlight: function (str: string, lang: string) {
+  highlight: function (str: string, lang: string): string {
     // 如果指定了语言且支持，使用该语言高亮
     if (lang && hljs.getLanguage(lang)) {
       try {
@@ -21,7 +21,7 @@ const md = new MarkdownIt({
       return `<pre class="hljs"><code>${hljs.highlightAuto(str).value}</code></pre>`
     } catch {
       // 如果高亮失败，返回转义后的原始代码
-      return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`
+      return `<pre class="hljs"><code>${MarkdownIt.prototype.utils.escapeHtml(str)}</code></pre>`
     }
   },
 })

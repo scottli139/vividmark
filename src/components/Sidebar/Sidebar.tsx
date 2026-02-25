@@ -1,4 +1,4 @@
-import { useEditorStore, RecentFile } from '../../stores/editorStore'
+import { useEditorStore, type RecentFile } from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
 
 export function Sidebar() {

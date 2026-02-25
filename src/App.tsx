@@ -8,7 +8,7 @@ import { useAutoSave } from './hooks/useAutoSave'
 import './styles/globals.css'
 
 function App() {
-  const { isDarkMode, showSidebar } = useEditorStore()
+  const { isDarkMode } = useEditorStore()
 
   // 注册全局快捷键
   useKeyboardShortcuts()

@@ -7,7 +7,7 @@ interface ShortcutHandler {
   ctrlKey?: boolean
   metaKey?: boolean
   shiftKey?: boolean
-  handler: () => void | Promise<void>
+  handler: () => void | Promise<void | boolean>
   description: string
 }
 

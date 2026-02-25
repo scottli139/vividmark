@@ -1,28 +1,20 @@
 import { useEditorStore } from '../../stores/editorStore'
-import { openFile, saveFile, saveFileAs, newFile } from '../../lib/fileOps'
-import { useTextFormat, FormatType } from '../../hooks/useTextFormat'
+import { openFile, saveFile, newFile } from '../../lib/fileOps'
+import type { FormatType } from '../../hooks/useTextFormat'
 
 export function Toolbar() {
   const {
     fileName,
     isDirty,
     isDarkMode,
-    showSidebar,
     viewMode,
-    activeBlockId,
     toggleDarkMode,
     toggleSidebar,
     setViewMode
   } = useEditorStore()
 
-  const { formatText } = useTextFormat()
-
   const handleSave = async () => {
     await saveFile()
-  }
-
-  const handleSaveAs = async () => {
-    await saveFileAs()
   }
 
   const handleOpen = async () => {

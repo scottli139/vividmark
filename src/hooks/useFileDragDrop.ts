@@ -1,5 +1,4 @@
 import { useCallback, useState, useEffect } from 'react'
-import { openFileByPath } from '../lib/fileOps'
 import { useEditorStore } from '../stores/editorStore'
 
 interface DragState {

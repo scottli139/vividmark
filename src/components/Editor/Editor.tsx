@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdown } from '../../lib/markdown/parser'
-import { useTextFormat, FormatType } from '../../hooks/useTextFormat'
+import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
 import '../../styles/globals.css'
 
 interface Block {
@@ -113,7 +113,7 @@ export function Editor() {
   }, [])
 
   // 处理键盘事件
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, blockId: string) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       setActiveBlockId(null)
     }
@@ -129,7 +129,7 @@ export function Editor() {
             isActive={activeBlockId === block.id}
             onFocus={() => handleBlockFocus(block.id)}
             onBlur={(content) => handleBlockBlur(block.id, content)}
-            onKeyDown={(e) => handleKeyDown(e, block.id)}
+            onKeyDown={(e) => handleKeyDown(e)}
             textareaRef={activeBlockId === block.id ? textareaRef : undefined}
           />
         ))}
