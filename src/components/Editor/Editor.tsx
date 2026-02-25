@@ -93,23 +93,34 @@ export function Editor() {
   const prevContentRef = useRef(content)
 
   // 当外部更新 content 时（如打开文件），同步 blocks
-  // 这是 props-to-state 同步的标准模式
+  // 使用 ref 追踪是否是外部更新，避免循环同步
+  const isExternalUpdateRef = useRef(false)
+
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (content !== prevContentRef.current && !activeBlockId) {
+      // 标记这是外部更新
+      isExternalUpdateRef.current = true
       prevContentRef.current = content
       setBlocks(parseBlocks(content))
     }
   }, [content, activeBlockId])
-  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // 同步内容到 store - 使用 useMemo 避免不必要的计算
+  // 同步内容到 store - 仅在用户编辑时同步，跳过外部更新
   const blocksContent = useMemo(() => blocksToContent(blocks), [blocks])
   useEffect(() => {
-    if (blocksContent !== content) {
+    // 如果是外部更新触发的 blocks 变化，不同步回 store
+    if (isExternalUpdateRef.current) {
+      isExternalUpdateRef.current = false
+      // 更新 prevContentRef 以保持一致
+      prevContentRef.current = blocksContent
+      return
+    }
+    if (blocksContent !== content && !activeBlockId) {
       setContent(blocksContent)
     }
-  }, [blocksContent, content, setContent])
+  }, [blocksContent, content, setContent, activeBlockId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // 处理块聚焦
   const handleBlockFocus = useCallback((blockId: string) => {

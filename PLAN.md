@@ -96,11 +96,12 @@ eslint.config.js # ESLint flat config
 .editorconfig    # 编辑器统一配置
 ```
 
-### Phase 9: 自动化测试
+### Phase 9: 自动化测试 ✅ (已完成)
 
-- [ ] 配置 Vitest 单元测试
-- [ ] 添加 React Testing Library 组件测试
-- [ ] 配置 Tauri E2E 测试 (WebDriver/Playwright)
+- [x] 配置 Vitest 单元测试
+- [x] 添加 React Testing Library 组件测试
+- [x] 配置 Playwright E2E 测试
+- [x] 添加测试脚本和覆盖率报告
 - [ ] 配置 GitHub Actions CI/CD
   - [ ] 自动运行测试
   - [ ] 自动构建多平台版本
@@ -111,24 +112,107 @@ eslint.config.js # ESLint flat config
 - 组件测试：Editor, Toolbar, Sidebar
 - E2E 测试：文件操作、编辑流程
 
-### Phase 10: 品牌设计
+**已创建测试文件：**
+```
+src/
+├── components/
+│   ├── Editor/__tests__/Editor.test.tsx    # 待添加
+│   ├── Toolbar/__tests__/Toolbar.test.tsx
+│   └── Sidebar/__tests__/Sidebar.test.tsx
+├── stores/__tests__/editorStore.test.ts
+├── hooks/__tests__/
+│   ├── useAutoSave.test.ts
+│   └── useTextFormat.test.ts
+└── lib/markdown/__tests__/parser.test.ts
 
-- [ ] 设计应用 Logo 图标
-  - 考虑使用 AI 图像生成 API (如 Seedream)
-  - 需要生成多尺寸图标
-- [ ] 创建图标文件
-  - [ ] 32x32.png
-  - [ ] 128x128.png
-  - [ ] 128x128@2x.png
-  - [ ] icon.icns (macOS)
-  - [ ] icon.ico (Windows)
-- [ ] 设计应用启动画面 (Splash Screen)
-- [ ] 设计网站/README 横幅图
+e2e/
+├── file-operations.spec.ts   # 文件操作 E2E
+└── basic-editing.spec.ts     # 基础编辑 E2E
+```
 
-**Logo 设计思路：**
-- 体现 Markdown 编辑器特性
-- 简洁现代的设计风格
-- 支持深色/浅色两种变体
+### Phase 11: 日志与诊断系统 (待开始)
+
+**目标**：建立完善的日志系统，便于问题诊断和调试
+
+- [ ] 前端日志系统
+  - [ ] 创建统一的 logger 工具 (src/lib/logger.ts)
+  - [ ] 支持 log/info/warn/error 级别
+  - [ ] 开发环境输出到控制台，生产环境可配置
+  - [ ] 支持日志分类 (模块标签)
+- [ ] 后端日志增强
+  - [ ] 在 Rust 命令中添加诊断日志
+  - [ ] 记录文件操作路径、大小、耗时
+  - [ ] 错误时打印详细堆栈
+- [ ] 关键路径日志覆盖
+  - [ ] 文件打开/保存流程
+  - [ ] Editor content 同步逻辑
+  - [ ] Store 状态变更
+- [ ] 日志查看功能 (可选)
+  - [ ] 开发者工具面板
+  - [ ] 导出日志文件
+
+**日志规范：**
+```typescript
+// 前端日志示例
+logger.info('[FileOps] Opening file:', path)
+logger.error('[Editor] Failed to sync blocks:', error)
+
+// 后端日志示例
+log::info!("[read_file] Reading file: {} ({} bytes)", path, content.len());
+log::error!("[save_file] Failed to write: {}", e);
+```
+
+### Phase 12: 测试增强 (待开始)
+
+**目标**：增加测试覆盖率，防止类似问题再次发生
+
+- [ ] Editor 组件核心逻辑测试
+  - [ ] parseBlocks / blocksToContent 单元测试
+  - [ ] content 同步逻辑测试 (外部更新 vs 用户编辑)
+  - [ ] 边界情况测试 (空文件、大文件、特殊字符)
+- [ ] fileOps 集成测试
+  - [ ] mock Tauri invoke 测试文件操作流程
+  - [ ] 错误处理测试
+- [ ] 状态同步回归测试
+  - [ ] 打开文件后内容正确显示
+  - [ ] 保存后内容不变
+  - [ ] 编辑后 dirty 状态正确
+- [ ] E2E 测试增强
+  - [ ] 打开文件 -> 编辑 -> 保存 完整流程
+  - [ ] 拖拽打开文件
+  - [ ] 快捷键操作
+
+### Phase 10: 品牌设计 ✅ (已完成)
+
+- [x] 设计应用 Logo 图标
+  - 使用 SVG 矢量设计 (可无损缩放)
+  - 简约现代风格 + 蓝色渐变
+  - 核心元素: Markdown # 符号
+- [x] 创建图标文件
+  - [x] 32x32.png
+  - [x] 128x128.png
+  - [x] 128x128@2x.png
+  - [x] 512x512.png
+  - [x] icon.icns (macOS)
+  - [x] icon.ico (Windows)
+  - [x] Windows Store 图标 (30-310px)
+- [ ] 设计应用启动画面 (Splash Screen) - 可选
+- [ ] 设计网站/README 横幅图 - 可选
+
+**已创建文件：**
+```
+src-tauri/icons/
+├── icon.svg           # 矢量源文件
+├── icon.png           # 512x512 高清版
+├── 32x32.png          # 小图标
+├── 128x128.png        # 中等图标
+├── 128x128@2x.png     # Retina 图标
+├── 512x512.png        # 大图标
+├── icon.icns          # macOS 图标包
+├── icon.ico           # Windows 图标
+├── StoreLogo.png      # Windows Store
+└── Square*N*Logo.png  # Windows Store 各尺寸
+```
 
 ---
 
@@ -182,8 +266,8 @@ vividmark/
 ### 优先级高
 
 1. ~~**Phase 8: 代码规范配置**~~ ✅ 已完成
-2. **Phase 9: 自动化测试** - 保证代码质量
-3. **Phase 10: 品牌设计** - 提升产品形象
+2. ~~**Phase 10: 品牌设计**~~ ✅ 已完成
+3. **Phase 9: 自动化测试** - 保证代码质量
 
 ### 功能开发
 
