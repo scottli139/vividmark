@@ -1,5 +1,6 @@
 import { useEditorStore } from '../../stores/editorStore'
 import { openFile, saveFile, newFile } from '../../lib/fileOps'
+import { selectLocalImage, createImageMarkdown } from '../../lib/imageUtils'
 import type { FormatType } from '../../hooks/useTextFormat'
 
 // 格式化按钮组件 - 移到外部避免每次渲染重新创建
@@ -27,9 +28,42 @@ function FormatButton({
   )
 }
 
+// 操作按钮组件 - 用于非格式化操作（如撤销/重做）
+function ActionButton({
+  onClick,
+  title,
+  disabled,
+  children,
+}: {
+  onClick: () => void
+  title: string
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      title={title}
+    >
+      {children}
+    </button>
+  )
+}
+
 export function Toolbar() {
-  const { fileName, isDirty, isDarkMode, viewMode, toggleDarkMode, toggleSidebar, setViewMode } =
-    useEditorStore()
+  const {
+    fileName,
+    isDirty,
+    isDarkMode,
+    viewMode,
+    canUndo,
+    canRedo,
+    toggleDarkMode,
+    toggleSidebar,
+    setViewMode,
+  } = useEditorStore()
 
   const handleSave = async () => {
     await saveFile()
@@ -46,6 +80,26 @@ export function Toolbar() {
       }
     } else {
       newFile()
+    }
+  }
+
+  const handleUndo = () => {
+    window.dispatchEvent(new CustomEvent('editor-undo'))
+  }
+
+  const handleRedo = () => {
+    window.dispatchEvent(new CustomEvent('editor-redo'))
+  }
+
+  const handleImage = async () => {
+    const imagePath = await selectLocalImage()
+    if (imagePath) {
+      // 提取文件名作为 alt text
+      const fileName = imagePath.split(/[/\\]/).pop() || 'image'
+      const altText = fileName.replace(/\.[^/.]+$/, '') // 移除扩展名
+      // 使用异步函数将本地图片转换为 base64
+      const markdown = await createImageMarkdown(altText, imagePath)
+      window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: markdown } }))
     }
   }
 
@@ -117,6 +171,30 @@ export function Toolbar() {
 
         <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
 
+        {/* 撤销/重做 */}
+        <ActionButton onClick={handleUndo} title="Undo (Cmd+Z)" disabled={!canUndo}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
+            />
+          </svg>
+        </ActionButton>
+        <ActionButton onClick={handleRedo} title="Redo (Cmd+Shift+Z)" disabled={!canRedo}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6"
+            />
+          </svg>
+        </ActionButton>
+
+        <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
+
         {/* 格式化工具 */}
         <div className="flex items-center gap-0.5">
           <FormatButton format="bold" title="Bold (Cmd+B)">
@@ -171,6 +249,16 @@ export function Toolbar() {
               />
             </svg>
           </FormatButton>
+          <ActionButton onClick={handleImage} title="Insert Image">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+          </ActionButton>
         </div>
 
         <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />

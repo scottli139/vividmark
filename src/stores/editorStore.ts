@@ -23,6 +23,10 @@ export interface EditorState {
   viewMode: 'edit' | 'preview' | 'split'
   activeBlockId: string | null
 
+  // 历史记录状态
+  canUndo: boolean
+  canRedo: boolean
+
   // Actions
   setContent: (content: string) => void
   setFilePath: (path: string | null) => void
@@ -34,6 +38,8 @@ export interface EditorState {
   toggleSidebar: () => void
   setViewMode: (mode: 'edit' | 'preview' | 'split') => void
   setActiveBlockId: (id: string | null) => void
+  setCanUndo: (canUndo: boolean) => void
+  setCanRedo: (canRedo: boolean) => void
   resetDocument: () => void
 }
 
@@ -73,6 +79,8 @@ export const useEditorStore = create<EditorState>()(
       showSidebar: true,
       viewMode: 'edit',
       activeBlockId: null,
+      canUndo: false,
+      canRedo: false,
 
       setContent: (content) => set({ content, isDirty: true }),
       setFilePath: (path) => set({ filePath: path }),
@@ -100,6 +108,8 @@ export const useEditorStore = create<EditorState>()(
       toggleSidebar: () => set((state) => ({ showSidebar: !state.showSidebar })),
       setViewMode: (mode) => set({ viewMode: mode }),
       setActiveBlockId: (id) => set({ activeBlockId: id }),
+      setCanUndo: (canUndo) => set({ canUndo }),
+      setCanRedo: (canRedo) => set({ canRedo }),
       resetDocument: () =>
         set({
           content: '',
@@ -107,6 +117,8 @@ export const useEditorStore = create<EditorState>()(
           fileName: 'Untitled.md',
           isDirty: false,
           activeBlockId: null,
+          canUndo: false,
+          canRedo: false,
         }),
     }),
     {

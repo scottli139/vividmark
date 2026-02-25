@@ -6,6 +6,7 @@ export type FormatType =
   | 'strike'
   | 'code'
   | 'link'
+  | 'image'
   | 'h1'
   | 'h2'
   | 'h3'
@@ -25,6 +26,7 @@ const FORMAT_CONFIGS: Record<FormatType, FormatConfig> = {
   strike: { prefix: '~~', suffix: '~~', placeholder: 'strikethrough' },
   code: { prefix: '`', suffix: '`', placeholder: 'code' },
   link: { prefix: '[', suffix: '](url)', placeholder: 'link text' },
+  image: { prefix: '![', suffix: '](image-url)', placeholder: 'alt text' },
   h1: { prefix: '# ', suffix: '' },
   h2: { prefix: '## ', suffix: '' },
   h3: { prefix: '### ', suffix: '' },

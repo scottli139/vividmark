@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdown } from '../../lib/markdown/parser'
 import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
+import { useHistory } from '../../hooks/useHistory'
 import { editorLogger } from '../../lib/logger'
 import '../../styles/globals.css'
 
@@ -78,6 +79,16 @@ function parseBlocks(content: string): Block[] {
   }
 
   flushBlock()
+
+  // 确保至少有一个块，以便用户可以开始输入
+  if (blocks.length === 0) {
+    blocks.push({
+      id: 'block-0',
+      content: '',
+      type: 'paragraph',
+    })
+  }
+
   return blocks
 }
 
@@ -87,15 +98,22 @@ function blocksToContent(blocks: Block[]): string {
 }
 
 export function Editor() {
-  const { content, setContent, isDarkMode } = useEditorStore()
+  const { content, setContent, isDarkMode, setCanUndo, setCanRedo } = useEditorStore()
   const [blocks, setBlocks] = useState<Block[]>(() => parseBlocks(content))
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const prevContentRef = useRef(content)
 
+  // 历史记录管理
+  const { pushHistory, undo, redo, canUndo, canRedo, clearHistory } = useHistory(
+    content,
+    setContent
+  )
+
   // 当外部更新 content 时（如打开文件），同步 blocks
   // 使用 ref 追踪是否是外部更新，避免循环同步
   const isExternalUpdateRef = useRef(false)
+  const isUndoRedoRef = useRef(false)
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -107,8 +125,10 @@ export function Editor() {
         contentLength: content.length,
       })
       setBlocks(parseBlocks(content))
+      // 外部更新（如打开文件）时清空历史
+      clearHistory()
     }
-  }, [content, activeBlockId])
+  }, [content, activeBlockId, clearHistory])
 
   // 同步内容到 store - 仅在用户编辑时同步，跳过外部更新
   const blocksContent = useMemo(() => blocksToContent(blocks), [blocks])
@@ -127,9 +147,101 @@ export function Editor() {
         contentLength: blocksContent.length,
       })
       setContent(blocksContent)
+      // 更新 prevContentRef 以防止外部更新效果重置 blocks
+      prevContentRef.current = blocksContent
     }
   }, [blocksContent, content, setContent, activeBlockId, blocks.length])
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // 更新历史状态
+  useEffect(() => {
+    setCanUndo(canUndo())
+    setCanRedo(canRedo())
+  }, [content, canUndo, canRedo, setCanUndo, setCanRedo])
+
+  // 监听撤销/重做事件
+  useEffect(() => {
+    const handleUndo = () => {
+      const newContent = undo()
+      if (newContent !== null) {
+        isUndoRedoRef.current = true
+        setBlocks(parseBlocks(newContent))
+        prevContentRef.current = newContent
+      }
+    }
+
+    const handleRedo = () => {
+      const newContent = redo()
+      if (newContent !== null) {
+        isUndoRedoRef.current = true
+        setBlocks(parseBlocks(newContent))
+        prevContentRef.current = newContent
+      }
+    }
+
+    window.addEventListener('editor-undo', handleUndo)
+    window.addEventListener('editor-redo', handleRedo)
+
+    return () => {
+      window.removeEventListener('editor-undo', handleUndo)
+      window.removeEventListener('editor-redo', handleRedo)
+    }
+  }, [undo, redo])
+
+  // 处理键盘快捷键 (Cmd/Ctrl + Z, Cmd/Ctrl + Shift + Z)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 忽略在输入框中的快捷键（除了当前活跃的 textarea）
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || (target.tagName === 'TEXTAREA' && !activeBlockId)) {
+        return
+      }
+
+      const isMod = e.metaKey || e.ctrlKey
+
+      if (isMod && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('editor-undo'))
+      } else if ((isMod && e.key === 'z' && e.shiftKey) || (isMod && e.key === 'y')) {
+        e.preventDefault()
+        window.dispatchEvent(new CustomEvent('editor-redo'))
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [activeBlockId])
+
+  // 全局处理编辑器插入事件（用于图片插入等）
+  useEffect(() => {
+    const handleInsertEvent = (e: CustomEvent<{ text: string }>) => {
+      const { text } = e.detail
+
+      // 如果有活跃的块，让 BlockRenderer 处理
+      // 如果没有活跃的块，激活第一个块并插入
+      if (!activeBlockId && blocks.length > 0) {
+        // 激活第一个块
+        setActiveBlockId(blocks[0].id)
+
+        // 在下一个 tick 插入文本（等待 textarea 渲染）
+        setTimeout(() => {
+          const textarea = document.querySelector('textarea')
+          if (textarea) {
+            const start = textarea.selectionStart
+            const end = textarea.selectionEnd
+            const content = textarea.value
+            const newContent = content.slice(0, start) + text + content.slice(end)
+            textarea.value = newContent
+            textarea.setSelectionRange(start + text.length, start + text.length)
+            textarea.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+        }, 50)
+      }
+    }
+
+    window.addEventListener('editor-insert', handleInsertEvent as EventListener)
+    return () => window.removeEventListener('editor-insert', handleInsertEvent as EventListener)
+  }, [activeBlockId, blocks])
 
   // 处理块聚焦
   const handleBlockFocus = useCallback((blockId: string) => {
@@ -137,10 +249,32 @@ export function Editor() {
   }, [])
 
   // 处理块失焦
-  const handleBlockBlur = useCallback((blockId: string, newContent: string) => {
-    setBlocks((prev) => prev.map((b) => (b.id === blockId ? { ...b, content: newContent } : b)))
-    setActiveBlockId(null)
-  }, [])
+  const handleBlockBlur = useCallback(
+    (blockId: string, newContent: string) => {
+      // 计算新的完整内容并立即更新 prevContentRef
+      // 这样可以防止外部更新效果重置 blocks
+      setBlocks((prev) => {
+        const oldBlock = prev.find((b) => b.id === blockId)
+        const newBlocks = prev.map((b) => (b.id === blockId ? { ...b, content: newContent } : b))
+
+        // 计算新的完整内容
+        const newFullContent = blocksToContent(newBlocks)
+
+        // 立即更新 prevContentRef，防止外部更新效果重置
+        prevContentRef.current = newFullContent
+
+        // 如果内容有变化，推送到历史记录并更新 store
+        if (oldBlock && oldBlock.content !== newContent) {
+          pushHistory(newFullContent)
+          // 立即更新 store，防止外部更新效果重置
+          setContent(newFullContent)
+        }
+        return newBlocks
+      })
+      setActiveBlockId(null)
+    },
+    [pushHistory, setContent]
+  )
 
   // 处理键盘事件
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -236,8 +370,33 @@ function BlockRenderer({
       })
     }
 
+    // 监听文本插入事件（用于图片插入等）
+    const handleInsertEvent = (e: CustomEvent<{ text: string }>) => {
+      const { text } = e.detail
+      const textarea = actualRef.current
+      if (!textarea) return
+
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const before = editContent.slice(0, start)
+      const after = editContent.slice(end)
+      const newContent = before + text + after
+
+      setEditContent(newContent)
+
+      // 恢复光标位置到插入文本之后
+      requestAnimationFrame(() => {
+        textarea.focus()
+        textarea.setSelectionRange(start + text.length, start + text.length)
+      })
+    }
+
     window.addEventListener('editor-format', handleFormatEvent as EventListener)
-    return () => window.removeEventListener('editor-format', handleFormatEvent as EventListener)
+    window.addEventListener('editor-insert', handleInsertEvent as EventListener)
+    return () => {
+      window.removeEventListener('editor-format', handleFormatEvent as EventListener)
+      window.removeEventListener('editor-insert', handleInsertEvent as EventListener)
+    }
   }, [isActive, editContent, formatText, toggleBlockPrefix, actualRef])
 
   // 处理进入编辑模式
@@ -265,12 +424,17 @@ function BlockRenderer({
     <div className="relative group">
       {/* 渲染模式 - 始终存在，通过 opacity 控制显示 */}
       <div
-        className={`cursor-text rounded px-1 -mx-1 hover:bg-[var(--editor-border)]/30 transition-all duration-150 ${
+        className={`cursor-text rounded px-1 -mx-1 hover:bg-[var(--editor-border)]/30 transition-all duration-150 min-h-[1.5em] ${
           isActive ? 'opacity-0 pointer-events-none' : 'opacity-100'
         }`}
         onClick={handleFocus}
-        dangerouslySetInnerHTML={{ __html: parseMarkdown(block.content) }}
-      />
+      >
+        {block.content ? (
+          <div dangerouslySetInnerHTML={{ __html: parseMarkdown(block.content) }} />
+        ) : (
+          <span className="text-[var(--editor-border)] italic">Click to start typing...</span>
+        )}
+      </div>
 
       {/* 编辑模式 - 叠加在渲染内容上 */}
       {isActive && (
@@ -282,10 +446,15 @@ function BlockRenderer({
           <textarea
             ref={actualRef}
             value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
+            onChange={(e) => {
+              setEditContent(e.target.value)
+              // 自动调整高度
+              e.target.style.height = 'auto'
+              e.target.style.height = e.target.scrollHeight + 'px'
+            }}
             onBlur={handleBlur}
             onKeyDown={onKeyDown}
-            className="w-full min-h-[60px] p-2 border-2 border-[var(--accent-color)] rounded-lg bg-[var(--editor-bg)] outline-none resize-none font-mono text-sm shadow-sm"
+            className="w-full min-h-[120px] p-3 border-2 border-[var(--accent-color)] rounded-lg bg-[var(--editor-bg)] outline-none resize-y font-mono text-sm shadow-sm"
             autoFocus
           />
         </div>

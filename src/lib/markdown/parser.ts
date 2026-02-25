@@ -1,5 +1,7 @@
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import { readFile } from '@tauri-apps/plugin-fs'
+import { isLocalPath, isUrl } from '../imageUtils'
 
 // 创建 markdown-it 实例，集成代码高亮
 const md = new MarkdownIt({
@@ -26,9 +28,179 @@ const md = new MarkdownIt({
   },
 })
 
-// 解析 Markdown 为 HTML
-export function parseMarkdown(content: string): string {
+// 缓存已转换的图片
+const imageCache = new Map<string, string>()
+
+/**
+ * Uint8Array 转 Base64
+ */
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = ''
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return btoa(binary)
+}
+
+/**
+ * 获取图片的 MIME 类型
+ */
+function getMimeType(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() || 'png'
+  const mimeTypes: Record<string, string> = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    bmp: 'image/bmp',
+  }
+  return mimeTypes[ext] || 'image/png'
+}
+
+/**
+ * 将本地图片转换为 base64 data URL
+ */
+async function convertImageToBase64(imagePath: string): Promise<string> {
+  // 检查缓存
+  if (imageCache.has(imagePath)) {
+    console.log('[parser] Using cached image:', imagePath)
+    return imageCache.get(imagePath)!
+  }
+
+  console.log('[parser] Converting image to base64:', imagePath)
+  try {
+    const fileData = await readFile(imagePath)
+    console.log('[parser] Image file read successfully, size:', fileData.length, 'bytes')
+    const mimeType = getMimeType(imagePath)
+    const base64 = uint8ArrayToBase64(fileData)
+    const dataUrl = `data:${mimeType};base64,${base64}`
+    // 缓存结果
+    imageCache.set(imagePath, dataUrl)
+    console.log('[parser] Image converted successfully, dataUrl length:', dataUrl.length)
+    return dataUrl
+  } catch (error) {
+    console.error('[parser] Failed to read image:', imagePath, error)
+    return imagePath // 返回原路径
+  }
+}
+
+/**
+ * 解析相对路径为绝对路径
+ */
+function resolveRelativePath(relativePath: string, baseDir: string): string {
+  if (relativePath.startsWith('./')) {
+    return `${baseDir}/${relativePath.slice(2)}`
+  } else if (relativePath.startsWith('../')) {
+    // 处理上级目录
+    const parts = baseDir.split('/')
+    const relativeParts = relativePath.split('/')
+    let upCount = 0
+    for (const part of relativeParts) {
+      if (part === '..') {
+        upCount++
+      } else {
+        break
+      }
+    }
+    const newBase = parts.slice(0, parts.length - upCount).join('/')
+    const remaining = relativeParts.slice(upCount).join('/')
+    return `${newBase}/${remaining}`
+  }
+  return `${baseDir}/${relativePath}`
+}
+
+/**
+ * 预处理 Markdown 内容，将本地图片路径转换为 base64
+ * 注意：这是一个异步操作，需要在使用前完成
+ */
+export async function preprocessImages(content: string, baseDir?: string): Promise<string> {
+  // 匹配 Markdown 图片语法: ![alt](path)
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
+  const matches: Array<{ full: string; alt: string; path: string }> = []
+
+  let match
+  while ((match = imageRegex.exec(content)) !== null) {
+    matches.push({
+      full: match[0],
+      alt: match[1],
+      path: match[2],
+    })
+  }
+
+  // 如果没有图片，直接返回
+  if (matches.length === 0) {
+    return content
+  }
+
+  // 处理每个图片
+  for (const img of matches) {
+    const { full, alt, path } = img
+
+    console.log('[parser] Processing image:', { alt, path, baseDir })
+
+    // 跳过已经处理过的 base64 图片和 URL
+    if (isUrl(path)) {
+      console.log('[parser] Skipping URL:', path)
+      continue
+    }
+
+    let absolutePath = path
+
+    // 如果是相对路径且有 baseDir，转换为绝对路径
+    if (path.startsWith('./') || path.startsWith('../')) {
+      if (baseDir) {
+        absolutePath = resolveRelativePath(path, baseDir)
+        console.log('[parser] Resolved relative path:', path, '->', absolutePath)
+      } else {
+        // 没有 baseDir，跳过相对路径
+        console.warn('[parser] Skipping relative path without baseDir:', path)
+        continue
+      }
+    }
+
+    // 如果是本地路径，转换为 base64
+    if (isLocalPath(absolutePath)) {
+      console.log('[parser] Converting local path:', absolutePath)
+      const base64Url = await convertImageToBase64(absolutePath)
+      if (base64Url !== absolutePath) {
+        // 替换原始 Markdown
+        const newImg = `![${alt}](${base64Url})`
+        content = content.replace(full, newImg)
+        console.log('[parser] Replaced image in content')
+      }
+    } else {
+      console.log('[parser] Path is not local, skipping:', absolutePath)
+    }
+  }
+
+  return content
+}
+
+// 同步版本的图片缓存（用于已预处理的内容）
+const preprocessedContentCache = new Map<string, string>()
+
+/**
+ * 解析 Markdown 为 HTML
+ * @param content Markdown 内容
+ * @param baseDir 可选的基础目录，用于解析相对路径
+ */
+export function parseMarkdown(content: string, baseDir?: string): string {
+  // 注意：同步版本不会预处理图片
+  // 如果需要图片支持，请使用 parseMarkdownAsync
   return md.render(content)
+}
+
+/**
+ * 异步解析 Markdown 为 HTML，支持本地图片
+ * @param content Markdown 内容
+ * @param baseDir 可选的基础目录，用于解析相对路径
+ */
+export async function parseMarkdownAsync(content: string, baseDir?: string): Promise<string> {
+  const processedContent = await preprocessImages(content, baseDir)
+  return md.render(processedContent)
 }
 
 // 获取纯文本摘要

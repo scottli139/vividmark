@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import { useEditorStore } from '../stores/editorStore'
 import { fileOpsLogger } from './logger'
+import { preprocessImages } from './markdown/parser'
 
 interface FileInfo {
   path: string
@@ -110,7 +111,14 @@ export async function openFileByPath(path: string): Promise<boolean> {
     const fileInfo = await invoke<FileInfo>('read_file', { path })
     const store = useEditorStore.getState()
 
-    store.setContent(fileInfo.content)
+    // 获取文件所在目录，用于解析相对路径图片
+    const fileDir = path.substring(0, path.lastIndexOf('/'))
+
+    // 预处理图片（将本地图片转换为 base64）
+    fileOpsLogger.debug('Preprocessing images...', { baseDir: fileDir })
+    const processedContent = await preprocessImages(fileInfo.content, fileDir)
+
+    store.setContent(processedContent)
     store.setFilePath(fileInfo.path)
     store.setFileName(fileInfo.name)
     store.setDirty(false)
