@@ -1,5 +1,141 @@
 @import "tailwindcss";
 
+/* Highlight.js 代码高亮样式 - 基于 GitHub 主题 */
+.hljs {
+  background: #f6f8fa;
+  color: #24292e;
+}
+
+.hljs-comment,
+.hljs-punctuation {
+  color: #6a737d;
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-meta,
+.hljs-meta .hljs-keyword {
+  color: #005cc5;
+}
+
+.hljs-keyword,
+.hljs-selector-tag {
+  color: #d73a49;
+}
+
+.hljs-string,
+.hljs-value,
+.hljs-title,
+.hljs-number {
+  color: #032f62;
+}
+
+.hljs-name,
+.hljs-type,
+.hljs-tag {
+  color: #22863a;
+}
+
+.hljs-variable,
+.hljs-template-variable {
+  color: #e36209;
+}
+
+.hljs-regexp,
+.hljs-link {
+  color: #032f62;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  color: #e36209;
+}
+
+.hljs-built_in,
+.hljs-literal {
+  color: #005cc5;
+}
+
+.hljs-deletion {
+  background: #ffeef0;
+}
+
+.hljs-addition {
+  background: #e6ffed;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+/* 深色模式代码高亮 */
+.dark .hljs {
+  background: #2d2d2d;
+  color: #abb2bf;
+}
+
+.dark .hljs-comment,
+.dark .hljs-punctuation {
+  color: #5c6370;
+}
+
+.dark .hljs-attr,
+.dark .hljs-attribute,
+.dark .hljs-meta,
+.dark .hljs-meta .hljs-keyword {
+  color: #61afef;
+}
+
+.dark .hljs-keyword,
+.dark .hljs-selector-tag {
+  color: #e06c75;
+}
+
+.dark .hljs-string,
+.dark .hljs-value,
+.dark .hljs-title,
+.dark .hljs-number {
+  color: #98c379;
+}
+
+.dark .hljs-name,
+.dark .hljs-type,
+.dark .hljs-tag {
+  color: #56b6c2;
+}
+
+.dark .hljs-variable,
+.dark .hljs-template-variable {
+  color: #e5c07b;
+}
+
+.dark .hljs-regexp,
+.dark .hljs-link {
+  color: #98c379;
+}
+
+.dark .hljs-symbol,
+.dark .hljs-bullet {
+  color: #e5c07b;
+}
+
+.dark .hljs-built_in,
+.dark .hljs-literal {
+  color: #c678dd;
+}
+
+.dark .hljs-deletion {
+  background: #4a2328;
+}
+
+.dark .hljs-addition {
+  background: #283d2a;
+}
+
 :root {
   --editor-bg: #ffffff;
   --editor-text: #1a1a1a;
@@ -141,4 +277,20 @@ body {
 
 .markdown-body a:hover {
   text-decoration: underline;
+}
+
+/* 块级编辑器动画 */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 150ms ease-out forwards;
 }

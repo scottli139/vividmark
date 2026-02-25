@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdown } from '../../lib/markdown/parser'
+import { useTextFormat, FormatType } from '../../hooks/useTextFormat'
 import '../../styles/globals.css'
 
 interface Block {
@@ -148,33 +149,104 @@ interface BlockRendererProps {
 
 function BlockRenderer({ block, isActive, onFocus, onBlur, onKeyDown, textareaRef }: BlockRendererProps) {
   const [editContent, setEditContent] = useState(block.content)
+  const [isTransitioning, setIsTransitioning] = useState(false)
+  const { formatText, toggleBlockPrefix } = useTextFormat()
+  const internalTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const actualRef = textareaRef || internalTextareaRef
 
   // 同步 block.content 变化
   useEffect(() => {
     setEditContent(block.content)
   }, [block.content])
 
-  // 渲染模式
-  if (!isActive) {
-    return (
+  // 监听格式化事件
+  useEffect(() => {
+    if (!isActive) return
+
+    const handleFormatEvent = (e: CustomEvent<{ format: FormatType }>) => {
+      const { format } = e.detail
+      const textarea = actualRef.current
+      if (!textarea) return
+
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+
+      // 块级格式化
+      if (['h1', 'h2', 'h3', 'quote', 'list'].includes(format)) {
+        const newText = toggleBlockPrefix(editContent, format as 'h1' | 'h2' | 'h3' | 'quote' | 'list')
+        setEditContent(newText)
+        return
+      }
+
+      // 行内格式化
+      const result = formatText(editContent, format, { start, end })
+      setEditContent(result.text)
+
+      // 恢复光标位置
+      requestAnimationFrame(() => {
+        textarea.focus()
+        if (result.selectLength) {
+          textarea.setSelectionRange(result.cursorPos, result.cursorPos + result.selectLength)
+        } else {
+          textarea.setSelectionRange(result.cursorPos, result.cursorPos)
+        }
+      })
+    }
+
+    window.addEventListener('editor-format', handleFormatEvent as EventListener)
+    return () => window.removeEventListener('editor-format', handleFormatEvent as EventListener)
+  }, [isActive, editContent, formatText, toggleBlockPrefix, actualRef])
+
+  // 处理进入编辑模式
+  const handleFocus = useCallback(() => {
+    setIsTransitioning(true)
+    onFocus()
+    // 延迟移除过渡状态
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setIsTransitioning(false)
+      })
+    })
+  }, [onFocus])
+
+  // 处理退出编辑模式
+  const handleBlur = useCallback(() => {
+    setIsTransitioning(true)
+    onBlur(editContent)
+    requestAnimationFrame(() => {
+      setIsTransitioning(false)
+    })
+  }, [editContent, onBlur])
+
+  return (
+    <div className="relative group">
+      {/* 渲染模式 - 始终存在，通过 opacity 控制显示 */}
       <div
-        className="cursor-text rounded px-1 -mx-1 hover:bg-[var(--editor-border)]/30 transition-colors"
-        onClick={onFocus}
+        className={`cursor-text rounded px-1 -mx-1 hover:bg-[var(--editor-border)]/30 transition-all duration-150 ${
+          isActive ? 'opacity-0 pointer-events-none' : 'opacity-100'
+        }`}
+        onClick={handleFocus}
         dangerouslySetInnerHTML={{ __html: parseMarkdown(block.content) }}
       />
-    )
-  }
 
-  // 编辑模式
-  return (
-    <textarea
-      ref={textareaRef}
-      value={editContent}
-      onChange={(e) => setEditContent(e.target.value)}
-      onBlur={() => onBlur(editContent)}
-      onKeyDown={onKeyDown}
-      className="w-full min-h-[60px] p-2 border-2 border-[var(--accent-color)] rounded-lg bg-transparent outline-none resize-none font-mono text-sm"
-      autoFocus
-    />
+      {/* 编辑模式 - 叠加在渲染内容上 */}
+      {isActive && (
+        <div
+          className={`absolute inset-0 transition-all duration-150 ${
+            isTransitioning ? 'animate-fade-in' : ''
+          }`}
+        >
+          <textarea
+            ref={actualRef}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={onKeyDown}
+            className="w-full min-h-[60px] p-2 border-2 border-[var(--accent-color)] rounded-lg bg-[var(--editor-bg)] outline-none resize-none font-mono text-sm shadow-sm"
+            autoFocus
+          />
+        </div>
+      )}
+    </div>
   )
 }

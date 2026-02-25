@@ -24,13 +24,7 @@ export async function openFile(): Promise<void> {
   })
 
   if (selected && typeof selected === 'string') {
-    const fileInfo = await invoke<FileInfo>('read_file', { path: selected })
-    const store = useEditorStore.getState()
-
-    store.setContent(fileInfo.content)
-    store.setFilePath(fileInfo.path)
-    store.setFileName(fileInfo.name)
-    store.setDirty(false)
+    await openFileByPath(selected)
   }
 }
 
@@ -96,4 +90,23 @@ export async function saveFileAs(): Promise<boolean> {
 export function newFile(): void {
   const store = useEditorStore.getState()
   store.resetDocument()
+}
+
+// 通过路径打开文件 (用于拖放打开和最近文件)
+export async function openFileByPath(path: string): Promise<boolean> {
+  try {
+    const fileInfo = await invoke<FileInfo>('read_file', { path })
+    const store = useEditorStore.getState()
+
+    store.setContent(fileInfo.content)
+    store.setFilePath(fileInfo.path)
+    store.setFileName(fileInfo.name)
+    store.setDirty(false)
+    // 添加到最近文件列表
+    store.addRecentFile(fileInfo.path, fileInfo.name)
+    return true
+  } catch (error) {
+    console.error('Failed to open file:', error)
+    return false
+  }
 }

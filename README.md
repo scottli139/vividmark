@@ -1,73 +1,132 @@
-# React + TypeScript + Vite
+# VividMark
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired by Typora, featuring a clean, distraction-free writing experience with real-time preview.
 
-Currently, two official plugins are available:
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)
+![React](https://img.shields.io/badge/React-19-blue.svg)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
 
-## React Compiler
+### Core Editor
+- **Block-level editing** - Click to edit, blur to render
+- **Real-time Markdown preview** - See your formatted content instantly
+- **Code syntax highlighting** - Powered by highlight.js
+- **Smooth transitions** - Optimized block switching experience
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### File Operations
+- **Open/Save/Save As** - Full file management support
+- **Keyboard shortcuts** - Cmd/Ctrl + O, S, N
+- **Drag & drop** - Drop Markdown files to open
+- **Auto-save** - Automatic saving after 2 seconds of inactivity
+- **Recent files** - Quick access to recently opened files
 
-## Expanding the ESLint configuration
+### Formatting Tools
+- **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links
+- **Block formatting** - Headings (H1-H3), Quote, List, Code block
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### User Interface
+- **Dark mode** - Toggle between light and dark themes
+- **Sidebar** - Document outline and file statistics
+- **Clean UI** - Minimalist design for focused writing
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Tech Stack
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+- **Frontend**: React 19 + TypeScript + Tailwind CSS
+- **Backend**: Tauri 2.0 (Rust)
+- **Build Tool**: Vite
+- **State Management**: Zustand
+- **Markdown**: markdown-it
+- **Syntax Highlighting**: highlight.js
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm (recommended) or npm
+- Rust (for Tauri)
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/scottli139/vividmark.git
+cd vividmark
+
+# Install dependencies
+pnpm install
+
+# Start development server
+pnpm tauri dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Build
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Build for production
+pnpm tauri build
 ```
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Cmd/Ctrl + O` | Open file |
+| `Cmd/Ctrl + S` | Save file |
+| `Cmd/Ctrl + Shift + S` | Save as |
+| `Cmd/Ctrl + N` | New file |
+| `Escape` | Exit edit mode |
+
+## Project Structure
+
+```
+vividmark/
+├── src/                    # React frontend
+│   ├── components/
+│   │   ├── Editor/         # Core editor component
+│   │   ├── Sidebar/        # Sidebar with outline
+│   │   └── Toolbar/        # Toolbar with actions
+│   ├── hooks/              # Custom React hooks
+│   ├── stores/             # Zustand state management
+│   ├── lib/
+│   │   ├── markdown/       # Markdown parsing
+│   │   └── fileOps.ts      # File operations
+│   └── styles/             # Global styles
+├── src-tauri/              # Rust backend
+│   ├── src/
+│   │   ├── lib.rs          # Main logic + commands
+│   │   └── main.rs         # Entry point
+│   ├── Cargo.toml
+│   └── tauri.conf.json
+└── package.json
+```
+
+## Development Status
+
+See [PLAN.md](./PLAN.md) for detailed development progress.
+
+### Completed
+- [x] Phase 1: Basic framework
+- [x] Phase 2: Core editor
+- [x] Phase 3: File operations
+
+### In Progress
+- [ ] Phase 4: Editing enhancements
+- [ ] Phase 5: File management
+- [ ] Phase 6: Advanced features
+- [ ] Phase 7: Polish & optimization
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Inspired by [Typora](https://typora.io/)
+- Built with [Tauri](https://tauri.app/)
+- UI components styled with [Tailwind CSS](https://tailwindcss.com/)
