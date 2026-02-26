@@ -55,6 +55,11 @@
 - [x] **撤销/重做栈** ✅
   - 基于栈的历史记录管理
   - 支持 Cmd+Z / Cmd+Shift+Z
+- [x] **MkDocs 扩展语法支持** ✅
+  - Admonitions (提示框): `::: tip`, `::: warning`, `::: info`, `::: note`, `::: danger`, `::: success`
+  - PlantUML 图表: `@startuml...@enduml` 和代码块 ` ```plantuml ``` `
+  - 支持自定义标题 (如 `::: tip 注意`)
+  - 使用 PlantUML 在线服务渲染 SVG 图表
 - [ ] 表格编辑
 - [ ] 数学公式 (KaTeX)
 - [ ] 任务列表 (Checkbox)
@@ -307,6 +312,23 @@ vividmark/
 1. **性能优化** - 大文件处理优化
 2. **E2E 测试增强** - 完整用户流程测试
 
+### 未来优化任务 (Future Improvements)
+
+#### Split 模式同步滚动优化
+- [ ] **同步滚动算法改进** - 当前基于百分比的同步在内容长度差异大时不够精准
+  - 可考虑基于 heading/paragraph 位置的智能同步
+  - 或实现基于 caret/cursor 位置的精准同步
+- [ ] **同步灵敏度调节** - 允许用户调整同步响应速度
+
+#### PlantUML 增强
+- [ ] **本地 PlantUML 渲染** - 当前依赖 plantuml.com 在线服务，离线时无法显示
+  - 可集成 plantuml.jar 或使用 WASM 版本
+- [ ] **PlantUML 编辑模式** - 支持在编辑器中直接编辑 PlantUML 代码并实时预览
+
+#### Admonitions 增强  
+- [ ] **可折叠 Admonitions** - 支持 `??? note` 语法（可折叠提示框）
+- [ ] **嵌套 Admonitions** - 支持提示框内部嵌套其他 Markdown 元素
+
 ---
 
 ## 启动命令
@@ -324,6 +346,43 @@ pnpm tauri build
 ---
 
 ## Session 记录
+
+### 2025-02-26 MkDocs 扩展语法支持
+
+**完成工作：**
+- ✅ 实现 Admonitions (提示框) 支持
+  - 支持类型: tip, warning, info, note, danger, success, hint, important, caution
+  - 支持自定义标题 (如 `::: tip 注意`)
+  - 添加彩色边框和图标样式 (深色模式适配)
+- ✅ 实现 PlantUML 图表渲染
+  - 支持行内语法 `@startuml...@enduml`
+  - 支持代码块语法 ` ```plantuml ``` `
+  - 使用 PlantUML 在线服务 (plantuml.com) 渲染 SVG
+- ✅ 添加 14 个测试用例覆盖新功能
+- ✅ 更新 CSS 样式文件
+
+**依赖安装：**
+```bash
+pnpm add markdown-it-container plantuml-encoder
+pnpm add -D @types/markdown-it-container
+```
+
+**使用示例：**
+```markdown
+::: tip
+提示内容
+:::
+
+::: warning 开发工具
+警告内容
+:::
+
+@startuml
+Alice -> Bob: Hello
+@enduml
+```
+
+---
 
 ### 2025-02-26 图片插入功能实现
 

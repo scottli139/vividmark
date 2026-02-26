@@ -327,3 +327,184 @@ describe('preprocessImages', () => {
     expect(result).toBe(content)
   })
 })
+
+describe('parseMarkdown - Admonitions', () => {
+  it('should render tip admonition', () => {
+    const markdown = `::: tip
+This is a tip.
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition tip">')
+    expect(result).toContain('<div class="admonition-title">Tip</div>')
+    expect(result).toContain('<div class="admonition-content">')
+    expect(result).toContain('<p>This is a tip.</p>')
+    expect(result).toContain('</div></div>')
+  })
+
+  it('should render tip admonition with custom title', () => {
+    const markdown = `::: tip 注意
+This is a tip with custom title.
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition tip">')
+    expect(result).toContain('<div class="admonition-title">注意</div>')
+    expect(result).toContain('This is a tip with custom title.')
+  })
+
+  it('should render warning admonition', () => {
+    const markdown = `::: warning
+This is a warning.
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition warning">')
+    expect(result).toContain('<div class="admonition-title">Warning</div>')
+    expect(result).toContain('This is a warning.')
+  })
+
+  it('should render warning admonition with custom title', () => {
+    const markdown = `::: warning 开发工具
+Please use the correct tools.
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition warning">')
+    expect(result).toContain('<div class="admonition-title">开发工具</div>')
+    expect(result).toContain('Please use the correct tools.')
+  })
+
+  it('should render info admonition', () => {
+    const markdown = `::: info
+This is information.
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition info">')
+    expect(result).toContain('This is information.')
+  })
+
+  it('should render note admonition', () => {
+    const markdown = `::: note
+This is a note.
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition note">')
+    expect(result).toContain('This is a note.')
+  })
+
+  it('should render danger admonition', () => {
+    const markdown = `::: danger
+This is dangerous!
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition danger">')
+    expect(result).toContain('This is dangerous!')
+  })
+
+  it('should render success admonition', () => {
+    const markdown = `::: success
+Operation completed successfully!
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition success">')
+    expect(result).toContain('Operation completed successfully!')
+  })
+
+  it('should render admonition with markdown content', () => {
+    const markdown = `::: tip
+This is a **bold** tip with \`code\`.
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition tip">')
+    expect(result).toContain('<strong>bold</strong>')
+    expect(result).toContain('<code>code</code>')
+  })
+
+  it('should render multiple admonitions', () => {
+    const markdown = `::: tip
+Tip 1
+:::
+
+::: warning
+Warning 1
+:::`
+    const result = parseMarkdown(markdown)
+    expect(result.match(/<div class="admonition (tip|warning)/g)?.length).toBe(2)
+    expect(result).toContain('Tip 1')
+    expect(result).toContain('Warning 1')
+  })
+})
+
+describe('parseMarkdown - PlantUML', () => {
+  it('should render inline PlantUML as image', () => {
+    const markdown = `@startuml
+Alice -> Bob: Hello
+@enduml`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="plantuml-diagram">')
+    expect(result).toContain('<img')
+    expect(result).toContain('plantuml.com/plantuml/svg')
+    expect(result).toContain('loading="lazy"')
+  })
+
+  it('should render PlantUML code block as image', () => {
+    const markdown = '```plantuml\nAlice -> Bob: Hello\n```'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="plantuml-diagram">')
+    expect(result).toContain('<img')
+    expect(result).toContain('plantuml.com/plantuml/svg')
+  })
+
+  it('should render multiple PlantUML diagrams', () => {
+    const markdown = `@startuml
+Alice -> Bob: Hello
+@enduml
+
+@startuml
+Bob -> Charlie: Hi
+@enduml`
+    const result = parseMarkdown(markdown)
+    expect(result.match(/plantuml-diagram/g)?.length).toBe(2)
+  })
+
+  it('should handle PlantUML with complex content', () => {
+    const markdown = `@startuml
+start
+if (condition) then (yes)
+  :action1;
+else (no)
+  :action2;
+endif
+stop
+@enduml`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="plantuml-diagram">')
+    expect(result).toContain('plantuml.com/plantuml/svg')
+  })
+})
+
+describe('parseMarkdownAsync - Admonitions and PlantUML', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.defineProperty(window, '__TAURI__', {
+      value: {},
+      writable: true,
+      configurable: true,
+    })
+  })
+
+  it('should render admonitions in async mode', async () => {
+    const markdown = `::: tip
+Async tip
+:::`
+    const result = await parseMarkdownAsync(markdown)
+    expect(result).toContain('<div class="admonition tip">')
+    expect(result).toContain('Async tip')
+  })
+
+  it('should render PlantUML in async mode', async () => {
+    const markdown = `@startuml
+Alice -> Bob: Async
+@enduml`
+    const result = await parseMarkdownAsync(markdown)
+    expect(result).toContain('<div class="plantuml-diagram">')
+    expect(result).toContain('plantuml.com/plantuml/svg')
+  })
+})

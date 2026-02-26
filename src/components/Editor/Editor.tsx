@@ -14,7 +14,7 @@ export function Editor() {
   const [localContent, setLocalContent] = useState(content)
   const [renderedHtml, setRenderedHtml] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const previewRef = useRef<HTMLDivElement>(null)
+  const previewContainerRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // 历史记录管理
@@ -55,18 +55,56 @@ export function Editor() {
     }
   }, [])
 
-  // 同步滚动（Split 模式）
-  const handleSourceScroll = useCallback(
-    (e: React.UIEvent<HTMLTextAreaElement>) => {
-      if (viewMode === 'split' && previewRef.current) {
-        const target = e.target as HTMLTextAreaElement
-        const scrollPercentage = target.scrollTop / (target.scrollHeight - target.clientHeight)
-        const preview = previewRef.current
-        preview.scrollTop = scrollPercentage * (preview.scrollHeight - preview.clientHeight)
+  // 同步滚动状态
+  const isSyncingScroll = useRef(false)
+  const sourceScrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const previewScrollTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 同步滚动（Split 模式 - Source → Preview）
+  const handleSourceScroll = useCallback(() => {
+    if (viewMode === 'split' && previewContainerRef.current && !isSyncingScroll.current) {
+      const textarea = textareaRef.current
+      const previewContainer = previewContainerRef.current
+      if (!textarea) return
+
+      isSyncingScroll.current = true
+
+      const scrollPercentage =
+        textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight || 1)
+      previewContainer.scrollTop =
+        scrollPercentage * (previewContainer.scrollHeight - previewContainer.clientHeight)
+
+      if (sourceScrollTimeout.current) {
+        clearTimeout(sourceScrollTimeout.current)
       }
-    },
-    [viewMode]
-  )
+      sourceScrollTimeout.current = setTimeout(() => {
+        isSyncingScroll.current = false
+      }, 50)
+    }
+  }, [viewMode])
+
+  // 同步滚动（Split 模式 - Preview → Source）
+  const handlePreviewScroll = useCallback(() => {
+    if (viewMode === 'split' && textareaRef.current && !isSyncingScroll.current) {
+      const textarea = textareaRef.current
+      const previewContainer = previewContainerRef.current
+      if (!previewContainer) return
+
+      isSyncingScroll.current = true
+
+      const scrollPercentage =
+        previewContainer.scrollTop /
+        (previewContainer.scrollHeight - previewContainer.clientHeight || 1)
+      textarea.scrollTop = scrollPercentage * (textarea.scrollHeight - textarea.clientHeight)
+
+      if (previewScrollTimeout.current) {
+        clearTimeout(previewScrollTimeout.current)
+      }
+      previewScrollTimeout.current = setTimeout(() => {
+        isSyncingScroll.current = false
+      }, 50)
+    }
+  }, [viewMode])
 
   // 当外部 content 变化时（如打开文件），同步本地内容
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -206,7 +244,7 @@ export function Editor() {
           value={localContent}
           onChange={(e) => handleContentChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          onScroll={handleSourceScroll}
+          onScroll={() => handleSourceScroll()}
           className="flex-1 w-full p-8 bg-[var(--editor-bg)] text-[var(--text-primary)] 
                      font-mono text-sm leading-relaxed resize-none outline-none
                      border-none focus:ring-0 overflow-auto"
@@ -216,9 +254,12 @@ export function Editor() {
       </div>
 
       {/* 右侧：预览 */}
-      <div className="flex-1 overflow-auto">
+      <div
+        ref={previewContainerRef}
+        className="flex-1 overflow-auto"
+        onScroll={() => handlePreviewScroll()}
+      >
         <div
-          ref={previewRef}
           className="markdown-body min-h-full p-8"
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
         />

@@ -9,35 +9,61 @@ A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired b
 ## Features
 
 ### Core Editor
-- **Block-level editing** - Click to edit, blur to render
+- **Three view modes** - Source (edit), Preview (read-only), Split (side-by-side with sync scrolling)
 - **Real-time Markdown preview** - See your formatted content instantly
 - **Code syntax highlighting** - Powered by highlight.js
-- **Smooth transitions** - Optimized block switching experience
+- **Smooth transitions** - Optimized editing experience
 
 ### File Operations
-- **Open/Save/Save As** - Full file management support
-- **Keyboard shortcuts** - Cmd/Ctrl + O, S, N
-- **Drag & drop** - Drop Markdown files to open
+- **Open/Save/Save As** - Full file management support with native dialogs
+- **Keyboard shortcuts** - Cmd/Ctrl + O, S, N for quick access
+- **Drag & drop** - Drop Markdown files to open instantly
 - **Auto-save** - Automatic saving after 2 seconds of inactivity
 - **Recent files** - Quick access to recently opened files
+- **Undo/Redo** - Full history support with Cmd/Ctrl + Z / Shift+Z
 
 ### Formatting Tools
 - **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links
-- **Block formatting** - Headings (H1-H3), Quote, List, Code block
+- **Block formatting** - Headings (H1-H6), Quote, List, Code block
+- **Image insertion** - Insert local images with automatic asset management
+
+### Extended Markdown Support (MkDocs-style)
+- **Admonitions** - Beautiful callout boxes for tips, warnings, notes, etc.
+  ```markdown
+  ::: tip
+  This is a helpful tip!
+  :::
+  
+  ::: warning Important
+  This is a warning with custom title.
+  :::
+  ```
+  Supported types: `tip`, `warning`, `info`, `note`, `danger`, `success`, `hint`, `important`, `caution`
+
+- **PlantUML Diagrams** - Render UML diagrams directly in your document
+  ```markdown
+  @startuml
+  Alice -> Bob: Hello
+  Bob --> Alice: Hi!
+  @enduml
+  ```
 
 ### User Interface
 - **Dark mode** - Toggle between light and dark themes
 - **Sidebar** - Document outline and file statistics
 - **Clean UI** - Minimalist design for focused writing
+- **Sync scrolling** - Split mode with bidirectional scroll synchronization
 
 ## Tech Stack
 
-- **Frontend**: React 19 + TypeScript + Tailwind CSS
+- **Frontend**: React 19 + TypeScript + Tailwind CSS 4
 - **Backend**: Tauri 2.0 (Rust)
-- **Build Tool**: Vite
-- **State Management**: Zustand
-- **Markdown**: markdown-it
+- **Build Tool**: Vite 7
+- **State Management**: Zustand 5
+- **Markdown**: markdown-it with custom plugins
+- **Extended Syntax**: markdown-it-container, plantuml-encoder
 - **Syntax Highlighting**: highlight.js
+- **Testing**: Vitest + React Testing Library + Playwright
 
 ## Getting Started
 
@@ -110,12 +136,16 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 - [x] Phase 1: Basic framework
 - [x] Phase 2: Core editor
 - [x] Phase 3: File operations
+- [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions)
+- [x] Phase 8: Code standards (ESLint, Prettier, TypeScript strict mode)
+- [x] Phase 9: Testing infrastructure (Vitest, Playwright, CI/CD)
+- [x] Phase 10: Branding (Logo, icons)
+- [x] Phase 11: Logging system
 
-### In Progress
-- [ ] Phase 4: Editing enhancements
-- [ ] Phase 5: File management
-- [ ] Phase 6: Advanced features
-- [ ] Phase 7: Polish & optimization
+### In Progress / Planned
+- [ ] Phase 5: File management (File tree, Multi-tabs)
+- [ ] Phase 6: Advanced features (PDF export, Search & replace)
+- [ ] Phase 7: Polish & optimization (Performance, Preferences)
 
 ## Contributing
 

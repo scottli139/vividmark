@@ -306,3 +306,217 @@ body {
 .animate-fade-in {
   animation: fade-in 150ms ease-out forwards;
 }
+
+/* ==================== Admonitions (提示框) ==================== */
+/* 基于 MkDocs Material 主题的 Admonition 样式 */
+
+.admonition {
+  margin: 1.5em 0;
+  border-radius: 8px;
+  border-left: 4px solid;
+  background-color: var(--admonition-bg, #f8f9fa);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.admonition-title {
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 0.95em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--admonition-title-bg, rgba(0, 0, 0, 0.03));
+  color: var(--admonition-color, #333);
+}
+
+.admonition-title::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+.admonition-content {
+  padding: 12px 16px;
+  color: var(--editor-text);
+}
+
+.admonition-content > *:first-child {
+  margin-top: 0;
+}
+
+.admonition-content > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Tip - 提示 (蓝色) */
+.admonition.tip {
+  --admonition-bg: #e8f4fd;
+  --admonition-title-bg: #d1e9fa;
+  --admonition-color: #0969da;
+  border-left-color: #0969da;
+}
+
+.admonition.tip .admonition-title::before {
+  content: '💡';
+}
+
+/* Note - 注意 (蓝色) */
+.admonition.note {
+  --admonition-bg: #e8f4fd;
+  --admonition-title-bg: #d1e9fa;
+  --admonition-color: #0969da;
+  border-left-color: #0969da;
+}
+
+.admonition.note .admonition-title::before {
+  content: '📝';
+}
+
+/* Info - 信息 (蓝色) */
+.admonition.info {
+  --admonition-bg: #e8f4fd;
+  --admonition-title-bg: #d1e9fa;
+  --admonition-color: #0969da;
+  border-left-color: #0969da;
+}
+
+.admonition.info .admonition-title::before {
+  content: 'ℹ️';
+}
+
+/* Hint - 提示 (浅蓝色) */
+.admonition.hint {
+  --admonition-bg: #e8f4fd;
+  --admonition-title-bg: #d1e9fa;
+  --admonition-color: #0969da;
+  border-left-color: #0969da;
+}
+
+.admonition.hint .admonition-title::before {
+  content: '💡';
+}
+
+/* Warning - 警告 (橙色) */
+.admonition.warning {
+  --admonition-bg: #fff8e6;
+  --admonition-title-bg: #ffebb8;
+  --admonition-color: #9a6700;
+  border-left-color: #d4a72c;
+}
+
+.admonition.warning .admonition-title::before {
+  content: '⚠️';
+}
+
+/* Caution - 注意 (橙色) */
+.admonition.caution {
+  --admonition-bg: #fff8e6;
+  --admonition-title-bg: #ffebb8;
+  --admonition-color: #9a6700;
+  border-left-color: #d4a72c;
+}
+
+.admonition.caution .admonition-title::before {
+  content: '⚠️';
+}
+
+/* Important - 重要 (紫色) */
+.admonition.important {
+  --admonition-bg: #f5f0ff;
+  --admonition-title-bg: #e6dcff;
+  --admonition-color: #8250df;
+  border-left-color: #8250df;
+}
+
+.admonition.important .admonition-title::before {
+  content: '❗';
+}
+
+/* Danger - 危险 (红色) */
+.admonition.danger {
+  --admonition-bg: #ffebe9;
+  --admonition-title-bg: #ffd7d5;
+  --admonition-color: #cf222e;
+  border-left-color: #cf222e;
+}
+
+.admonition.danger .admonition-title::before {
+  content: '🚫';
+}
+
+/* Success - 成功 (绿色) */
+.admonition.success {
+  --admonition-bg: #dafbe1;
+  --admonition-title-bg: #c2f0cd;
+  --admonition-color: #1a7f37;
+  border-left-color: #1a7f37;
+}
+
+.admonition.success .admonition-title::before {
+  content: '✅';
+}
+
+/* 深色模式适配 */
+.dark .admonition.tip,
+.dark .admonition.note,
+.dark .admonition.info,
+.dark .admonition.hint {
+  --admonition-bg: rgba(9, 105, 218, 0.15);
+  --admonition-title-bg: rgba(9, 105, 218, 0.25);
+  --admonition-color: #58a6ff;
+}
+
+.dark .admonition.warning,
+.dark .admonition.caution {
+  --admonition-bg: rgba(212, 167, 44, 0.15);
+  --admonition-title-bg: rgba(212, 167, 44, 0.25);
+  --admonition-color: #d4a72c;
+}
+
+.dark .admonition.important {
+  --admonition-bg: rgba(130, 80, 223, 0.15);
+  --admonition-title-bg: rgba(130, 80, 223, 0.25);
+  --admonition-color: #a371f7;
+}
+
+.dark .admonition.danger {
+  --admonition-bg: rgba(207, 34, 46, 0.15);
+  --admonition-title-bg: rgba(207, 34, 46, 0.25);
+  --admonition-color: #f85149;
+}
+
+.dark .admonition.success {
+  --admonition-bg: rgba(26, 127, 55, 0.15);
+  --admonition-title-bg: rgba(26, 127, 55, 0.25);
+  --admonition-color: #3fb950;
+}
+
+/* ==================== PlantUML 图表 ==================== */
+
+.plantuml-diagram {
+  margin: 1.5em 0;
+  text-align: center;
+  background-color: var(--sidebar-bg);
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid var(--editor-border);
+  overflow-x: auto;
+}
+
+.plantuml-diagram img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.plantuml-error {
+  background-color: #ffebe9;
+  border: 1px solid #ffc2c2;
+  color: #cf222e;
+}

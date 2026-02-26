@@ -335,3 +335,156 @@ const result = await invoke<string>('my_command', { arg: 'value' })
 - File system access is controlled by Tauri capabilities
 - Dialog and FS plugins are enabled for native file operations
 - No network access required for core functionality
+
+---
+
+## Knowledge Base
+
+### MkDocs-style Extensions Implementation
+
+#### Admonitions (Callout Boxes)
+
+VividMark supports MkDocs-style admonitions using `markdown-it-container`:
+
+**Dependencies:**
+```bash
+pnpm add markdown-it-container
+pnpm add -D @types/markdown-it-container
+```
+
+**Implementation in `parser.ts`:**
+```typescript
+import container from 'markdown-it-container'
+
+const admonitionTypes = ['tip', 'warning', 'info', 'note', 'danger', 'success']
+
+admonitionTypes.forEach((type) => {
+  md.use(container, type, {
+    render: function (tokens, idx) {
+      const token = tokens[idx]
+      const info = token.info.trim().slice(type.length).trim()
+
+      if (token.nesting === 1) {
+        const title = info || type.charAt(0).toUpperCase() + type.slice(1)
+        return `<div class="admonition ${type}">
+  <div class="admonition-title">${title}</div>
+  <div class="admonition-content">`
+      } else {
+        return '</div></div>\n'
+      }
+    },
+  })
+})
+```
+
+**CSS Styling:**
+- Each admonition type has distinct color scheme (blue for tip/note, orange for warning, etc.)
+- Dark mode support via CSS variables
+- Emoji icons via `::before` pseudo-element
+
+#### PlantUML Diagrams
+
+**Dependencies:**
+```bash
+pnpm add plantuml-encoder
+```
+
+**Implementation:**
+Two rendering approaches:
+
+1. **Code block syntax** (` ```plantuml ``` `) - handled in highlight function
+2. **Inline syntax** (`@startuml...@enduml`) - preprocessed before markdown parsing
+
+```typescript
+// Preprocess inline PlantUML
+const PLANTUML_INLINE_REGEX = /@startuml([\s\S]*?)@enduml/g
+
+function preprocessPlantUML(content: string): string {
+  return content.replace(PLANTUML_INLINE_REGEX, (_match, p1) => {
+    const encoded = encode(p1.trim())
+    const url = `https://www.plantuml.com/plantuml/svg/${encoded}`
+    return `<div class="plantuml-diagram"><img src="${url}" alt="PlantUML" loading="lazy" /></div>\n`
+  })
+}
+```
+
+**Note:** Currently uses PlantUML online service. Offline rendering requires additional setup.
+
+### Split View Sync Scrolling
+
+**Challenge:** Implementing bidirectional scroll synchronization between textarea (source) and div (preview).
+
+**Key Implementation Details:**
+
+1. **Ref Assignment**: Ensure refs point to scrollable containers, not inner content
+   ```typescript
+   // ✅ Correct - ref on scrollable container
+   <div ref={previewContainerRef} className="overflow-auto">
+     <div className="markdown-body">...</div>
+   </div>
+   
+   // ❌ Wrong - ref on inner content
+   <div className="overflow-auto">
+     <div ref={previewRef} className="markdown-body">...</div>
+   </div>
+   ```
+
+2. **Prevent Scroll Loop**: Use flag + timeout to prevent infinite recursion
+   ```typescript
+   const isSyncingScroll = useRef(false)
+   
+   const handleSourceScroll = useCallback(() => {
+     if (!isSyncingScroll.current && previewContainerRef.current) {
+       isSyncingScroll.current = true
+       
+       // Calculate scroll percentage and apply to other side
+       const scrollPercentage = textarea.scrollTop / 
+         (textarea.scrollHeight - textarea.clientHeight || 1)
+       previewContainer.scrollTop = scrollPercentage * 
+         (previewContainer.scrollHeight - previewContainer.clientHeight)
+       
+       // Release lock after short delay
+       setTimeout(() => { isSyncingScroll.current = false }, 50)
+     }
+   }, [viewMode])
+   ```
+
+3. **Percentage-based Sync**: Scroll position is synchronized proportionally rather than absolutely, accommodating different content heights.
+
+### Testing Markdown Extensions
+
+**Test Pattern for Container Plugins:**
+```typescript
+describe('parseMarkdown - Admonitions', () => {
+  it('should render tip admonition', () => {
+    const markdown = `::: tip\nThis is a tip.\n:::`
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="admonition tip">')
+    expect(result).toContain('<div class="admonition-title">Tip</div>')
+    expect(result).toContain('This is a tip.')
+  })
+})
+```
+
+**Test Pattern for PlantUML:**
+```typescript
+it('should render inline PlantUML as image', () => {
+  const markdown = `@startuml\nAlice -> Bob: Hello\n@enduml`
+  const result = parseMarkdown(markdown)
+  expect(result).toContain('<div class="plantuml-diagram">')
+  expect(result).toContain('plantuml.com/plantuml/svg')
+})
+```
+
+### Code Quality Checklist
+
+Before committing:
+
+1. **Type Check**: `pnpm tsc --noEmit`
+2. **Lint**: `pnpm lint`
+3. **Format**: `pnpm format`
+4. **Unit Tests**: `pnpm test:run`
+5. **Update Documentation**:
+   - `README.md` - User-facing features
+   - `PLAN.md` - Development progress
+   - `AGENTS.md` - Technical knowledge base

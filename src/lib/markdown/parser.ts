@@ -1,4 +1,6 @@
 import MarkdownIt from 'markdown-it'
+import container from 'markdown-it-container'
+import { encode } from 'plantuml-encoder'
 import hljs from 'highlight.js'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { convertFileSrc } from '@tauri-apps/api/core'
@@ -31,6 +33,19 @@ function convertImageSrc(src: string): string {
   return src
 }
 
+// Admonition 类型配置
+const admonitionTypes = [
+  'tip',
+  'warning',
+  'info',
+  'note',
+  'danger',
+  'success',
+  'hint',
+  'important',
+  'caution',
+]
+
 // 创建 markdown-it 实例，集成代码高亮
 const md = new MarkdownIt({
   html: true,
@@ -38,6 +53,11 @@ const md = new MarkdownIt({
   typographer: true,
   breaks: true,
   highlight: function (str: string, lang: string): string {
+    // 处理 PlantUML
+    if (lang === 'plantuml') {
+      return renderPlantUML(str)
+    }
+
     // 如果指定了语言且支持，使用该语言高亮
     if (lang && hljs.getLanguage(lang)) {
       try {
@@ -54,6 +74,40 @@ const md = new MarkdownIt({
       return `<pre class="hljs"><code>${MarkdownIt.prototype.utils.escapeHtml(str)}</code></pre>`
     }
   },
+})
+
+// 渲染 PlantUML 为图片
+function renderPlantUML(content: string): string {
+  try {
+    const encoded = encode(content.trim())
+    // 使用 PlantUML 在线服务
+    const url = `https://www.plantuml.com/plantuml/svg/${encoded}`
+    return `<div class="plantuml-diagram"><img src="${url}" alt="PlantUML Diagram" loading="lazy" /></div>`
+  } catch (error) {
+    console.error('[PlantUML] Encoding failed:', error)
+    return `<pre class="hljs plantuml-error"><code>${MarkdownIt.prototype.utils.escapeHtml(content)}</code></pre>`
+  }
+}
+
+// 配置 Admonition 容器
+admonitionTypes.forEach((type) => {
+  md.use(container, type, {
+    render: function (tokens, idx) {
+      const token = tokens[idx]
+      const info = token.info.trim().slice(type.length).trim()
+
+      if (token.nesting === 1) {
+        // 打开标签
+        const title = info || type.charAt(0).toUpperCase() + type.slice(1)
+        return `<div class="admonition ${type}">
+  <div class="admonition-title">${title}</div>
+  <div class="admonition-content">`
+      } else {
+        // 关闭标签
+        return '</div></div>\n'
+      }
+    },
+  })
 })
 
 // 自定义图片渲染规则
@@ -229,6 +283,23 @@ export async function preprocessImages(content: string, baseDir?: string): Promi
 // Note: 同步版本的图片缓存可以在未来需要时使用
 // const preprocessedContentCache = new Map<string, string>()
 
+// PlantUML 行内语法正则
+const PLANTUML_INLINE_REGEX = /@startuml([\s\S]*?)@enduml/g
+
+// 预处理 PlantUML 行内语法
+function preprocessPlantUML(content: string): string {
+  return content.replace(PLANTUML_INLINE_REGEX, (_match, p1) => {
+    try {
+      const encoded = encode(p1.trim())
+      const url = `https://www.plantuml.com/plantuml/svg/${encoded}`
+      return `<div class="plantuml-diagram"><img src="${url}" alt="PlantUML Diagram" loading="lazy" /></div>\n`
+    } catch (error) {
+      console.error('[PlantUML] Encoding failed:', error)
+      return _match
+    }
+  })
+}
+
 /**
  * 解析 Markdown 为 HTML
  * @param content Markdown 内容
@@ -238,7 +309,11 @@ export function parseMarkdown(content: string): string {
   // 注意：同步版本不会预处理图片
   // 如果需要图片支持，请使用 parseMarkdownAsync
   // 如果需要 baseDir 支持，可以在未来添加
-  return md.render(content)
+
+  // 预处理 PlantUML 行内语法
+  const processedContent = preprocessPlantUML(content)
+
+  return md.render(processedContent)
 }
 
 /**
@@ -248,7 +323,9 @@ export function parseMarkdown(content: string): string {
  */
 export async function parseMarkdownAsync(content: string, baseDir?: string): Promise<string> {
   const processedContent = await preprocessImages(content, baseDir)
-  return md.render(processedContent)
+  // 预处理 PlantUML 行内语法
+  const contentWithPlantUML = preprocessPlantUML(processedContent)
+  return md.render(contentWithPlantUML)
 }
 
 // 获取纯文本摘要
