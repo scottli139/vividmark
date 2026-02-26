@@ -349,10 +349,7 @@ export function Editor() {
   // Preview 模式：只读预览
   if (viewMode === 'preview') {
     return (
-      <div
-        ref={previewContainerRef}
-        className={`flex-1 overflow-auto ${isDarkMode ? 'dark' : ''}`}
-      >
+      <div ref={previewContainerRef} className={`flex-1 overflow-auto ${isDarkMode ? 'dark' : ''}`}>
         <div
           className="markdown-body min-h-full p-8"
           dangerouslySetInnerHTML={{ __html: renderedHtml }}

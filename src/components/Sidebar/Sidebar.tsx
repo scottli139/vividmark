@@ -20,14 +20,17 @@ export function Sidebar() {
       .filter((c) => /\w|\p{Unified_Ideograph}/u.test(c)).length
   }, [content])
 
-  const handleRecentFileClick = useCallback(async (file: RecentFile) => {
-    if (isDirty) {
-      if (!confirm(t('dialog.confirmDiscard'))) {
-        return
+  const handleRecentFileClick = useCallback(
+    async (file: RecentFile) => {
+      if (isDirty) {
+        if (!confirm(t('dialog.confirmDiscard'))) {
+          return
+        }
       }
-    }
-    await openFileByPath(file.path)
-  }, [isDirty, t])
+      await openFileByPath(file.path)
+    },
+    [isDirty, t]
+  )
 
   // 点击大纲项 - 派发事件通知 Editor 滚动
   const handleHeadingClick = useCallback((heading: OutlineItem) => {

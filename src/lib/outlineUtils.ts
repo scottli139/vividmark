@@ -99,10 +99,7 @@ export function scrollToPosition(
  * @param container 预览容器元素
  * @param headingIndex 标题索引（第几个 h1/h2/h3 等）
  */
-export function scrollPreviewToHeading(
-  container: HTMLElement,
-  headingIndex: number
-): void {
+export function scrollPreviewToHeading(container: HTMLElement, headingIndex: number): void {
   // 查找所有标题元素 (h1, h2, h3, h4, h5, h6)
   const headings = container.querySelectorAll('h1, h2, h3, h4, h5, h6')
 
@@ -111,10 +108,7 @@ export function scrollPreviewToHeading(
 
     // 添加一些上边距
     const padding = 60
-    const targetScrollTop = Math.max(
-      0,
-      targetHeading.offsetTop - container.offsetTop - padding
-    )
+    const targetScrollTop = Math.max(0, targetHeading.offsetTop - container.offsetTop - padding)
 
     container.scrollTo({
       top: targetScrollTop,
