@@ -7,8 +7,9 @@ import { useHistory } from '../../hooks/useHistory'
 import '../../styles/globals.css'
 
 export function Editor() {
-  const { content, setContent, isDarkMode, viewMode, setCanUndo, setCanRedo, filePath } = useEditorStore()
-  
+  const { content, setContent, isDarkMode, viewMode, setCanUndo, setCanRedo, filePath } =
+    useEditorStore()
+
   // 本地编辑状态（用于 Source 和 Split 模式）
   const [localContent, setLocalContent] = useState(content)
   const [renderedHtml, setRenderedHtml] = useState('')
@@ -23,25 +24,28 @@ export function Editor() {
   )
 
   // 处理内容变化
-  const handleContentChange = useCallback((newContent: string) => {
-    setLocalContent(newContent)
-    
-    // 同步到全局 store
-    setContent(newContent)
-    
-    // 推送到历史记录（防抖）
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current)
-    }
-    typingTimeoutRef.current = setTimeout(() => {
-      pushHistory(newContent)
-    }, 500)
-  }, [setContent, pushHistory])
+  const handleContentChange = useCallback(
+    (newContent: string) => {
+      setLocalContent(newContent)
+
+      // 同步到全局 store
+      setContent(newContent)
+
+      // 推送到历史记录（防抖）
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        pushHistory(newContent)
+      }, 500)
+    },
+    [setContent, pushHistory]
+  )
 
   // 处理键盘快捷键
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const isMod = e.metaKey || e.ctrlKey
-    
+
     if (isMod && e.key === 'z' && !e.shiftKey) {
       e.preventDefault()
       window.dispatchEvent(new CustomEvent('editor-undo'))
@@ -52,14 +56,17 @@ export function Editor() {
   }, [])
 
   // 同步滚动（Split 模式）
-  const handleSourceScroll = useCallback((e: React.UIEvent<HTMLTextAreaElement>) => {
-    if (viewMode === 'split' && previewRef.current) {
-      const target = e.target as HTMLTextAreaElement
-      const scrollPercentage = target.scrollTop / (target.scrollHeight - target.clientHeight)
-      const preview = previewRef.current
-      preview.scrollTop = scrollPercentage * (preview.scrollHeight - preview.clientHeight)
-    }
-  }, [viewMode])
+  const handleSourceScroll = useCallback(
+    (e: React.UIEvent<HTMLTextAreaElement>) => {
+      if (viewMode === 'split' && previewRef.current) {
+        const target = e.target as HTMLTextAreaElement
+        const scrollPercentage = target.scrollTop / (target.scrollHeight - target.clientHeight)
+        const preview = previewRef.current
+        preview.scrollTop = scrollPercentage * (preview.scrollHeight - preview.clientHeight)
+      }
+    },
+    [viewMode]
+  )
 
   // 当外部 content 变化时（如打开文件），同步本地内容
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -106,19 +113,19 @@ export function Editor() {
     const handleInsert = (e: CustomEvent<{ text: string }>) => {
       const { text } = e.detail
       const textarea = textareaRef.current
-      
+
       // 获取当前光标位置（在异步处理前保存）
       const selectionStart = textarea?.selectionStart ?? localContent.length
       const selectionEnd = textarea?.selectionEnd ?? localContent.length
-      
+
       if (textarea) {
         // 在光标位置插入文本
         const before = localContent.slice(0, selectionStart)
         const after = localContent.slice(selectionEnd)
         const newContent = before + text + after
-        
+
         handleContentChange(newContent)
-        
+
         // 恢复光标位置到插入文本之后
         requestAnimationFrame(() => {
           const newCursorPos = selectionStart + text.length
@@ -140,19 +147,19 @@ export function Editor() {
   // 异步渲染 HTML（支持本地图片转换）
   useEffect(() => {
     let cancelled = false
-    
+
     const render = async () => {
       // 提取文档目录作为 baseDir
       const baseDir = filePath ? filePath.substring(0, filePath.lastIndexOf('/')) : undefined
       const html = await parseMarkdownAsync(localContent, baseDir)
-      
+
       if (!cancelled) {
         setRenderedHtml(html)
       }
     }
-    
+
     render()
-    
+
     return () => {
       cancelled = true
     }
@@ -181,7 +188,7 @@ export function Editor() {
   if (viewMode === 'preview') {
     return (
       <div className={`flex-1 overflow-auto ${isDarkMode ? 'dark' : ''}`}>
-        <div 
+        <div
           className="markdown-body min-h-full p-8"
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
         />
@@ -207,10 +214,10 @@ export function Editor() {
           autoFocus
         />
       </div>
-      
+
       {/* 右侧：预览 */}
       <div className="flex-1 overflow-auto">
-        <div 
+        <div
           ref={previewRef}
           className="markdown-body min-h-full p-8"
           dangerouslySetInnerHTML={{ __html: renderedHtml }}

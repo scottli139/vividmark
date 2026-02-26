@@ -15,7 +15,7 @@ function convertImageSrc(src: string): string {
   if (isUrl(src)) {
     return src
   }
-  
+
   // 如果是本地路径且在 Tauri 环境中，使用 convertFileSrc 转换
   if (isLocalPath(src) && isTauri()) {
     try {
@@ -27,7 +27,7 @@ function convertImageSrc(src: string): string {
       return src
     }
   }
-  
+
   return src
 }
 
@@ -57,19 +57,21 @@ const md = new MarkdownIt({
 })
 
 // 自定义图片渲染规则
-const defaultRender = md.renderer.rules.image || function(tokens, idx, options, _env, self) {
-  return self.renderToken(tokens, idx, options)
-}
+const defaultRender =
+  md.renderer.rules.image ||
+  function (tokens, idx, options, _env, self) {
+    return self.renderToken(tokens, idx, options)
+  }
 
-md.renderer.rules.image = function(tokens, idx, options, _env, self) {
+md.renderer.rules.image = function (tokens, idx, options, _env, self) {
   const token = tokens[idx]
   const srcIndex = token.attrIndex('src')
-  
+
   if (srcIndex >= 0) {
     const src = token.attrs![srcIndex][1]
     token.attrs![srcIndex][1] = convertImageSrc(src)
   }
-  
+
   return defaultRender(tokens, idx, options, _env, self)
 }
 

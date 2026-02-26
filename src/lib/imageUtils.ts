@@ -43,7 +43,12 @@ function getExtension(path: string): string {
  */
 export function isLocalPath(path: string): boolean {
   // 排除 URL（data URL、http/https、protocol-relative）
-  if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://') || path.startsWith('//')) {
+  if (
+    path.startsWith('data:') ||
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('//')
+  ) {
     return false
   }
   return (
@@ -60,7 +65,12 @@ export function isLocalPath(path: string): boolean {
  * @returns 是否是 URL
  */
 export function isUrl(path: string): boolean {
-  return path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('//')
+  return (
+    path.startsWith('http://') ||
+    path.startsWith('https://') ||
+    path.startsWith('data:') ||
+    path.startsWith('//')
+  )
 }
 
 /**
@@ -76,23 +86,23 @@ export async function copyImageToAssets(
   try {
     const docDir = await dirname(docPath)
     const assetsDir = await join(docDir, 'assets')
-    
+
     // 创建 assets 目录（如果不存在）
     const assetsExists = await exists(assetsDir)
     if (!assetsExists) {
       await mkdir(assetsDir, { recursive: true })
     }
-    
+
     // 生成目标文件名（使用时间戳避免冲突）
     const originalName = await basename(imagePath)
     const timestamp = Date.now()
     const safeName = originalName.replace(/[^a-zA-Z0-9.-]/g, '_')
     const targetName = `${timestamp}_${safeName}`
     const targetPath = await join(assetsDir, targetName)
-    
+
     // 复制文件
     await copyFile(imagePath, targetPath)
-    
+
     // 返回相对路径
     return `./assets/${targetName}`
   } catch (error) {
@@ -108,9 +118,9 @@ export async function copyImageToAssets(
  */
 function getRelativePath(fromDir: string, toPath: string): string {
   // 将路径分割为组件
-  const fromParts = fromDir.split('/').filter(p => p.length > 0)
-  const toParts = toPath.split('/').filter(p => p.length > 0)
-  
+  const fromParts = fromDir.split('/').filter((p) => p.length > 0)
+  const toParts = toPath.split('/').filter((p) => p.length > 0)
+
   // 找到共同前缀
   let commonLength = 0
   for (let i = 0; i < Math.min(fromParts.length, toParts.length); i++) {
@@ -120,18 +130,18 @@ function getRelativePath(fromDir: string, toPath: string): string {
       break
     }
   }
-  
+
   // 计算回退层数
   const upCount = fromParts.length - commonLength
   const remainingParts = toParts.slice(commonLength)
-  
+
   // 构建相对路径
   const result = []
   for (let i = 0; i < upCount; i++) {
     result.push('..')
   }
   result.push(...remainingParts)
-  
+
   return result.length > 0 ? `./${result.join('/')}` : './'
 }
 
@@ -144,12 +154,12 @@ export interface ImageInsertOptions {
 
 /**
  * 生成 Markdown 图片语法
- * 
+ *
  * 策略：
  * 1. 如果文档已保存且 copyToAssets=true：复制到 assets 文件夹，使用相对路径
  * 2. 如果文档已保存：使用相对于文档的路径
  * 3. 如果文档未保存或 useBase64=true：使用 base64（仅建议小图片 < 100KB）
- * 
+ *
  * @param altText 替代文本
  * @param imagePath 图片路径
  * @param docPath 当前文档路径（可选）
@@ -163,7 +173,7 @@ export async function createImageMarkdown(
   options: ImageInsertOptions = {}
 ): Promise<string> {
   const { copyToAssets = true, useBase64 = false } = options
-  
+
   // 检查文件大小（如果超过 100KB，警告不建议使用 base64）
   let fileSize = 0
   try {
@@ -172,7 +182,7 @@ export async function createImageMarkdown(
   } catch {
     // 忽略读取错误
   }
-  
+
   // 如果指定了使用 base64 且文件较小
   if (useBase64 && fileSize < 100 * 1024) {
     const base64Url = await imageToBase64(imagePath)
@@ -180,7 +190,7 @@ export async function createImageMarkdown(
       return `![${altText}](${base64Url})`
     }
   }
-  
+
   // 如果文档已保存
   if (docPath) {
     // 优先复制到 assets 文件夹
@@ -190,7 +200,7 @@ export async function createImageMarkdown(
         return `![${altText}](${assetsPath})`
       }
     }
-    
+
     // 尝试使用相对路径
     const docDir = await dirname(docPath)
     const relPath = getRelativePath(docDir, imagePath)
@@ -198,7 +208,7 @@ export async function createImageMarkdown(
       return `![${altText}](${relPath})`
     }
   }
-  
+
   // 使用绝对路径
   return `![${altText}](${imagePath})`
 }
