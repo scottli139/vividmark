@@ -29,6 +29,7 @@ src-tauri/target
 # Test coverage & results
 coverage
 test-results
+playwright-report
 
 # Claude local settings
 .claude/
