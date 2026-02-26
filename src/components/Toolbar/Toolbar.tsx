@@ -307,9 +307,11 @@ export function Toolbar() {
 
         <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
 
-        <div className="flex items-center gap-1 text-sm">
-          <span className="font-medium">{fileName}</span>
-          {isDirty && <span className="text-[var(--accent-color)]">*</span>}
+        <div className="flex items-center gap-1 text-sm min-w-0">
+          <span className="font-medium truncate max-w-[120px]" title={fileName}>
+            {fileName}
+          </span>
+          {isDirty && <span className="text-[var(--accent-color)] flex-shrink-0">*</span>}
         </div>
       </div>
 
