@@ -25,3 +25,7 @@ dist-ssr
 
 # Tauri
 src-tauri/target
+
+# Test coverage & results
+coverage
+test-results
