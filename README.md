@@ -7,6 +7,8 @@ A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired b
 ![React](https://img.shields.io/badge/React-19-blue.svg)
 ![AI-Built](https://img.shields.io/badge/100%25%20AI-Built-purple.svg)
 
+**English | [简体中文](README.zh-CN.md)**
+
 ## 🌐 Website
 
 Visit the project website: **[https://scottli139.github.io/vividmark](https://scottli139.github.io/vividmark)**
