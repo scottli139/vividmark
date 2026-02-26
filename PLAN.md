@@ -60,7 +60,7 @@
   - PlantUML 图表: `@startuml...@enduml` 和代码块 ` ```plantuml ``` `
   - 支持自定义标题 (如 `::: tip 注意`)
   - 使用 PlantUML 在线服务渲染 SVG 图表
-- [ ] 表格编辑
+- [x] **表格编辑** ✅ - Markdown 表格的可视化编辑，支持插入对话框、行列自定义
 - [ ] 数学公式 (KaTeX)
 - [ ] 任务列表 (Checkbox)
 - [ ] WYSIWYG 模式 (像 Typora 一样直接编辑渲染内容)
@@ -301,7 +301,7 @@ vividmark/
 
 ### 功能开发 (下一迭代)
 
-1. **表格编辑支持** - Markdown 表格的可视化编辑
+1. ~~**表格编辑支持**~~ ✅ - Markdown 表格的可视化编辑已完成
 2. **数学公式 (KaTeX)** - 支持 LaTeX 公式渲染
 3. **任务列表** - Checkbox 任务清单
 4. **多标签页** - 同时打开多个文件
@@ -346,6 +346,39 @@ pnpm tauri build
 ---
 
 ## Session 记录
+
+### 2025-02-26 表格编辑功能实现
+
+**完成工作：**
+- ✅ 实现表格插入对话框组件 (`TableDialog.tsx`)
+  - 支持选择行数和列数（1-50 行，1-20 列）
+  - 实时预览表格结构
+  - 可通过 +/- 按钮或直接输入调整数值
+- ✅ 创建表格工具函数模块 (`tableUtils.ts`)
+  - `generateTable()` - 生成 Markdown 表格
+  - `parseTable()` - 解析 Markdown 表格
+  - `addTableRow()` / `addTableColumn()` - 添加行列
+  - `deleteTableRow()` / `deleteTableColumn()` - 删除行列
+  - `formatTable()` - 格式化表格对齐
+  - `isValidTable()` - 验证表格有效性
+- ✅ 在 Toolbar 添加表格插入按钮
+- ✅ 添加完整的单元测试（80+ 测试用例）
+  - `tableUtils.test.ts` - 40 个测试用例
+  - `TableDialog.test.tsx` - 20 个测试用例
+  - `Toolbar.test.tsx` - 新增表格相关测试
+- ✅ 添加 E2E 测试 (`table-editing.spec.ts`)
+- ✅ 增强表格样式（隔行变色、悬停效果、对齐支持）
+- ✅ 支持 GFM 表格对齐语法 (`:---`, `:---:`, `---:`)
+
+**依赖：**
+- 无新增依赖，使用现有 markdown-it 表格支持
+
+**技术要点：**
+- 使用 `markdown-it` 内置的 GFM 表格支持
+- 对话框使用 Portal 模式渲染在 body 层级
+- 表格工具支持完整的 CRUD 操作（供未来扩展使用）
+
+---
 
 ### 2025-02-26 MkDocs 扩展语法支持
 

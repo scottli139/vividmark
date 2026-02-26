@@ -203,4 +203,94 @@ describe('Toolbar', () => {
       dispatchEventSpy.mockRestore()
     })
   })
+
+  describe('table button', () => {
+    it('should open table dialog when table button is clicked', () => {
+      render(<Toolbar />)
+
+      // Initially, dialog should not be visible
+      expect(screen.queryByText('Insert Table')).not.toBeInTheDocument()
+
+      // Click table button
+      const tableButton = screen.getByTitle('Insert Table')
+      fireEvent.click(tableButton)
+
+      // Dialog should now be visible
+      expect(screen.getByText('Insert Table')).toBeInTheDocument()
+    })
+
+    it('should close table dialog when Cancel is clicked', () => {
+      render(<Toolbar />)
+
+      // Open dialog
+      const tableButton = screen.getByTitle('Insert Table')
+      fireEvent.click(tableButton)
+
+      // Dialog should be visible
+      expect(screen.getByText('Insert Table')).toBeInTheDocument()
+
+      // Click cancel
+      fireEvent.click(screen.getByText('Cancel'))
+
+      // Dialog should be closed
+      expect(screen.queryByText('Insert Table')).not.toBeInTheDocument()
+    })
+
+    it('should dispatch editor-insert event when table is inserted', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Toolbar />)
+
+      // Open dialog
+      const tableButton = screen.getByTitle('Insert Table')
+      fireEvent.click(tableButton)
+
+      // Insert table
+      fireEvent.click(screen.getByText('Insert'))
+
+      // Should dispatch insert event with table markdown
+      expect(dispatchEventSpy).toHaveBeenCalled()
+      const call = dispatchEventSpy.mock.calls.find((call) => {
+        const event = call[0] as CustomEvent
+        return event.type === 'editor-insert' && event.detail?.text?.includes('Column 1')
+      })
+      expect(call).toBeTruthy()
+
+      dispatchEventSpy.mockRestore()
+    })
+
+    it('should insert table with custom dimensions', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Toolbar />)
+
+      // Open dialog
+      fireEvent.click(screen.getByTitle('Insert Table'))
+
+      // Change dimensions
+      const rowInput = screen.getAllByRole('spinbutton')[0]
+      const colInput = screen.getAllByRole('spinbutton')[1]
+
+      fireEvent.change(rowInput, { target: { value: '5' } })
+      fireEvent.change(colInput, { target: { value: '4' } })
+
+      // Insert table
+      fireEvent.click(screen.getByText('Insert'))
+
+      // Should dispatch insert event
+      const call = dispatchEventSpy.mock.calls.find((call) => {
+        const event = call[0] as CustomEvent
+        return event.type === 'editor-insert'
+      })
+
+      expect(call).toBeTruthy()
+      const tableMarkdown = (call![0] as CustomEvent).detail.text as string
+
+      // Check table has 5 rows (excluding header)
+      const lines = tableMarkdown.split('\n')
+      expect(lines).toHaveLength(7) // header + separator + 5 data rows
+
+      dispatchEventSpy.mockRestore()
+    })
+  })
 })

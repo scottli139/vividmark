@@ -1,9 +1,8 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdownAsync } from '../../lib/markdown/parser'
-// Note: useTextFormat and FormatType available for future WYSIWYG mode
+import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
 import { useHistory } from '../../hooks/useHistory'
-// Note: editorLogger available for future debugging
 import '../../styles/globals.css'
 
 export function Editor() {
@@ -16,6 +15,9 @@ export function Editor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 格式化工具
+  const { formatText, toggleBlockPrefix } = useTextFormat()
 
   // 历史记录管理
   const { pushHistory, undo, redo, canUndo, canRedo, clearHistory } = useHistory(
@@ -181,6 +183,75 @@ export function Editor() {
       window.removeEventListener('editor-insert', handleInsert as EventListener)
     }
   }, [localContent, handleContentChange])
+
+  // 监听格式化事件
+  useEffect(() => {
+    const handleFormat = (e: CustomEvent<{ format: FormatType }>) => {
+      const textarea = textareaRef.current
+      if (!textarea) return
+
+      const { format } = e.detail
+      const selectionStart = textarea.selectionStart
+      const selectionEnd = textarea.selectionEnd
+      const selectedText = localContent.slice(selectionStart, selectionEnd)
+
+      // 块级格式化（标题、引用、列表）
+      const blockFormats: FormatType[] = ['h1', 'h2', 'h3', 'quote', 'list']
+      if (blockFormats.includes(format)) {
+        // 找到当前行的开始位置
+        const lineStart = localContent.lastIndexOf('\n', selectionStart - 1) + 1
+        const lineEnd = localContent.indexOf('\n', selectionEnd)
+        const actualLineEnd = lineEnd === -1 ? localContent.length : lineEnd
+        const currentLine = localContent.slice(lineStart, actualLineEnd)
+
+        const newLine = toggleBlockPrefix(
+          currentLine,
+          format as 'h1' | 'h2' | 'h3' | 'quote' | 'list'
+        )
+        const newContent =
+          localContent.slice(0, lineStart) + newLine + localContent.slice(actualLineEnd)
+
+        handleContentChange(newContent)
+
+        // 恢复光标位置
+        requestAnimationFrame(() => {
+          const cursorOffset = newLine.length - currentLine.length
+          const newCursorPos = selectionStart + cursorOffset
+          textarea.setSelectionRange(newCursorPos, newCursorPos)
+          textarea.focus()
+        })
+      } else {
+        // 行内格式化
+        const result = formatText(localContent, format, {
+          start: selectionStart,
+          end: selectionEnd,
+        })
+
+        handleContentChange(result.text)
+
+        // 恢复光标位置或选中占位符
+        requestAnimationFrame(() => {
+          if (selectedText) {
+            // 如果有选中文本，光标移到格式化文本之后
+            textarea.setSelectionRange(result.cursorPos, result.cursorPos)
+          } else if (result.selectLength) {
+            // 如果没有选中文本，选中占位符
+            const start = result.cursorPos
+            const end = start + result.selectLength
+            textarea.setSelectionRange(start, end)
+          } else {
+            textarea.setSelectionRange(result.cursorPos, result.cursorPos)
+          }
+          textarea.focus()
+        })
+      }
+    }
+
+    window.addEventListener('editor-format', handleFormat as EventListener)
+    return () => {
+      window.removeEventListener('editor-format', handleFormat as EventListener)
+    }
+  }, [localContent, handleContentChange, formatText, toggleBlockPrefix])
 
   // 异步渲染 HTML（支持本地图片转换）
   useEffect(() => {

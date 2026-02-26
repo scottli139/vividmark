@@ -257,17 +257,54 @@ body {
   border-collapse: collapse;
   width: 100%;
   margin-bottom: 1em;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .markdown-body th,
 .markdown-body td {
   border: 1px solid var(--editor-border);
-  padding: 8px 12px;
+  padding: 10px 14px;
+  text-align: left;
 }
 
 .markdown-body th {
   background-color: var(--sidebar-bg);
   font-weight: 600;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--editor-border);
+}
+
+.markdown-body tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.dark .markdown-body tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.markdown-body tr:hover {
+  background-color: rgba(0, 102, 204, 0.05);
+}
+
+.dark .markdown-body tr:hover {
+  background-color: rgba(77, 166, 255, 0.08);
+}
+
+.markdown-body td {
+  color: var(--text-primary);
+}
+
+/* 表格对齐样式 */
+.markdown-body th[align='center'],
+.markdown-body td[align='center'] {
+  text-align: center;
+}
+
+.markdown-body th[align='right'],
+.markdown-body td[align='right'] {
+  text-align: right;
 }
 
 .markdown-body img {

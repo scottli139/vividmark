@@ -1,6 +1,9 @@
+import { useState } from 'react'
 import { useEditorStore } from '../../stores/editorStore'
 import { openFile, saveFile, newFile } from '../../lib/fileOps'
 import { selectLocalImage, createImageMarkdown } from '../../lib/imageUtils'
+import { generateTable } from '../../lib/tableUtils'
+import { TableDialog } from '../TableDialog'
 import type { FormatType } from '../../hooks/useTextFormat'
 
 // 格式化按钮组件 - 移到外部避免每次渲染重新创建
@@ -53,6 +56,8 @@ function ActionButton({
 }
 
 export function Toolbar() {
+  const [isTableDialogOpen, setIsTableDialogOpen] = useState(false)
+
   const {
     fileName,
     filePath,
@@ -105,6 +110,15 @@ export function Toolbar() {
       })
       window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: markdown } }))
     }
+  }
+
+  const handleTable = () => {
+    setIsTableDialogOpen(true)
+  }
+
+  const handleInsertTable = (rows: number, cols: number) => {
+    const tableMarkdown = generateTable(rows, cols)
+    window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: tableMarkdown } }))
   }
 
   return (
@@ -263,6 +277,16 @@ export function Toolbar() {
               />
             </svg>
           </ActionButton>
+          <ActionButton onClick={handleTable} title="Insert Table">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 10h18M3 14h18m-9-4v8m6-4H3m15-6H6M4 6h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z"
+              />
+            </svg>
+          </ActionButton>
         </div>
 
         <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
@@ -348,6 +372,13 @@ export function Toolbar() {
           Preview
         </button>
       </div>
+
+      {/* 表格插入对话框 */}
+      <TableDialog
+        isOpen={isTableDialogOpen}
+        onClose={() => setIsTableDialogOpen(false)}
+        onInsert={handleInsertTable}
+      />
 
       {/* 右侧 */}
       <div className="flex items-center gap-2">

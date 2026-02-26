@@ -26,14 +26,23 @@ A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired b
 - **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links
 - **Block formatting** - Headings (H1-H6), Quote, List, Code block
 - **Image insertion** - Insert local images with automatic asset management
+- **Table editing** - Visual table creation with customizable rows and columns
 
 ### Extended Markdown Support (MkDocs-style)
+- **Tables** - Full GFM table support with alignment
+  ```markdown
+  | Name  | Age | City  |
+  |:------|:---:|------:|
+  | Alice | 25  | NYC   |
+  | Bob   | 30  | LA    |
+  ```
+
 - **Admonitions** - Beautiful callout boxes for tips, warnings, notes, etc.
   ```markdown
   ::: tip
   This is a helpful tip!
   :::
-  
+
   ::: warning Important
   This is a warning with custom title.
   :::
@@ -136,7 +145,7 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 - [x] Phase 1: Basic framework
 - [x] Phase 2: Core editor
 - [x] Phase 3: File operations
-- [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions)
+- [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions, Table editing)
 - [x] Phase 8: Code standards (ESLint, Prettier, TypeScript strict mode)
 - [x] Phase 9: Testing infrastructure (Vitest, Playwright, CI/CD)
 - [x] Phase 10: Branding (Logo, icons)
