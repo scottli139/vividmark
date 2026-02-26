@@ -26,7 +26,7 @@ describe('useAutoSave', () => {
       recentFiles: [],
       isDarkMode: false,
       showSidebar: true,
-      viewMode: 'edit',
+      viewMode: 'source',
       activeBlockId: null,
     })
   })

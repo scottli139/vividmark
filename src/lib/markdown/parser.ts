@@ -1,7 +1,35 @@
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import { readFile } from '@tauri-apps/plugin-fs'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import { isLocalPath, isUrl } from '../imageUtils'
+
+// 检查是否在 Tauri 环境中
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).__TAURI__
+}
+
+// 自定义图片渲染规则 - 处理本地文件路径
+function convertImageSrc(src: string): string {
+  // 如果是 URL 或 data URL，直接返回
+  if (isUrl(src)) {
+    return src
+  }
+  
+  // 如果是本地路径且在 Tauri 环境中，使用 convertFileSrc 转换
+  if (isLocalPath(src) && isTauri()) {
+    try {
+      const converted = convertFileSrc(src)
+      console.log('[convertImageSrc] Converted:', src, '->', converted)
+      return converted
+    } catch (error) {
+      console.error('[convertImageSrc] Conversion failed:', error)
+      return src
+    }
+  }
+  
+  return src
+}
 
 // 创建 markdown-it 实例，集成代码高亮
 const md = new MarkdownIt({
@@ -27,6 +55,23 @@ const md = new MarkdownIt({
     }
   },
 })
+
+// 自定义图片渲染规则
+const defaultRender = md.renderer.rules.image || function(tokens, idx, options, env, self) {
+  return self.renderToken(tokens, idx, options)
+}
+
+md.renderer.rules.image = function(tokens, idx, options, env, self) {
+  const token = tokens[idx]
+  const srcIndex = token.attrIndex('src')
+  
+  if (srcIndex >= 0) {
+    const src = token.attrs![srcIndex][1]
+    token.attrs![srcIndex][1] = convertImageSrc(src)
+  }
+  
+  return defaultRender(tokens, idx, options, env, self)
+}
 
 // 缓存已转换的图片
 const imageCache = new Map<string, string>()
@@ -179,17 +224,18 @@ export async function preprocessImages(content: string, baseDir?: string): Promi
   return content
 }
 
-// 同步版本的图片缓存（用于已预处理的内容）
-const preprocessedContentCache = new Map<string, string>()
+// Note: 同步版本的图片缓存可以在未来需要时使用
+// const preprocessedContentCache = new Map<string, string>()
 
 /**
  * 解析 Markdown 为 HTML
  * @param content Markdown 内容
  * @param baseDir 可选的基础目录，用于解析相对路径
  */
-export function parseMarkdown(content: string, baseDir?: string): string {
+export function parseMarkdown(content: string): string {
   // 注意：同步版本不会预处理图片
   // 如果需要图片支持，请使用 parseMarkdownAsync
+  // 如果需要 baseDir 支持，可以在未来添加
   return md.render(content)
 }
 

@@ -1,5 +1,14 @@
-import { describe, it, expect } from 'vitest'
-import { parseMarkdown, getExcerpt } from '../parser'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { parseMarkdown, parseMarkdownAsync, getExcerpt, preprocessImages } from '../parser'
+
+// Mock Tauri API
+vi.mock('@tauri-apps/api/core', () => ({
+  convertFileSrc: vi.fn((path: string) => `asset://localhost${path}`),
+}))
+
+vi.mock('@tauri-apps/plugin-fs', () => ({
+  readFile: vi.fn(),
+}))
 
 describe('parseMarkdown', () => {
   it('should parse headings', () => {
@@ -206,5 +215,115 @@ describe('getExcerpt', () => {
     expect(result).toContain('italic')
     expect(result).toContain('code')
     expect(result).toContain('link')
+  })
+})
+
+describe('parseMarkdown - image rendering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // Mock __TAURI__ to be present
+    Object.defineProperty(window, '__TAURI__', {
+      value: {},
+      writable: true,
+      configurable: true,
+    })
+  })
+
+  it('should render image with alt text', () => {
+    const markdown = '![alt text](./image.png)'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<img')
+    expect(result).toContain('alt="alt text"')
+    expect(result).toContain('src=')
+  })
+
+  it('should render image with URL', () => {
+    const markdown = '![image](https://example.com/img.png)'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<img')
+    expect(result).toContain('src="https://example.com/img.png"')
+  })
+
+  it('should render image with absolute path in Tauri', () => {
+    const markdown = '![photo](/Users/build/photo.jpg)'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<img')
+    expect(result).toContain('asset://localhost/Users/build/photo.jpg')
+  })
+
+  it('should render image with relative path', () => {
+    const markdown = '![image](./assets/pic.png)'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<img')
+  })
+
+  it('should render multiple images', () => {
+    const markdown = '![first](./1.png) ![second](./2.png)'
+    const result = parseMarkdown(markdown)
+    expect(result.match(/<img/g)?.length).toBe(2)
+  })
+
+  it('should render image without alt text', () => {
+    const markdown = '![](./image.png)'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<img')
+    expect(result).toContain('alt=""')
+  })
+})
+
+describe('parseMarkdownAsync', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.defineProperty(window, '__TAURI__', {
+      value: {},
+      writable: true,
+      configurable: true,
+    })
+  })
+
+  it('should parse markdown with text content', async () => {
+    const markdown = '# Hello World'
+    const result = await parseMarkdownAsync(markdown)
+    expect(result).toContain('<h1')
+    expect(result).toContain('Hello World')
+  })
+
+  it('should handle empty content', async () => {
+    const result = await parseMarkdownAsync('')
+    expect(result).toBe('')
+  })
+
+  it('should parse markdown with images', async () => {
+    const markdown = '![test](./image.png)'
+    const result = await parseMarkdownAsync(markdown)
+    expect(result).toContain('<img')
+    expect(result).toContain('alt="test"')
+  })
+
+  it('should handle content without images', async () => {
+    const markdown = '# Title\n\nSome text here.'
+    const result = await parseMarkdownAsync(markdown)
+    expect(result).toContain('<h1')
+    expect(result).toContain('<p>')
+  })
+})
+
+describe('preprocessImages', () => {
+  it('should return content unchanged when no images', async () => {
+    const content = '# Hello World\n\nJust some text.'
+    const result = await preprocessImages(content)
+    expect(result).toBe(content)
+  })
+
+  it('should skip HTTP URLs', async () => {
+    const content = '![image](https://example.com/img.png)'
+    const result = await preprocessImages(content)
+    expect(result).toBe(content)
+  })
+
+  it('should skip data URLs', async () => {
+    const content = '![image](data:image/png;base64,abc123)'
+    const result = await preprocessImages(content)
+    expect(result).toBe(content)
   })
 })

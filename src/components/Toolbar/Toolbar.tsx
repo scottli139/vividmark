@@ -55,6 +55,7 @@ function ActionButton({
 export function Toolbar() {
   const {
     fileName,
+    filePath,
     isDirty,
     isDarkMode,
     viewMode,
@@ -97,8 +98,11 @@ export function Toolbar() {
       // 提取文件名作为 alt text
       const fileName = imagePath.split(/[/\\]/).pop() || 'image'
       const altText = fileName.replace(/\.[^/.]+$/, '') // 移除扩展名
-      // 使用异步函数将本地图片转换为 base64
-      const markdown = await createImageMarkdown(altText, imagePath)
+      // 传入当前文档路径，优先使用相对路径方式
+      const markdown = await createImageMarkdown(altText, imagePath, filePath, {
+        copyToAssets: true,
+        useBase64: false,
+      })
       window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: markdown } }))
     }
   }
@@ -312,14 +316,14 @@ export function Toolbar() {
       {/* 中间 - 视图切换 */}
       <div className="flex items-center gap-1 bg-[var(--editor-border)]/30 rounded-lg p-1">
         <button
-          onClick={() => setViewMode('edit')}
+          onClick={() => setViewMode('source')}
           className={`px-3 py-1 rounded text-sm transition-colors ${
-            viewMode === 'edit'
+            viewMode === 'source'
               ? 'bg-white dark:bg-gray-700 shadow-sm'
               : 'hover:bg-[var(--editor-border)]/50'
           }`}
         >
-          Edit
+          Source
         </button>
         <button
           onClick={() => setViewMode('split')}

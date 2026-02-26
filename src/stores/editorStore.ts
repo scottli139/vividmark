@@ -20,7 +20,7 @@ export interface EditorState {
   // UI 状态
   isDarkMode: boolean
   showSidebar: boolean
-  viewMode: 'edit' | 'preview' | 'split'
+  viewMode: 'source' | 'preview' | 'split'
   activeBlockId: string | null
 
   // 历史记录状态
@@ -77,7 +77,7 @@ export const useEditorStore = create<EditorState>()(
       recentFiles: [],
       isDarkMode: false,
       showSidebar: true,
-      viewMode: 'edit',
+      viewMode: 'source',
       activeBlockId: null,
       canUndo: false,
       canRedo: false,
@@ -106,7 +106,7 @@ export const useEditorStore = create<EditorState>()(
 
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
       toggleSidebar: () => set((state) => ({ showSidebar: !state.showSidebar })),
-      setViewMode: (mode) => set({ viewMode: mode }),
+      setViewMode: (mode: 'source' | 'preview' | 'split') => set({ viewMode: mode }),
       setActiveBlockId: (id) => set({ activeBlockId: id }),
       setCanUndo: (canUndo) => set({ canUndo }),
       setCanRedo: (canRedo) => set({ canRedo }),

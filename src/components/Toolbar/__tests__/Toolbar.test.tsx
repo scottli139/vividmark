@@ -28,7 +28,7 @@ describe('Toolbar', () => {
       recentFiles: [],
       isDarkMode: false,
       showSidebar: true,
-      viewMode: 'edit',
+      viewMode: 'source',
       activeBlockId: null,
     })
   })
@@ -143,14 +143,14 @@ describe('Toolbar', () => {
       expect(useEditorStore.getState().viewMode).toBe('preview')
     })
 
-    it('should switch back to edit view mode', () => {
+    it('should switch back to source view mode', () => {
       useEditorStore.getState().setViewMode('preview')
       render(<Toolbar />)
 
-      const editButton = screen.getByRole('button', { name: 'Edit' })
-      fireEvent.click(editButton)
+      const sourceButton = screen.getByRole('button', { name: 'Source' })
+      fireEvent.click(sourceButton)
 
-      expect(useEditorStore.getState().viewMode).toBe('edit')
+      expect(useEditorStore.getState().viewMode).toBe('source')
     })
   })
 

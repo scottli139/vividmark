@@ -1,0 +1,337 @@
+# VividMark - Agent Guide
+
+This document provides essential information for AI coding agents working on the VividMark project.
+
+## Project Overview
+
+**VividMark** is a modern, lightweight Markdown editor built with **Tauri 2.0** and **React 19**. It provides a Typora-inspired, distraction-free writing experience with real-time Markdown preview and block-level editing.
+
+### Key Features
+
+- Block-level editing (click to edit, blur to render)
+- Real-time Markdown preview with code syntax highlighting
+- File operations (Open/Save/Save As) with native dialogs
+- Auto-save after 2 seconds of inactivity
+- Drag & drop file opening
+- Dark mode support
+- Recent files list
+- Formatting toolbar (Bold, Italic, Headings, Lists, etc.)
+
+## Technology Stack
+
+| Category | Technology |
+|----------|------------|
+| Frontend Framework | React 19 + TypeScript |
+| Desktop Framework | Tauri 2.0 (Rust) |
+| Build Tool | Vite 7.x |
+| Styling | Tailwind CSS 4.x |
+| State Management | Zustand 5.x |
+| Markdown Parser | markdown-it |
+| Syntax Highlighting | highlight.js |
+| Testing (Unit) | Vitest + React Testing Library |
+| Testing (E2E) | Playwright |
+| Linting | ESLint (flat config) |
+| Formatting | Prettier |
+
+## Project Structure
+
+```
+vividmark/
+├── src/                          # React frontend
+│   ├── components/               # React components
+│   │   ├── Editor/               # Core editor component
+│   │   ├── Sidebar/              # Sidebar with outline & stats
+│   │   └── Toolbar/              # Toolbar with actions
+│   ├── hooks/                    # Custom React hooks
+│   │   ├── useAutoSave.ts        # Auto-save functionality
+│   │   ├── useFileDragDrop.ts    # Drag & drop handling
+│   │   ├── useKeyboardShortcuts.ts
+│   │   ├── useTextFormat.ts
+│   │   └── useHistory.ts
+│   ├── stores/                   # Zustand state management
+│   │   └── editorStore.ts        # Main editor state
+│   ├── lib/                      # Utilities & helpers
+│   │   ├── markdown/             # Markdown parsing
+│   │   ├── fileOps.ts            # File operations (Tauri)
+│   │   ├── logger.ts             # Logging system
+│   │   ├── historyManager.ts     # Undo/redo logic
+│   │   └── imageUtils.ts         # Image handling
+│   ├── styles/                   # Global styles
+│   │   └── globals.css           # Tailwind + custom styles
+│   ├── test/                     # Test utilities
+│   │   ├── setup.ts              # Vitest setup
+│   │   └── mocks/tauri.ts        # Tauri API mocks
+│   ├── main.tsx                  # Entry point
+│   └── App.tsx                   # Root component
+├── src-tauri/                    # Rust backend
+│   ├── src/
+│   │   ├── lib.rs                # Main logic + Tauri commands
+│   │   └── main.rs               # Entry point
+│   ├── Cargo.toml
+│   ├── tauri.conf.json
+│   └── icons/                    # App icons
+├── e2e/                          # Playwright E2E tests
+│   └── app.spec.ts
+└── dist/                         # Build output
+```
+
+## Build & Development Commands
+
+### Development
+
+```bash
+# Start Vite dev server only
+pnpm dev
+
+# Start Tauri development (frontend + Rust backend)
+pnpm tauri:dev
+```
+
+### Building
+
+```bash
+# Build frontend for production
+pnpm build
+
+# Build full Tauri application
+pnpm tauri:build
+```
+
+### Testing
+
+```bash
+# Run unit tests (Vitest, watch mode)
+pnpm test
+
+# Run unit tests once
+pnpm test:run
+
+# Run tests with coverage report
+pnpm test:coverage
+
+# Run E2E tests (Playwright)
+pnpm test:e2e
+```
+
+### Code Quality
+
+```bash
+# Run ESLint
+pnpm lint
+
+# Fix ESLint issues
+pnpm lint:fix
+
+# Format code with Prettier
+pnpm format
+
+# Check formatting
+pnpm format:check
+```
+
+## Code Style Guidelines
+
+### TypeScript/JavaScript
+
+- **Indentation**: 2 spaces (configured in `.editorconfig` and `.prettierrc`)
+- **Semicolons**: Disabled
+- **Quotes**: Single quotes for JS/TS, double quotes for JSX
+- **Print Width**: 100 characters
+- **Trailing Commas**: ES5 compatible
+
+### Rust
+
+- **Indentation**: 4 spaces (per `.editorconfig`)
+- Follow standard Rust naming conventions (`snake_case` for functions/variables)
+
+### File Naming
+
+- Components: PascalCase (e.g., `Editor.tsx`, `Toolbar.tsx`)
+- Hooks: camelCase with `use` prefix (e.g., `useAutoSave.ts`)
+- Utilities: camelCase (e.g., `fileOps.ts`, `logger.ts`)
+- Tests: Co-located with source files in `__tests__/` folders or `.test.ts` suffix
+
+### Import Order
+
+1. React imports
+2. Third-party libraries
+3. Absolute project imports (`@/components/...`)
+4. Relative imports (`../stores/...`)
+5. Type imports
+
+## Testing Strategy
+
+### Unit Tests (Vitest)
+
+- **Location**: Co-located with source files in `__tests__/` directories
+- **Environment**: jsdom
+- **Coverage**: v8 provider
+
+```typescript
+// Example test pattern
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+
+describe('ComponentName', () => {
+  it('should render correctly', () => {
+    render(<Component />)
+    expect(screen.getByText('Expected')).toBeInTheDocument()
+  })
+})
+```
+
+### E2E Tests (Playwright)
+
+- **Location**: `e2e/` directory
+- **Base URL**: `http://localhost:5173`
+- Uses Vite dev server for testing (not Tauri)
+
+### Mocking Tauri APIs
+
+Use the provided mocks in `src/test/mocks/tauri.ts`:
+
+```typescript
+import { mockInvoke, resetTauriMocks, setupDefaultTauriMocks } from '../test/mocks/tauri'
+
+beforeEach(() => {
+  resetTauriMocks()
+  setupDefaultTauriMocks()
+})
+```
+
+## State Management (Zustand)
+
+The main store is `editorStore.ts` with persistence for user preferences:
+
+```typescript
+import { useEditorStore } from './stores/editorStore'
+
+// Reading state
+const { content, isDirty } = useEditorStore()
+
+// Using actions
+const setContent = useEditorStore(state => state.setContent)
+setContent('new content')
+```
+
+### Persisted State
+
+- `recentFiles`: List of recently opened files
+- `isDarkMode`: Theme preference
+
+### Non-Persisted State
+
+- `content`: Current document content
+- `filePath`/`fileName`: Current file info
+- `isDirty`: Unsaved changes flag
+- `viewMode`: Current view mode (edit/preview/split)
+
+## Tauri Commands (Rust Backend)
+
+Available invoke commands from frontend:
+
+| Command | Parameters | Returns | Description |
+|---------|-----------|---------|-------------|
+| `read_file` | `{ path: String }` | `FileInfo` | Read file content |
+| `save_file` | `{ path, content }` | `SaveResult` | Write file content |
+| `file_exists` | `{ path: String }` | `bool` | Check file existence |
+
+### FileInfo Structure
+
+```typescript
+interface FileInfo {
+  path: string
+  content: string
+  name: string
+}
+```
+
+## Keyboard Shortcuts
+
+| Shortcut | Action | Implementation |
+|----------|--------|----------------|
+| `Cmd/Ctrl + O` | Open file | `useKeyboardShortcuts.ts` |
+| `Cmd/Ctrl + S` | Save file | `useKeyboardShortcuts.ts` |
+| `Cmd/Ctrl + Shift + S` | Save as | `useKeyboardShortcuts.ts` |
+| `Cmd/Ctrl + N` | New file | `useKeyboardShortcuts.ts` |
+| `Escape` | Exit edit mode | `Editor.tsx` |
+
+## Logging
+
+Use the centralized logger for consistent logging:
+
+```typescript
+import { createLogger, fileOpsLogger } from './lib/logger'
+
+// Use pre-configured logger
+fileOpsLogger.info('Operation completed', { path: filePath })
+fileOpsLogger.error('Operation failed', error)
+
+// Or create custom module logger
+const myLogger = createLogger('MyModule')
+myLogger.debug('Debug info')
+myLogger.time('operation')
+myLogger.timeEnd('operation')
+```
+
+Log levels: `debug` < `info` < `warn` < `error`
+- Development: All levels shown
+- Production: Only `error` level
+
+## CI/CD (GitHub Actions)
+
+The project has a GitHub Actions workflow (`.github/workflows/test.yml`) that runs:
+
+1. **Lint job**: ESLint + Prettier check
+2. **Typecheck job**: TypeScript compilation check
+3. **Unit Tests job**: Vitest with coverage reporting to Codecov
+4. **E2E Tests job**: Currently disabled (requires Tauri setup)
+
+## Development Notes
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm (recommended) or npm
+- Rust toolchain (for Tauri)
+
+### Common Issues
+
+1. **Tauri build fails**: Ensure Rust is installed and up to date
+2. **Lockfile issues**: Use `pnpm install --frozen-lockfile` in CI
+3. **Type errors**: Check `tsconfig.app.json` includes all source files
+
+### Adding New Tauri Commands
+
+1. Add command in `src-tauri/src/lib.rs`:
+```rust
+#[tauri::command]
+fn my_command(arg: String) -> Result<String, String> {
+    // Implementation
+}
+```
+
+2. Register in `run()` function:
+```rust
+.invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, my_command])
+```
+
+3. Invoke from frontend:
+```typescript
+import { invoke } from '@tauri-apps/api/core'
+const result = await invoke<string>('my_command', { arg: 'value' })
+```
+
+### Styling Guidelines
+
+- Use Tailwind CSS utility classes
+- CSS variables for theme colors (defined in `globals.css`)
+- Dark mode: Use `.dark` prefix class
+- Editor content: Use `.markdown-body` class for rendered markdown
+
+## Security Considerations
+
+- CSP is currently disabled (`"csp": null` in `tauri.conf.json`)
+- File system access is controlled by Tauri capabilities
+- Dialog and FS plugins are enabled for native file operations
+- No network access required for core functionality
