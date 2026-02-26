@@ -622,6 +622,45 @@ fd1aa12 chore: 移除 Playwright 测试报告
 
 ---
 
+### 2026-02-26 Release 0.1.0 发布
+
+**完成工作：**
+- ✅ 编译 macOS Release 版本 (0.1.0)
+- ✅ 创建 GitHub Release 并上传 dmg 安装包
+- ✅ 创建中英文双版本 README
+- ✅ 创建中英文双版本 GitHub Pages
+- ✅ 添加 MkDocs 特色说明
+
+**版本号同步：**
+- `package.json`: 0.0.0 → 0.1.0
+- `src-tauri/tauri.conf.json`: 0.1.0 (无需变更)
+- `src-tauri/Cargo.toml`: 0.1.0 (无需变更)
+
+**发布的文件：**
+| 文件 | 说明 |
+|------|------|
+| `VividMark_0.1.0_aarch64.dmg` | macOS Apple Silicon 安装包 |
+
+**Release 地址：** https://github.com/scottli139/vividmark/releases/tag/v0.1.0
+
+**GitHub Pages 地址：**
+- 英文版: https://scottli139.github.io/vividmark
+- 中文版: https://scottli139.github.io/vividmark/index.zh-CN.html
+
+**提交记录：**
+```
+7d514a4 chore: bump version to 0.1.0
+dc270e4 docs: highlight MkDocs support as key feature
+eb33688 docs: add Chinese version of README and GitHub Pages
+```
+
+**新增文档：**
+- `README.zh-CN.md` - 中文项目说明
+- `docs/index.zh-CN.html` - 中文官网页面
+- 语言切换器 (`EN | 中`)
+
+---
+
 ## 注意事项
 
 1. **网络问题**: 使用清华镜像

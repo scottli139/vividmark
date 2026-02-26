@@ -636,6 +636,113 @@ Before committing:
    - `AGENTS.md` - Technical knowledge base
 
 
+### GitHub Release 发布流程
+
+**版本号管理:**
+- `package.json` - 前端版本号
+- `src-tauri/tauri.conf.json` - Tauri 应用版本号
+- `src-tauri/Cargo.toml` - Rust crate 版本号
+
+三者应保持同步。
+
+**构建并发布 Release:**
+
+```bash
+# 1. 确保版本号已更新
+git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
+git commit -m "chore: bump version to X.Y.Z"
+
+# 2. 创建并推送 tag
+git tag vX.Y.Z
+git push origin main
+git push origin vX.Y.Z
+
+# 3. 构建 release（macOS 示例）
+pnpm tauri build
+
+# 4. 创建 GitHub Release 并上传构建产物
+gh release create vX.Y.Z \
+  --title "VividMark vX.Y.Z" \
+  --notes "Release notes here" \
+  --draft=false \
+  --prerelease=false \
+  "src-tauri/target/release/bundle/dmg/VividMark_X.Y.Z_aarch64.dmg"
+```
+
+**构建产物位置:**
+| 平台 | 产物类型 | 路径 |
+|------|---------|------|
+| macOS | .app bundle | `src-tauri/target/release/bundle/macos/VividMark.app` |
+| macOS | .dmg 安装包 | `src-tauri/target/release/bundle/dmg/VividMark_X.Y.Z_aarch64.dmg` |
+
+---
+
+### 文档国际化 (I18n)
+
+**README 双版本结构:**
+```
+README.md          # 英文版（主文件）
+README.zh-CN.md    # 简体中文版
+```
+
+**README 语言切换链接格式:**
+```markdown
+<!-- README.md 顶部 -->
+**English | [简体中文](README.zh-CN.md)**
+
+<!-- README.zh-CN.md 顶部 -->
+**[English](README.md) | 简体中文**
+```
+
+**GitHub Pages 双版本结构:**
+```
+docs/
+├── index.html          # 英文版首页
+├── index.zh-CN.html    # 简体中文版首页
+├── css/style.css       # 共享样式（含语言切换器样式）
+└── images/             # 共享资源
+```
+
+**语言切换器 HTML:**
+```html
+<span class="lang-switch">
+  <a href="index.html" class="active">EN</a> | <a href="index.zh-CN.html">中</a>
+</span>
+```
+
+**CSS 样式:**
+```css
+.lang-switch {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  margin-left: 8px;
+  padding-left: 16px;
+  border-left: 1px solid var(--color-border);
+}
+
+.lang-switch a {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  padding: 2px 4px;
+}
+
+.lang-switch a:hover {
+  color: var(--color-text);
+}
+
+.lang-switch a.active {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+```
+
+**同步更新清单:**
+当更新文档时，需同时修改以下对应文件：
+- `README.md` ↔ `README.zh-CN.md`
+- `docs/index.html` ↔ `docs/index.zh-CN.html`
+
+---
+
 ### GitHub Pages Deployment
 
 **Setup for Static Site:**
