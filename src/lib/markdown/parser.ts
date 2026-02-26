@@ -1,5 +1,7 @@
 import MarkdownIt from 'markdown-it'
 import container from 'markdown-it-container'
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - plantuml-encoder has no type declarations
 import { encode } from 'plantuml-encoder'
 import hljs from 'highlight.js'
 import { readFile } from '@tauri-apps/plugin-fs'
@@ -92,7 +94,7 @@ function renderPlantUML(content: string): string {
 // 配置 Admonition 容器
 admonitionTypes.forEach((type) => {
   md.use(container, type, {
-    render: function (tokens, idx) {
+    render: function (tokens: { info: string; nesting: number }[], idx: number) {
       const token = tokens[idx]
       const info = token.info.trim().slice(type.length).trim()
 
