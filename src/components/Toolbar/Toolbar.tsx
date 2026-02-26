@@ -132,7 +132,8 @@ export function Toolbar() {
   }
 
   // 检测是否为 Mac
-  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const isMac =
+    typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const cmdKey = isMac ? 'Cmd' : 'Ctrl'
 
   return (

@@ -47,7 +47,9 @@ export interface EditorState {
 }
 
 // 获取默认内容（根据语言）
-export function getDefaultContent(t: (key: string, options?: Record<string, string>) => string): string {
+export function getDefaultContent(
+  t: (key: string, options?: Record<string, string>) => string
+): string {
   return `# ${t('welcome.title')}
 
 ${t('welcome.subtitle')}
@@ -73,7 +75,8 @@ ${t('welcome.gettingStartedList.switchMode')}
 \`\`\`javascript
 console.log('Hello, VividMark!');
 \`\`\`
-`}
+`
+}
 
 // 初始默认内容（英语）
 const INITIAL_DEFAULT_CONTENT = `# Welcome to VividMark

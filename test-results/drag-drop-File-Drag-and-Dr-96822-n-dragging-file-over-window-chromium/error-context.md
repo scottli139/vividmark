@@ -1,0 +1,68 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - generic [ref=e5]:
+      - button "Toggle Sidebar" [ref=e6]:
+        - img [ref=e7]
+      - button "New File (Cmd+N)" [ref=e10]:
+        - img [ref=e11]
+      - button "Open File (Cmd+O)" [ref=e13]:
+        - img [ref=e14]
+      - button "Save (Cmd+S)" [ref=e16]:
+        - img [ref=e17]
+      - button "Undo (Cmd+Z)" [disabled] [ref=e20]:
+        - img [ref=e21]
+      - button "Redo (Cmd+Shift+Z)" [disabled] [ref=e23]:
+        - img [ref=e24]
+      - generic [ref=e27]:
+        - button "Bold (Cmd+B)" [ref=e28]:
+          - img [ref=e29]
+        - button "Italic (Cmd+I)" [ref=e31]:
+          - img [ref=e32]
+        - button "Strikethrough" [ref=e34]:
+          - img [ref=e35]
+        - button "Inline Code" [ref=e37]:
+          - img [ref=e38]
+        - button "Link" [ref=e40]:
+          - img [ref=e41]
+        - button "Insert Image" [ref=e43]:
+          - img [ref=e44]
+      - generic [ref=e47]:
+        - button "H1" [ref=e48]
+        - button "H2" [ref=e49]
+        - button "H3" [ref=e50]
+        - button "Quote" [ref=e51]:
+          - img [ref=e52]
+        - button "List" [ref=e54]:
+          - img [ref=e55]
+        - button "Code Block" [ref=e57]:
+          - img [ref=e58]
+      - generic "Untitled.md" [ref=e62]
+    - generic [ref=e63]:
+      - button "Source" [ref=e64]
+      - button "Split" [ref=e65]
+      - button "Preview" [ref=e66]
+    - button "Toggle Dark Mode" [ref=e68]:
+      - img [ref=e69]
+  - generic [ref=e71]:
+    - generic [ref=e72]:
+      - generic [ref=e73]:
+        - heading "Current File" [level=3] [ref=e74]
+        - generic [ref=e76]: Untitled.md
+      - generic [ref=e77]:
+        - heading "Recent Files" [level=3] [ref=e79]
+        - generic [ref=e80]: No recent files
+      - generic [ref=e81]:
+        - heading "Outline" [level=3] [ref=e82]
+        - list [ref=e83]:
+          - listitem [ref=e84] [cursor=pointer]: Welcome to VividMark
+          - listitem [ref=e85] [cursor=pointer]: Features
+          - listitem [ref=e86] [cursor=pointer]: Getting Started
+      - generic [ref=e87]:
+        - generic [ref=e88]: "Words: 57"
+        - generic [ref=e89]: "Chars: 374"
+    - main [ref=e90]:
+      - textbox [active] [ref=e92]: "# Welcome to VividMark A **modern** Markdown editor built with Tauri and React. ## Features - Real-time Markdown preview - Clean, distraction-free interface - Dark mode support - Cross-platform ## Getting Started Start typing to see the magic happen! > \"The best writing tool is the one that gets out of your way.\" ```javascript console.log('Hello, VividMark!'); ```"
+```
