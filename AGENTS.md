@@ -488,3 +488,62 @@ Before committing:
    - `README.md` - User-facing features
    - `PLAN.md` - Development progress
    - `AGENTS.md` - Technical knowledge base
+
+
+### GitHub Pages Deployment
+
+**Setup for Static Site:**
+
+1. **Create `docs/` directory** at repository root with static HTML files
+2. **GitHub Actions Workflow** (`.github/workflows/pages.yml`):
+   ```yaml
+   name: Deploy to GitHub Pages
+   
+   on:
+     push:
+       branches: [main]
+     workflow_dispatch:
+   
+   permissions:
+     contents: read
+     pages: write
+     id-token: write
+   
+   jobs:
+     deploy:
+       environment:
+         name: github-pages
+         url: ${{ steps.deployment.outputs.page_url }}
+       runs-on: ubuntu-latest
+       steps:
+         - name: Checkout
+           uses: actions/checkout@v4
+         
+         - name: Setup Pages
+           uses: actions/configure-pages@v5
+         
+         - name: Upload artifact
+           uses: actions/upload-pages-artifact@v3
+           with:
+             path: './docs'
+         
+         - name: Deploy to GitHub Pages
+           id: deployment
+           uses: actions/deploy-pages@v4
+   ```
+
+3. **Repository Settings:**
+   - Go to **Settings → Pages**
+   - Set **Source** to **GitHub Actions**
+
+**Common Issues:**
+
+- **"Setup Pages" step fails**: Ensure Pages source is set to "GitHub Actions" in repository settings, not "Deploy from branch"
+- **Workflow not triggering**: Avoid using `paths` filter initially; can add after confirming basic setup works
+- **404 errors**: Wait 1-2 minutes after deployment completion for CDN propagation
+
+**Best Practices:**
+
+- Keep static assets (CSS, images) in `docs/` directory
+- Use relative paths for internal links
+- Test locally by opening `docs/index.html` in browser
