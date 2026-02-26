@@ -19,9 +19,16 @@ export function Editor() {
   // 格式化工具
   const { formatText, toggleBlockPrefix } = useTextFormat()
 
-  // 历史记录管理
+  // 历史记录管理 - 使用 ref 获取最新 localContent
+  const localContentRef = useRef(localContent)
+  useEffect(() => {
+    localContentRef.current = localContent
+  }, [localContent])
+
+  const getCurrentContent = useCallback(() => localContentRef.current, [])
+
   const { pushHistory, undo, redo, canUndo, canRedo, clearHistory } = useHistory(
-    content,
+    getCurrentContent,
     setContent
   )
 
@@ -108,13 +115,30 @@ export function Editor() {
     }
   }, [viewMode])
 
+  // 初始化历史记录 - 只在组件挂载时执行一次
+  const isInitializedRef = useRef(false)
+  useEffect(() => {
+    if (!isInitializedRef.current) {
+      isInitializedRef.current = true
+      // 将初始内容推入历史记录
+      pushHistory(content)
+    }
+  }, [content, pushHistory])
+
   // 当外部 content 变化时（如打开文件），同步本地内容
+  const prevFilePathRef = useRef(filePath)
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setLocalContent(content)
-    // 外部更新时清空历史
-    clearHistory()
-  }, [content, clearHistory])
+    // 只有文件路径变化时才清空历史（打开新文件）
+    // 避免初始加载时清空历史
+    if (prevFilePathRef.current !== filePath) {
+      prevFilePathRef.current = filePath
+      clearHistory()
+      // 新文件加载后，将新内容推入历史记录
+      pushHistory(content)
+    }
+  }, [content, filePath, clearHistory, pushHistory])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // 更新历史状态到 store（用于 Toolbar 按钮状态）

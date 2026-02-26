@@ -7,7 +7,7 @@ import { HistoryManager, type HistoryState } from '../lib/historyManager'
  * 提供撤销/重做功能，与编辑器内容状态配合使用
  */
 export function useHistory(
-  content: string,
+  getContent: () => string,
   setContent: (content: string) => void,
   setDirty?: (dirty: boolean) => void
 ) {
@@ -30,7 +30,7 @@ export function useHistory(
    */
   const undo = useCallback((): string | null => {
     const currentState: HistoryState = {
-      content,
+      content: getContent(),
       timestamp: Date.now(),
     }
 
@@ -41,7 +41,7 @@ export function useHistory(
       return previousState.content
     }
     return null
-  }, [content, setContent, setDirty])
+  }, [getContent, setContent, setDirty])
 
   /**
    * 重做操作
@@ -49,7 +49,7 @@ export function useHistory(
    */
   const redo = useCallback((): string | null => {
     const currentState: HistoryState = {
-      content,
+      content: getContent(),
       timestamp: Date.now(),
     }
 
@@ -60,7 +60,7 @@ export function useHistory(
       return nextState.content
     }
     return null
-  }, [content, setContent, setDirty])
+  }, [getContent, setContent, setDirty])
 
   /**
    * 检查是否可以撤销
