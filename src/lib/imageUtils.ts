@@ -7,6 +7,12 @@
 import { open } from '@tauri-apps/plugin-dialog'
 import { readFile, copyFile, mkdir, exists } from '@tauri-apps/plugin-fs'
 import { join, dirname, basename } from '@tauri-apps/api/path'
+import i18n from '../i18n'
+
+// 获取当前语言的翻译
+function t(key: string): string {
+  return i18n.t(key) as string
+}
 
 /**
  * 打开文件选择对话框，选择本地图片
@@ -17,7 +23,7 @@ export async function selectLocalImage(): Promise<string | null> {
     multiple: false,
     filters: [
       {
-        name: 'Images',
+        name: t('file.filters.images'),
         extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'],
       },
     ],

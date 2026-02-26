@@ -1,8 +1,14 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
+import i18n from '../i18n'
 import { useEditorStore } from '../stores/editorStore'
 import { fileOpsLogger } from './logger'
 import { preprocessImages } from './markdown/parser'
+
+// 获取当前语言的翻译
+function t(key: string): string {
+  return i18n.t(key) as string
+}
 
 interface FileInfo {
   path: string
@@ -20,8 +26,8 @@ export async function openFile(): Promise<void> {
   const selected = await open({
     multiple: false,
     filters: [
-      { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
-      { name: 'All Files', extensions: ['*'] },
+      { name: t('file.filters.markdown'), extensions: ['md', 'markdown', 'txt'] },
+      { name: t('file.filters.allFiles'), extensions: ['*'] },
     ],
   })
 
@@ -66,8 +72,8 @@ export async function saveFileAs(): Promise<boolean> {
   const selected = await save({
     defaultPath: fileName,
     filters: [
-      { name: 'Markdown', extensions: ['md'] },
-      { name: 'Text', extensions: ['txt'] },
+      { name: t('file.filters.markdown'), extensions: ['md'] },
+      { name: t('file.filters.text'), extensions: ['txt'] },
     ],
   })
 
