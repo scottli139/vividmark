@@ -493,6 +493,69 @@ function preprocessPlantUML(content: string): string {
 
 **Note:** Currently uses PlantUML online service. Offline rendering requires additional setup.
 
+### Outline Navigation (大纲视图点击跳转)
+
+**Implementation Overview:**
+
+1. **Extract Outline from Markdown**
+   ```typescript
+   // src/lib/outlineUtils.ts
+   export interface OutlineItem {
+     level: number      // Heading level (1-6)
+     text: string       // Heading text
+     lineIndex: number  // Line number in content
+     charIndex: number  // Character position for textarea navigation
+     index: number      // Heading index for preview navigation
+   }
+   
+   export function extractOutline(content: string): OutlineItem[]
+   ```
+
+2. **Navigation in Different View Modes**
+   
+   | Mode | Navigation Method | Implementation |
+   |------|------------------|----------------|
+   | Source | Scroll textarea + cursor | `scrollToPosition(textarea, charIndex)` |
+   | Split | Scroll textarea + cursor | `scrollToPosition(textarea, charIndex)` |
+   | Preview | Scroll to heading element | `scrollPreviewToHeading(container, index)` |
+
+3. **Component Communication via CustomEvent**
+   ```typescript
+   // Sidebar dispatches event
+   window.dispatchEvent(
+     new CustomEvent('editor-scroll-to-heading', {
+       detail: { charIndex, lineIndex, index }
+     })
+   )
+   
+   // Editor listens and handles
+   useEffect(() => {
+     const handler = (e: CustomEvent) => {
+       const { charIndex, index } = e.detail
+       if (viewMode === 'preview') {
+         scrollPreviewToHeading(previewContainer, index)
+       } else {
+         scrollToPosition(textarea, charIndex)
+       }
+     }
+     window.addEventListener('editor-scroll-to-heading', handler)
+   }, [viewMode])
+   ```
+
+4. **Important: Preview Mode Container Ref**
+   Preview mode MUST have ref on the scrollable container:
+   ```tsx
+   // ✅ Correct
+   <div ref={previewContainerRef} className="flex-1 overflow-auto">
+     <div className="markdown-body" dangerouslySetInnerHTML={{ __html }} />
+   </div>
+   
+   // ❌ Wrong - ref on inner content
+   <div className="flex-1 overflow-auto">
+     <div ref={previewRef} className="markdown-body">...</div>
+   </div>
+   ```
+
 ### Split View Sync Scrolling
 
 **Challenge:** Implementing bidirectional scroll synchronization between textarea (source) and div (preview).
