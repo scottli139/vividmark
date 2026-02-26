@@ -341,6 +341,8 @@ interface FileInfo {
 
 ## Logging
 
+### Frontend Logging
+
 Use the centralized logger for consistent logging:
 
 ```typescript
@@ -360,6 +362,38 @@ myLogger.timeEnd('operation')
 Log levels: `debug` < `info` < `warn` < `error`
 - Development: All levels shown
 - Production: Only `error` level
+
+### Backend (Rust) Logging
+
+The Rust backend uses `tauri-plugin-log` for structured logging with comprehensive diagnostics.
+
+**Log Features:**
+- **Operation tracing**: All file operations log start, progress, and completion
+- **Performance metrics**: Each operation logs elapsed time and throughput (MB/s)
+- **File metadata**: Logs file size, permissions, and modification time
+- **Error context**: Detailed error messages with error kind classification
+- **System info**: Startup logs include platform, architecture, and paths
+
+**Log Locations:**
+- Development: Console (stdout) + log file
+- Production: Log file only
+
+**Log File Location:**
+- macOS: `~/Library/Logs/com.vividmark.app/`
+- Windows: `%APPDATA%\com.vividmark.app\logs\`
+- Linux: `~/.local/share/com.vividmark.app/logs/`
+
+**Example Log Output:**
+```
+[14:32:01] [System] VividMark Backend Starting
+[14:32:01] [System] Platform: macOS
+[14:32:01] [System] Architecture: aarch64
+[14:32:01] [System] Log directory: "/Users/xxx/Library/Logs/com.vividmark.app"
+[14:32:15] [read_file] Starting file read operation
+[14:32:15] [read_file] Target path: /Users/xxx/Documents/test.md
+[14:32:15] [read_file] Pre-read metadata: size=15234 bytes, permissions="644", modified=Some("2h 15m ago")
+[14:32:15] [read_file] ✓ Success: /Users/xxx/Documents/test.md (15234 bytes, 1234 chars) in 2.1ms (~7.12 MB/s)
+```
 
 ## CI/CD (GitHub Actions)
 
