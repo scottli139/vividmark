@@ -3,6 +3,7 @@ import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdownAsync } from '../../lib/markdown/parser'
 import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
 import { useHistory } from '../../hooks/useHistory'
+import { scrollToPosition, scrollPreviewToHeading } from '../../lib/outlineUtils'
 import '../../styles/globals.css'
 
 export function Editor() {
@@ -298,6 +299,34 @@ export function Editor() {
     }
   }, [localContent, filePath])
 
+  // 监听大纲点击事件 - 滚动到对应标题
+  useEffect(() => {
+    const handleScrollToHeading = (
+      e: CustomEvent<{ charIndex: number; lineIndex: number; index: number }>
+    ) => {
+      const { charIndex, index } = e.detail
+
+      if (viewMode === 'source' || viewMode === 'split') {
+        // Source/Split 模式：滚动 textarea
+        const textarea = textareaRef.current
+        if (textarea) {
+          scrollToPosition(textarea, charIndex, 24)
+        }
+      } else if (viewMode === 'preview') {
+        // Preview 模式：滚动预览区域到对应 heading
+        const previewContainer = previewContainerRef.current
+        if (previewContainer) {
+          scrollPreviewToHeading(previewContainer, index)
+        }
+      }
+    }
+
+    window.addEventListener('editor-scroll-to-heading', handleScrollToHeading as EventListener)
+    return () => {
+      window.removeEventListener('editor-scroll-to-heading', handleScrollToHeading as EventListener)
+    }
+  }, [viewMode])
+
   // Source 模式：纯源码编辑
   if (viewMode === 'source') {
     return (
@@ -320,7 +349,10 @@ export function Editor() {
   // Preview 模式：只读预览
   if (viewMode === 'preview') {
     return (
-      <div className={`flex-1 overflow-auto ${isDarkMode ? 'dark' : ''}`}>
+      <div
+        ref={previewContainerRef}
+        className={`flex-1 overflow-auto ${isDarkMode ? 'dark' : ''}`}
+      >
         <div
           className="markdown-body min-h-full p-8"
           dangerouslySetInnerHTML={{ __html: renderedHtml }}

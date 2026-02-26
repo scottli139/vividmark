@@ -71,7 +71,7 @@
 
 - [ ] 侧边栏文件树
 - [ ] 文件夹打开
-- [ ] 大纲视图增强 (点击跳转)
+- [x] 大纲视图增强 (点击跳转) ✅
 - [ ] 多标签页
 - [ ] 文件变更监控 (自动重载)
 
@@ -350,6 +350,47 @@ pnpm tauri build
 ---
 
 ## Session 记录
+
+### 2026-02-26 大纲视图点击跳转实现
+
+**完成工作：**
+- ✅ 创建大纲工具模块 (`src/lib/outlineUtils.ts`)
+  - `extractOutline()` - 从 Markdown 提取大纲，包含层级、文本、行号、字符位置和索引
+  - `calculateScrollPosition()` - 计算滚动位置
+  - `scrollToPosition()` - 平滑滚动到指定位置并设置光标（Source/Split 模式）
+  - `scrollPreviewToHeading()` - 滚动预览区域到指定标题（Preview 模式）
+- ✅ 重构 Sidebar 组件
+  - 使用 `extractOutline` 替换原有的简单正则提取
+  - 添加大纲项点击事件派发 (`editor-scroll-to-heading`，包含 index 字段)
+  - 添加 `cursor-pointer` 和悬停效果
+  - 添加 `title` 属性显示完整标题
+- ✅ 更新 Editor 组件
+  - 监听 `editor-scroll-to-heading` 事件
+  - Source/Split 模式：调用 `scrollToPosition` 滚动 textarea + 设置光标
+  - Preview 模式：调用 `scrollPreviewToHeading` 滚动预览区域
+- ✅ 添加完整测试
+  - `outlineUtils.test.ts` - 16 个测试用例（包含 Preview 模式滚动）
+  - `Sidebar.test.tsx` - 新增 4 个大纲导航测试用例
+  - 所有 305 个测试通过
+
+**技术要点：**
+- 使用 CustomEvent 进行组件间通信
+- 基于字符位置的精准定位（Source/Split 模式）
+- 基于标题索引的定位（Preview 模式）
+- 平滑滚动 + 光标定位
+- 支持多级标题缩进显示
+- 三种视图模式全覆盖
+
+**新增文件：**
+- `src/lib/outlineUtils.ts` - 大纲工具函数
+- `src/lib/__tests__/outlineUtils.test.ts` - 工具函数测试
+
+**修改文件：**
+- `src/components/Sidebar/Sidebar.tsx` - 集成大纲点击跳转
+- `src/components/Editor/Editor.tsx` - 监听滚动事件，支持三种模式
+- `src/components/Sidebar/__tests__/Sidebar.test.tsx` - 添加导航测试
+
+---
 
 ### 2025-02-26 多语言支持 (i18n) 实现
 

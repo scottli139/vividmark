@@ -8,6 +8,36 @@ vi.mock('../../../lib/fileOps', () => ({
   openFileByPath: vi.fn(),
 }))
 
+// Mock outlineUtils module
+vi.mock('../../../lib/outlineUtils', () => ({
+  extractOutline: vi.fn((content: string) => {
+    // Simple mock implementation
+    const lines = content.split('\n')
+    const headings: Array<{
+      level: number
+      text: string
+      lineIndex: number
+      charIndex: number
+      index: number
+    }> = []
+    let charIndex = 0
+    let headingIndex = 0
+
+    lines.forEach((line, lineIndex) => {
+      if (line.startsWith('#')) {
+        const level = line.match(/^#+/)?.[0].length || 1
+        const text = line.replace(/^#+\s*/, '')
+        headings.push({ level, text, lineIndex, charIndex, index: headingIndex++ })
+      }
+      charIndex += line.length + 1
+    })
+
+    return headings
+  }),
+  scrollToPosition: vi.fn(),
+  scrollPreviewToHeading: vi.fn(),
+}))
+
 // Import mocked function
 import { openFileByPath } from '../../../lib/fileOps'
 const mockOpenFileByPath = vi.mocked(openFileByPath)
@@ -182,6 +212,59 @@ describe('Sidebar', () => {
       // New algorithm counts alphanumeric chars (excluding spaces/punctuation)
       // 'Onetwothreefourfive' = 19 chars
       expect(screen.getByText('Chars: 19')).toBeInTheDocument()
+    })
+  })
+
+  describe('outline navigation', () => {
+    it('should dispatch scroll event when heading is clicked', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Sidebar />)
+
+      const heading = screen.getByText('Heading 1')
+      fireEvent.click(heading)
+
+      expect(dispatchEventSpy).toHaveBeenCalled()
+      const event = dispatchEventSpy.mock.calls[0][0] as CustomEvent
+      expect(event.type).toBe('editor-scroll-to-heading')
+      expect(event.detail).toHaveProperty('charIndex')
+      expect(event.detail).toHaveProperty('lineIndex')
+
+      dispatchEventSpy.mockRestore()
+    })
+
+    it('should dispatch scroll event with correct charIndex for different headings', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      // Content: '# Heading 1\n\nSome content\n\n## Heading 2'
+      // Heading 1: charIndex = 0, index = 0
+      // Heading 2: charIndex = 27, index = 1
+      render(<Sidebar />)
+
+      const heading2 = screen.getByText('Heading 2')
+      fireEvent.click(heading2)
+
+      expect(dispatchEventSpy).toHaveBeenCalled()
+      const event = dispatchEventSpy.mock.calls[0][0] as CustomEvent
+      expect(event.detail.charIndex).toBe(27)
+      expect(event.detail.lineIndex).toBe(4)
+      expect(event.detail.index).toBe(1)
+
+      dispatchEventSpy.mockRestore()
+    })
+
+    it('should have cursor-pointer style on heading items', () => {
+      render(<Sidebar />)
+
+      const heading = screen.getByText('Heading 1')
+      expect(heading).toHaveClass('cursor-pointer')
+    })
+
+    it('should show title attribute on heading items', () => {
+      render(<Sidebar />)
+
+      const heading = screen.getByText('Heading 1')
+      expect(heading).toHaveAttribute('title', 'Heading 1')
     })
   })
 })

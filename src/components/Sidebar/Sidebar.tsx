@@ -1,38 +1,48 @@
 import { useTranslation } from 'react-i18next'
 import { useEditorStore, type RecentFile } from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
+import { extractOutline, type OutlineItem } from '../../lib/outlineUtils'
+import { useMemo, useCallback } from 'react'
 
 export function Sidebar() {
   const { t } = useTranslation()
   const { showSidebar, content, recentFiles, isDirty, fileName, clearRecentFiles } =
     useEditorStore()
 
-  if (!showSidebar) return null
+  // 提取大纲（使用工具函数）
+  const headings = useMemo(() => extractOutline(content), [content])
 
-  // 简单的大纲提取
-  const headings = content
-    .split('\n')
-    .filter((line) => line.startsWith('#'))
-    .map((line) => {
-      const level = line.match(/^#+/)?.[0].length || 1
-      const text = line.replace(/^#+\s*/, '')
-      return { level, text }
-    })
+  // 统计字数（支持中英文）
+  const wordCount = useMemo(() => {
+    return content
+      .replace(/\s/g, '')
+      .split('')
+      .filter((c) => /\w|\p{Unified_Ideograph}/u.test(c)).length
+  }, [content])
 
-  const handleRecentFileClick = async (file: RecentFile) => {
+  const handleRecentFileClick = useCallback(async (file: RecentFile) => {
     if (isDirty) {
       if (!confirm(t('dialog.confirmDiscard'))) {
         return
       }
     }
     await openFileByPath(file.path)
-  }
+  }, [isDirty, t])
 
-  // 统计字数（支持中英文）
-  const wordCount = content
-    .replace(/\s/g, '')
-    .split('')
-    .filter((c) => /\w|\p{Unified_Ideograph}/u.test(c)).length
+  // 点击大纲项 - 派发事件通知 Editor 滚动
+  const handleHeadingClick = useCallback((heading: OutlineItem) => {
+    window.dispatchEvent(
+      new CustomEvent('editor-scroll-to-heading', {
+        detail: {
+          charIndex: heading.charIndex,
+          lineIndex: heading.lineIndex,
+          index: heading.index,
+        },
+      })
+    )
+  }, [])
+
+  if (!showSidebar) return null
 
   return (
     <div className="w-56 border-r border-[var(--editor-border)] bg-[var(--sidebar-bg)] flex flex-col">
@@ -106,8 +116,10 @@ export function Sidebar() {
             {headings.map((heading, index) => (
               <li
                 key={index}
-                className="text-sm text-gray-600 dark:text-gray-300 hover:text-[var(--accent-color)] cursor-pointer truncate"
+                onClick={() => handleHeadingClick(heading)}
+                className="text-sm text-gray-600 dark:text-gray-300 hover:text-[var(--accent-color)] cursor-pointer truncate transition-colors duration-150"
                 style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}
+                title={heading.text}
               >
                 {heading.text}
               </li>
