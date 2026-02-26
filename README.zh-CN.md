@@ -2,6 +2,8 @@
 
 一款基于 Tauri 2.0 和 React 构建的现代化轻量级 Markdown 编辑器。灵感来源于 Typora，提供简洁、无干扰的写作体验和实时预览功能。
 
+**MkDocs 完美适配**: 完整支持 MkDocs 特殊语法，包括提示框（Admonitions）、PlantUML 图表和高级表格 —— 是编写和预览 MkDocs 文档的理想编辑器。
+
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)](https://tauri.app)
 [![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
@@ -35,7 +37,7 @@
 - **图片插入** - 插入本地图片，自动资产管理
 - **表格编辑** - 可视化表格创建，可自定义行列数
 
-### 扩展 Markdown 支持 (MkDocs 风格)
+### MkDocs 就绪: 扩展 Markdown 支持
 - **表格** - 完整的 GFM 表格支持，包括对齐
   ```markdown
   | 姓名  | 年龄 | 城市  |

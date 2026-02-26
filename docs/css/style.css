@@ -137,7 +137,25 @@ body {
 .hero-desc {
   font-size: 1.25rem;
   color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.hero-mkdocs {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
   margin-bottom: 24px;
+}
+
+.mkdocs-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+  border: 1px solid var(--color-primary);
+  color: #60a5fa;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-right: 8px;
 }
 
 .badges {

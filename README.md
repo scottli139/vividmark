@@ -2,6 +2,8 @@
 
 A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired by Typora, featuring a clean, distraction-free writing experience with real-time preview.
 
+**Perfect for MkDocs**: Full support for MkDocs-specific syntax including admonitions (callout boxes), PlantUML diagrams, and advanced tables — making it an ideal editor for writing and previewing MkDocs documentation.
+
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)
 ![React](https://img.shields.io/badge/React-19-blue.svg)
@@ -35,7 +37,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Image insertion** - Insert local images with automatic asset management
 - **Table editing** - Visual table creation with customizable rows and columns
 
-### Extended Markdown Support (MkDocs-style)
+### MkDocs-Ready: Extended Markdown Support
 - **Tables** - Full GFM table support with alignment
   ```markdown
   | Name  | Age | City  |
