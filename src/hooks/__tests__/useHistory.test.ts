@@ -14,9 +14,7 @@ describe('useHistory', () => {
 
   describe('pushHistory', () => {
     it('should push content to history', () => {
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       act(() => {
         result.current.pushHistory('new content')
@@ -26,9 +24,7 @@ describe('useHistory', () => {
     })
 
     it('should not create duplicate entries for same content', () => {
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       act(() => {
         result.current.pushHistory('same content')
@@ -43,9 +39,7 @@ describe('useHistory', () => {
 
   describe('undo', () => {
     it('should return null when nothing to undo', () => {
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       let undoResult: string | null = 'not null'
       act(() => {
@@ -58,9 +52,7 @@ describe('useHistory', () => {
 
     it('should undo to previous state', () => {
       mockGetContent = vi.fn(() => 'second content')
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       // Push initial states
       act(() => {
@@ -81,9 +73,7 @@ describe('useHistory', () => {
 
     it('should allow redo after undo', () => {
       mockGetContent = vi.fn(() => 'second content')
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       act(() => {
         result.current.pushHistory('first content')
@@ -101,9 +91,7 @@ describe('useHistory', () => {
       let currentContent = 'current'
       mockGetContent = vi.fn(() => currentContent)
 
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       // Push a state
       act(() => {
@@ -125,9 +113,7 @@ describe('useHistory', () => {
 
   describe('redo', () => {
     it('should return null when nothing to redo', () => {
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       let redoResult: string | null = 'not null'
       act(() => {
@@ -141,9 +127,7 @@ describe('useHistory', () => {
       let currentContent = 'third content'
       mockGetContent = vi.fn(() => currentContent)
 
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       // Setup history
       act(() => {
@@ -183,9 +167,7 @@ describe('useHistory', () => {
 
   describe('clearHistory', () => {
     it('should clear all history', () => {
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       act(() => {
         result.current.pushHistory('content 1')
@@ -209,9 +191,7 @@ describe('useHistory', () => {
 
   describe('getHistoryStats', () => {
     it('should return correct stats', () => {
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       expect(result.current.getHistoryStats()).toEqual({
         undoCount: 0,
@@ -235,9 +215,7 @@ describe('useHistory', () => {
       let currentContent = ''
       mockGetContent = vi.fn(() => currentContent)
 
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       // User types "Hello"
       currentContent = 'Hello'
@@ -282,9 +260,7 @@ describe('useHistory', () => {
       let currentContent = 'third'
       mockGetContent = vi.fn(() => currentContent)
 
-      const { result } = renderHook(() =>
-        useHistory(mockGetContent, mockSetContent, mockSetDirty)
-      )
+      const { result } = renderHook(() => useHistory(mockGetContent, mockSetContent, mockSetDirty))
 
       // Setup
       act(() => {

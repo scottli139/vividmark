@@ -31,7 +31,7 @@ describe('HistoryManager', () => {
       // Push new state should clear redo stack
       historyManager.push({ content: 'third', timestamp: 4 })
       expect(historyManager.canRedo()).toBe(false)
-      // After undo and push: undoStack had ['first'], undo popped 'second', 
+      // After undo and push: undoStack had ['first'], undo popped 'second',
       // so we have ['first'] then push 'third' → ['first', 'third']
       expect(historyManager.getStats().undoCount).toBe(2)
     })
