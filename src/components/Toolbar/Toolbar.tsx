@@ -220,7 +220,7 @@ export function Toolbar() {
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth={2.5}
+                strokeWidth={2}
                 d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"
               />
             </svg>
@@ -279,12 +279,16 @@ export function Toolbar() {
           </ActionButton>
           <ActionButton onClick={handleTable} title="Insert Table">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 10h18M3 14h18m-9-4v8m6-4H3m15-6H6M4 6h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2z"
-              />
+              {/* 表格外边框 */}
+              <rect x="3" y="4" width="18" height="16" rx="2" strokeWidth={1.5} />
+              {/* 水平分隔线 - 表头下方 */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9h18" />
+              {/* 水平分隔线 - 中间 */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 14h18" />
+              {/* 垂直分隔线 - 左 */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 4v16" />
+              {/* 垂直分隔线 - 右 */}
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 4v16" />
             </svg>
           </ActionButton>
         </div>
@@ -303,8 +307,13 @@ export function Toolbar() {
             <span className="text-xs font-bold">H3</span>
           </FormatButton>
           <FormatButton format="quote" title="Quote">
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M4.583 17.321C3.553 16.227 3 15 3 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179zm10 0C13.553 16.227 13 15 13 13.011c0-3.5 2.457-6.637 6.03-8.188l.893 1.378c-3.335 1.804-3.987 4.145-4.247 5.621.537-.278 1.24-.375 1.929-.311 1.804.167 3.226 1.648 3.226 3.489a3.5 3.5 0 01-3.5 3.5c-1.073 0-2.099-.49-2.748-1.179z" />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
+              />
             </svg>
           </FormatButton>
           <FormatButton format="list" title="List">
@@ -313,8 +322,12 @@ export function Toolbar() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
               />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h.01" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 12h6" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 16h.01" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h6" />
             </svg>
           </FormatButton>
           <FormatButton format="codeblock" title="Code Block">
