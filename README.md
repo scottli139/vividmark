@@ -5,6 +5,11 @@ A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired b
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)
 ![React](https://img.shields.io/badge/React-19-blue.svg)
+![AI-Built](https://img.shields.io/badge/100%25%20AI-Built-purple.svg)
+
+## 🌐 Website
+
+Visit the project website: **[https://scottli139.github.io/vividmark](https://scottli139.github.io/vividmark)**
 
 ## Features
 
@@ -73,6 +78,17 @@ A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired b
 - **Extended Syntax**: markdown-it-container, plantuml-encoder
 - **Syntax Highlighting**: highlight.js
 - **Testing**: Vitest + React Testing Library + Playwright
+
+## AI Development
+
+This project was **entirely built with AI coding assistants**:
+
+| Tool | Model |
+|------|-------|
+| [Claude Code CLI](https://github.com/anthropics/claude-code) | GLM model |
+| [Kimi CLI](https://www.kimi.com/) | Kimi model |
+
+> 🤖 No human-written code. Every line was generated, reviewed, and refined through AI collaboration.
 
 ## Getting Started
 
