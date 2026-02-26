@@ -578,6 +578,50 @@ Alice -> Bob: Hello
 
 ---
 
+---
+
+### 2025-02-26 Git 仓库清理
+
+**完成工作：**
+- ✅ 移除不应该提交到 git 的生成文件
+- ✅ 更新 `.gitignore` 配置
+- ✅ 推送清理后的仓库到远程
+
+**移除的文件/目录：**
+| 文件/目录 | 文件数 | 说明 |
+|-----------|--------|------|
+| `coverage/` | 24 | Vitest 测试覆盖率报告 |
+| `test-results/` | 3 | Playwright 测试结果 |
+| `playwright-report/` | 1 | Playwright HTML 报告 |
+| `.claude/` | 1 | Claude 本地权限配置 |
+| **总计** | **29** | |
+
+**更新的 `.gitignore`：**
+```gitignore
+# Test coverage & results
+coverage
+test-results
+playwright-report
+
+# Claude local settings
+.claude/
+```
+
+**提交记录：**
+```
+1d82819 chore: 移除不应该提交的生成文件 (coverage, test-results)
+0489ddd chore: 移除 Claude 本地配置文件
+fd1aa12 chore: 移除 Playwright 测试报告
+```
+
+**Git 管理最佳实践：**
+1. 生成文件（测试报告、覆盖率、构建输出）不应提交
+2. 本地配置（IDE、工具配置）不应提交
+3. 敏感信息（token、密钥）绝对不应提交
+4. 大文件应使用 Git LFS 或排除
+
+---
+
 ## 注意事项
 
 1. **网络问题**: 使用清华镜像

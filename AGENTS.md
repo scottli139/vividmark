@@ -693,3 +693,87 @@ Before committing:
 - Keep static assets (CSS, images) in `docs/` directory
 - Use relative paths for internal links
 - Test locally by opening `docs/index.html` in browser
+
+---
+
+## Git 仓库管理
+
+### 不应提交到 Git 的文件类型
+
+| 类别 | 示例 | 原因 |
+|------|------|------|
+| **生成文件** | `coverage/`, `dist/`, `*.log` | 每次构建都会重新生成 |
+| **测试报告** | `test-results/`, `playwright-report/` | CI 生成，无需版本控制 |
+| **依赖目录** | `node_modules/`, `src-tauri/target/` | 通过 package 管理器安装 |
+| **本地配置** | `.claude/`, `.idea/`, `.vscode/` | 个人开发环境配置 |
+| **敏感信息** | `.env`, `*.token`, `*.key` | 安全风险 |
+| **系统文件** | `.DS_Store`, `Thumbs.db` | 操作系统生成 |
+
+### 检查已提交的不当文件
+
+```bash
+# 查找不应提交的文件
+git ls-files | grep -E "(coverage|test-results|\.claude|node_modules|dist)"
+
+# 查看文件大小（大文件检测）
+git ls-files | xargs -I{} ls -lh {} | sort -k5 -hr | head -20
+```
+
+### 清理已提交的文件
+
+```bash
+# 1. 先添加到 .gitignore
+echo "coverage/" >> .gitignore
+echo "test-results/" >> .gitignore
+
+# 2. 从 git 移除（保留本地文件）
+git rm -r --cached coverage test-results
+
+# 3. 提交更改
+git add .gitignore
+git commit -m "chore: 移除生成文件"
+```
+
+### 项目 .gitignore 配置
+
+```gitignore
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Logs
+*.log
+
+# Editor
+.vscode/*
+.idea
+.DS_Store
+*.sw?
+
+# Tauri
+src-tauri/target
+
+# Testing
+coverage
+test-results
+playwright-report
+
+# Local config
+.claude/
+*.local
+
+# Secrets
+.env
+.env.local
+```
+
+### 最佳实践
+
+1. **项目初始化时就配置好 `.gitignore`**
+2. **定期检查** `git status` 确保没有遗漏
+3. **提交前审查** `git diff --cached --name-only`
+4. **已提交的大文件** 使用 `git filter-branch` 或 BFG Repo-Cleaner 清理历史
+5. **敏感信息泄露** 立即轮换密钥，清理历史，启用 secret scanning
