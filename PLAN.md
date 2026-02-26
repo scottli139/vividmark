@@ -62,6 +62,7 @@
   - 支持自定义标题 (如 `::: tip 注意`)
   - 使用 PlantUML 在线服务渲染 SVG 图表
 - [x] **表格编辑** ✅ - Markdown 表格的可视化编辑，支持插入对话框、行列自定义
+- [x] **多语言支持** ✅ - 支持简体中文和英语（可扩展）
 - [ ] 数学公式 (KaTeX)
 - [ ] 任务列表 (Checkbox)
 - [ ] WYSIWYG 模式 (像 Typora 一样直接编辑渲染内容)
@@ -304,7 +305,7 @@ vividmark/
 
 1. ~~**表格编辑支持**~~ ✅ - Markdown 表格的可视化编辑已完成
 2. ~~**修复 Undo/Redo**~~ ✅ - 已修复（使用 getter 函数获取最新内容）
-3. **多语言支持 (i18n)** 🆕 - 支持简体中文和英语
+3. ~~**多语言支持 (i18n)**~~ ✅ - 支持简体中文和英语
 4. **数学公式 (KaTeX)** - 支持 LaTeX 公式渲染
 5. **任务列表** - Checkbox 任务清单
 6. **多标签页** - 同时打开多个文件
@@ -349,6 +350,67 @@ pnpm tauri build
 ---
 
 ## Session 记录
+
+### 2025-02-26 多语言支持 (i18n) 实现
+
+**完成工作：**
+- ✅ 配置 i18next + react-i18next 国际化框架
+  - 安装依赖: `i18next`, `react-i18next`, `i18next-browser-languagedetector`
+  - 创建 `src/i18n/index.ts` 配置文件
+  - 支持语言检测和 localStorage 持久化
+- ✅ 创建翻译文件
+  - `src/i18n/locales/en.json` - 英文翻译 (67+ 条)
+  - `src/i18n/locales/zh-CN.json` - 简体中文翻译
+  - 支持变量插值 (如 `{{shortcut}}`)
+- ✅ 重构所有组件使用翻译
+  - `Toolbar.tsx` - 工具栏按钮 tooltip 和视图模式标签
+  - `Sidebar.tsx` - 侧边栏标题和统计标签
+  - `TableDialog.tsx` - 对话框标题和按钮
+  - `App.tsx` - 拖放提示文本
+  - `useKeyboardShortcuts.ts` - 快捷键描述
+  - `useFileDragDrop.ts` - 消息提示
+- ✅ 添加语言切换 UI
+  - 在 Toolbar 添加语言选择下拉框
+  - 显示国旗和语言名称
+  - 支持实时切换
+- ✅ Store 集成
+  - 添加 `language` 状态到 editorStore
+  - 持久化语言偏好到 localStorage
+  - `App.tsx` 自动同步 store 和 i18next
+- ✅ 改进字数统计（支持中英文）
+  - 新的统计算法支持 Unicode 字符
+  - 正确计算中文字数
+- ✅ 添加测试
+  - `src/i18n/__tests__/i18n.test.ts` - i18n 配置和翻译测试
+  - 更新现有组件测试以支持 i18n mock
+  - 所有 285 个测试通过
+
+**更新文档：**
+- ✅ 更新 README.md - 添加多语言支持特性
+- ✅ 更新 AGENTS.md - 添加 i18n 实现指南
+- ✅ 更新 PLAN.md - 标记 Phase 4 多语言支持完成
+
+**实现细节：**
+```typescript
+// 使用翻译
+const { t, i18n } = useTranslation()
+
+// 带变量的翻译
+t('toolbar.tooltip.save', { shortcut: 'Cmd+S' })
+
+// 语言切换
+const { language, setLanguage } = useEditorStore()
+setLanguage('zh-CN')
+i18n.changeLanguage('zh-CN')
+```
+
+**新增文件：**
+- `src/i18n/index.ts` - i18n 配置
+- `src/i18n/locales/en.json` - 英文翻译
+- `src/i18n/locales/zh-CN.json` - 中文翻译
+- `src/i18n/__tests__/i18n.test.ts` - i18n 测试
+
+---
 
 ### 2025-02-26 修复 Undo/Redo 功能
 

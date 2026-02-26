@@ -162,16 +162,16 @@ describe('Sidebar', () => {
   })
 
   describe('statistics', () => {
-    it('should display word count', () => {
-      render(<Sidebar />)
-
-      expect(screen.getByText(/Words:/)).toBeInTheDocument()
-    })
-
-    it('should display character count', () => {
+    it('should display character count (no spaces)', () => {
       render(<Sidebar />)
 
       expect(screen.getByText(/Chars:/)).toBeInTheDocument()
+    })
+
+    it('should display total length count', () => {
+      render(<Sidebar />)
+
+      expect(screen.getByText(/Words:/)).toBeInTheDocument()
     })
 
     it('should update statistics when content changes', () => {
@@ -179,7 +179,9 @@ describe('Sidebar', () => {
 
       render(<Sidebar />)
 
-      expect(screen.getByText('Words: 5')).toBeInTheDocument()
+      // New algorithm counts alphanumeric chars (excluding spaces/punctuation)
+      // 'Onetwothreefourfive' = 19 chars
+      expect(screen.getByText('Chars: 19')).toBeInTheDocument()
     })
   })
 })

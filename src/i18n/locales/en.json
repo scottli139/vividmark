@@ -1,0 +1,122 @@
+{
+  "toolbar": {
+    "tooltip": {
+      "toggleSidebar": "Toggle Sidebar",
+      "newFile": "New File ({{shortcut}})",
+      "openFile": "Open File ({{shortcut}})",
+      "save": "Save ({{shortcut}})",
+      "saveAs": "Save As ({{shortcut}})",
+      "undo": "Undo ({{shortcut}})",
+      "redo": "Redo ({{shortcut}})",
+      "bold": "Bold ({{shortcut}})",
+      "italic": "Italic ({{shortcut}})",
+      "strikethrough": "Strikethrough",
+      "inlineCode": "Inline Code",
+      "link": "Link",
+      "insertImage": "Insert Image",
+      "insertTable": "Insert Table",
+      "heading1": "Heading 1",
+      "heading2": "Heading 2",
+      "heading3": "Heading 3",
+      "quote": "Quote",
+      "list": "List",
+      "orderedList": "Ordered List",
+      "codeBlock": "Code Block",
+      "toggleDarkMode": "Toggle Dark Mode"
+    },
+    "viewMode": {
+      "source": "Source",
+      "split": "Split",
+      "preview": "Preview"
+    }
+  },
+  "sidebar": {
+    "currentFile": "Current File",
+    "recentFiles": "Recent Files",
+    "outline": "Outline",
+    "clear": "Clear",
+    "clearTooltip": "Clear recent files",
+    "noRecentFiles": "No recent files",
+    "noHeadings": "No headings",
+    "words": "Words:",
+    "chars": "Chars:",
+    "stats": "Statistics"
+  },
+  "dialog": {
+    "confirmDiscard": "Discard unsaved changes?",
+    "confirmDiscardMessage": "You have unsaved changes. Are you sure you want to discard them?",
+    "insertTable": "Insert Table",
+    "rows": "Rows (excluding header)",
+    "columns": "Columns",
+    "decreaseRows": "Decrease rows",
+    "increaseRows": "Increase rows",
+    "decreaseColumns": "Decrease columns",
+    "increaseColumns": "Increase columns",
+    "preview": "Preview",
+    "cancel": "Cancel",
+    "insert": "Insert",
+    "colHeader": "Col {{number}}",
+    "confirm": "Confirm",
+    "close": "Close"
+  },
+  "app": {
+    "dropTitle": "Drop Markdown file here",
+    "dropFileTypes": ".md, .markdown, .txt",
+    "untitled": "Untitled.md"
+  },
+  "welcome": {
+    "title": "Welcome to VividMark",
+    "subtitle": "A **modern** Markdown editor built with Tauri and React.",
+    "features": "Features",
+    "gettingStarted": "Getting Started",
+    "hint": "Start typing to see the magic happen!",
+    "quote": "The best writing tool is the one that gets out of your way.",
+    "featureList": {
+      "blockEditing": "Block-level editing with live preview",
+      "syntaxHighlight": "Syntax highlighting for code blocks",
+      "fileOperations": "Native file operations (Open/Save)",
+      "autoSave": "Auto-save after 2 seconds of inactivity",
+      "dragDrop": "Drag & drop file opening",
+      "darkMode": "Dark mode support"
+    },
+    "gettingStartedList": {
+      "openFile": "Open an existing file with {{shortcut}}",
+      "newFile": "Create a new file with {{shortcut}}",
+      "saveFile": "Save with {{shortcut}}",
+      "switchMode": "Switch between Source/Split/Preview modes"
+    }
+  },
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "openFile": "Open file",
+    "saveFile": "Save file",
+    "saveAs": "Save file as",
+    "newFile": "New file",
+    "undo": "Undo",
+    "redo": "Redo",
+    "bold": "Bold",
+    "italic": "Italic",
+    "link": "Insert link"
+  },
+  "file": {
+    "filters": {
+      "markdown": "Markdown",
+      "allFiles": "All Files",
+      "text": "Text",
+      "images": "Images"
+    }
+  },
+  "messages": {
+    "invalidFileType": "Please drop a Markdown file (.md, .markdown, .txt)",
+    "openFileFailed": "Failed to open file",
+    "saveFileFailed": "Failed to save file",
+    "unknownFile": "Unknown file",
+    "fileNotFound": "File not found",
+    "imageCopyFailed": "Failed to copy image",
+    "invalidImage": "Invalid image file"
+  },
+  "language": {
+    "title": "Language",
+    "switchTo": "Switch to {{language}}"
+  }
+}

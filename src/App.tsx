@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useEditorStore } from './stores/editorStore'
 import { Editor } from './components/Editor/Editor'
 import { Toolbar } from './components/Toolbar/Toolbar'
@@ -8,7 +10,15 @@ import { useAutoSave } from './hooks/useAutoSave'
 import './styles/globals.css'
 
 function App() {
-  const { isDarkMode } = useEditorStore()
+  const { t, i18n } = useTranslation()
+  const { isDarkMode, language } = useEditorStore()
+
+  // 同步语言设置
+  useEffect(() => {
+    if (i18n.language !== language) {
+      i18n.changeLanguage(language)
+    }
+  }, [language, i18n])
 
   // 注册全局快捷键
   useKeyboardShortcuts()
@@ -49,8 +59,8 @@ function App() {
                   d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <p className="text-lg font-medium">Drop Markdown file here</p>
-              <p className="text-sm opacity-60 mt-1">.md, .markdown, .txt</p>
+              <p className="text-lg font-medium">{t('app.dropTitle')}</p>
+              <p className="text-sm opacity-60 mt-1">{t('app.dropFileTypes')}</p>
             </div>
           </div>
         )}

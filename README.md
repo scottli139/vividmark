@@ -63,6 +63,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
   ```
 
 ### User Interface
+- **Multi-language support** - English and 简体中文 (Simplified Chinese), easily extensible to more languages
 - **Dark mode** - Toggle between light and dark themes
 - **Sidebar** - Document outline and file statistics
 - **Clean UI** - Minimalist design for focused writing
@@ -74,6 +75,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Backend**: Tauri 2.0 (Rust)
 - **Build Tool**: Vite 7
 - **State Management**: Zustand 5
+- **Internationalization**: i18next + react-i18next
 - **Markdown**: markdown-it with custom plugins
 - **Extended Syntax**: markdown-it-container, plantuml-encoder
 - **Syntax Highlighting**: highlight.js
@@ -161,7 +163,7 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 - [x] Phase 1: Basic framework
 - [x] Phase 2: Core editor
 - [x] Phase 3: File operations
-- [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions, Table editing)
+- [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions, Table editing, Multi-language support)
 - [x] Phase 8: Code standards (ESLint, Prettier, TypeScript strict mode)
 - [x] Phase 9: Testing infrastructure (Vitest, Playwright, CI/CD)
 - [x] Phase 10: Branding (Logo, icons)

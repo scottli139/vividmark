@@ -30,6 +30,7 @@ describe('Toolbar', () => {
       showSidebar: true,
       viewMode: 'source',
       activeBlockId: null,
+      language: 'en',
     })
   })
 
@@ -201,6 +202,40 @@ describe('Toolbar', () => {
       expect(call).toBeTruthy()
 
       dispatchEventSpy.mockRestore()
+    })
+  })
+
+  describe('language switcher', () => {
+    it('should render language selector', () => {
+      render(<Toolbar />)
+
+      const languageSelect = screen.getByTitle('Toggle Dark Mode').previousElementSibling
+      expect(languageSelect).toBeInTheDocument()
+    })
+
+    it('should change language when selecting different option', () => {
+      const changeLanguageSpy = vi.fn()
+      vi.doMock('react-i18next', () => ({
+        useTranslation: () => ({
+          t: (key: string) => key,
+          i18n: {
+            changeLanguage: changeLanguageSpy,
+            language: 'en',
+          },
+        }),
+      }))
+
+      render(<Toolbar />)
+
+      // Get language select element
+      const languageSelect = screen.getByDisplayValue('🇺🇸 English') as HTMLSelectElement
+      expect(languageSelect).toBeInTheDocument()
+
+      // Change language to Chinese
+      fireEvent.change(languageSelect, { target: { value: 'zh-CN' } })
+
+      // Verify store was updated
+      expect(useEditorStore.getState().language).toBe('zh-CN')
     })
   })
 

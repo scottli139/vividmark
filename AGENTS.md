@@ -26,6 +26,7 @@ This document provides essential information for AI coding agents working on the
 | Build Tool | Vite 7.x |
 | Styling | Tailwind CSS 4.x |
 | State Management | Zustand 5.x |
+| Internationalization | i18next + react-i18next |
 | Markdown Parser | markdown-it |
 | Syntax Highlighting | highlight.js |
 | Testing (Unit) | Vitest + React Testing Library |
@@ -218,6 +219,7 @@ setContent('new content')
 
 - `recentFiles`: List of recently opened files
 - `isDarkMode`: Theme preference
+- `language`: UI language preference
 
 ### Non-Persisted State
 
@@ -225,6 +227,87 @@ setContent('new content')
 - `filePath`/`fileName`: Current file info
 - `isDirty`: Unsaved changes flag
 - `viewMode`: Current view mode (edit/preview/split)
+
+## Internationalization (i18n)
+
+The project uses **i18next** + **react-i18next** for internationalization.
+
+### Supported Languages
+
+- `en` - English (default)
+- `zh-CN` - 简体中文 (Simplified Chinese)
+
+### Adding a New Language
+
+1. Create translation file `src/i18n/locales/{lang}.json`
+2. Add language to `src/i18n/index.ts`:
+
+```typescript
+export const availableLanguages = [
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'zh-CN', name: '简体中文', flag: '🇨🇳' },
+  { code: 'your-lang', name: 'Language Name', flag: '🇨🇳' },
+]
+```
+
+3. Import and add to resources:
+
+```typescript
+import yourLang from './locales/your-lang.json'
+
+export const resources = {
+  en: { translation: en },
+  'zh-CN': { translation: zhCN },
+  'your-lang': { translation: yourLang },
+}
+```
+
+### Using Translations in Components
+
+```typescript
+import { useTranslation } from 'react-i18next'
+
+function MyComponent() {
+  const { t } = useTranslation()
+
+  return (
+    <button title={t('toolbar.tooltip.save', { shortcut: 'Cmd+S' })}>
+      {t('toolbar.viewMode.source')}
+    </button>
+  )
+}
+```
+
+### Translation File Structure
+
+```json
+{
+  "toolbar": {
+    "tooltip": {
+      "save": "Save ({{shortcut}})"
+    },
+    "viewMode": {
+      "source": "Source"
+    }
+  },
+  "welcome": {
+    "title": "Welcome to VividMark"
+  }
+}
+```
+
+### Language Switching
+
+Language is persisted in Zustand store and automatically synced with i18next:
+
+```typescript
+const { language, setLanguage } = useEditorStore()
+
+// Change language
+setLanguage('zh-CN')
+```
+
+The `App.tsx` component automatically syncs the store language with i18next on mount.
 
 ## Tauri Commands (Rust Backend)
 

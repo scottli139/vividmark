@@ -1,5 +1,6 @@
 import { useCallback, useState, useEffect, useRef } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { useTranslation } from 'react-i18next'
 import { openFileByPath } from '../lib/fileOps'
 import { useEditorStore } from '../stores/editorStore'
 import { dragDropLogger } from '../lib/logger'
@@ -44,6 +45,7 @@ export function getDragDropMetrics(): DragDropMetrics {
  * 处理将文件拖放到编辑器窗口打开的功能
  */
 export function useFileDragDrop() {
+  const { t } = useTranslation()
   const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     fileName: null,
@@ -77,14 +79,14 @@ export function useFileDragDrop() {
 
       if (!isValidFile) {
         dragDropLogger.warn('Invalid file type:', { fileName, validExtensions })
-        alert('Please drop a Markdown file (.md, .markdown, .txt)')
+        alert(t('messages.invalidFileType'))
         return
       }
 
       // 如果有未保存的更改，询问用户
       if (isDirty) {
         dragDropLogger.debug('Unsaved changes detected, showing confirm dialog')
-        if (!confirm('Discard unsaved changes?')) {
+        if (!confirm(t('dialog.confirmDiscard'))) {
           dragDropLogger.info('User cancelled drop due to unsaved changes')
           return
         }
@@ -114,12 +116,12 @@ export function useFileDragDrop() {
           fileName,
           error: metrics.lastError,
         })
-        alert('Failed to open file')
+        alert(t('messages.openFileFailed'))
       }
 
       dragDropLogger.timeEnd('drop-processing')
     },
-    [isDirty]
+    [isDirty, t]
   )
 
   useEffect(() => {
@@ -184,7 +186,7 @@ export function useFileDragDrop() {
                 enterCount: metrics.dragEnterCount,
               })
               if (payload.paths && payload.paths.length > 0) {
-                const fileName = payload.paths[0].split(/[/\\]/).pop() || 'Unknown file'
+                const fileName = payload.paths[0].split(/[/\\]/).pop() || t('messages.unknownFile')
                 setDragState({
                   isDragging: true,
                   fileName,
@@ -247,7 +249,7 @@ export function useFileDragDrop() {
         dragDropLogger.debug('Drag drop listener removed')
       }
     }
-  }, [handleDrop])
+  }, [handleDrop, t])
 
   return dragState
 }

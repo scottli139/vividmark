@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { openFile, saveFile, saveFileAs, newFile } from '../lib/fileOps'
 import { useEditorStore } from '../stores/editorStore'
 
@@ -21,17 +22,18 @@ interface ShortcutHandler {
  * - Cmd/Ctrl + N: 新建文件
  */
 export function useKeyboardShortcuts() {
+  const { t } = useTranslation()
   const { isDirty } = useEditorStore()
 
   const handleNewFile = useCallback(() => {
     if (isDirty) {
-      if (confirm('Discard unsaved changes?')) {
+      if (confirm(t('dialog.confirmDiscard'))) {
         newFile()
       }
     } else {
       newFile()
     }
-  }, [isDirty])
+  }, [isDirty, t])
 
   // 使用 useMemo 避免每次渲染重新创建数组
   const shortcuts: ShortcutHandler[] = useMemo(
@@ -40,29 +42,29 @@ export function useKeyboardShortcuts() {
         key: 'o',
         metaKey: true,
         handler: openFile,
-        description: 'Open file',
+        description: t('shortcuts.openFile'),
       },
       {
         key: 's',
         metaKey: true,
         handler: saveFile,
-        description: 'Save file',
+        description: t('shortcuts.saveFile'),
       },
       {
         key: 's',
         metaKey: true,
         shiftKey: true,
         handler: saveFileAs,
-        description: 'Save file as',
+        description: t('shortcuts.saveAs'),
       },
       {
         key: 'n',
         metaKey: true,
         handler: handleNewFile,
-        description: 'New file',
+        description: t('shortcuts.newFile'),
       },
     ],
-    [handleNewFile]
+    [handleNewFile, t]
   )
 
   useEffect(() => {

@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useEditorStore } from '../../stores/editorStore'
 import { openFile, saveFile, newFile } from '../../lib/fileOps'
 import { selectLocalImage, createImageMarkdown } from '../../lib/imageUtils'
 import { generateTable } from '../../lib/tableUtils'
 import { TableDialog } from '../TableDialog'
 import type { FormatType } from '../../hooks/useTextFormat'
+import { availableLanguages, type Language } from '../../i18n'
 
 // 格式化按钮组件 - 移到外部避免每次渲染重新创建
 function FormatButton({
@@ -57,6 +59,7 @@ function ActionButton({
 
 export function Toolbar() {
   const [isTableDialogOpen, setIsTableDialogOpen] = useState(false)
+  const { t, i18n } = useTranslation()
 
   const {
     fileName,
@@ -66,9 +69,11 @@ export function Toolbar() {
     viewMode,
     canUndo,
     canRedo,
+    language,
     toggleDarkMode,
     toggleSidebar,
     setViewMode,
+    setLanguage,
   } = useEditorStore()
 
   const handleSave = async () => {
@@ -81,7 +86,7 @@ export function Toolbar() {
 
   const handleNew = () => {
     if (isDirty) {
-      if (confirm('Discard unsaved changes?')) {
+      if (confirm(t('dialog.confirmDiscard'))) {
         newFile()
       }
     } else {
@@ -121,6 +126,15 @@ export function Toolbar() {
     window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: tableMarkdown } }))
   }
 
+  const handleLanguageChange = (lang: Language) => {
+    setLanguage(lang)
+    i18n.changeLanguage(lang)
+  }
+
+  // 检测是否为 Mac
+  const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
+  const cmdKey = isMac ? 'Cmd' : 'Ctrl'
+
   return (
     <div className="h-12 flex items-center justify-between px-4 border-b border-[var(--editor-border)] bg-[var(--toolbar-bg)]">
       {/* 左侧 - 文件操作 */}
@@ -128,7 +142,7 @@ export function Toolbar() {
         <button
           onClick={toggleSidebar}
           className="p-2 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-          title="Toggle Sidebar"
+          title={t('toolbar.tooltip.toggleSidebar')}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -145,7 +159,7 @@ export function Toolbar() {
         <button
           onClick={handleNew}
           className="p-2 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-          title="New File (Cmd+N)"
+          title={t('toolbar.tooltip.newFile', { shortcut: `${cmdKey}+N` })}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -160,7 +174,7 @@ export function Toolbar() {
         <button
           onClick={handleOpen}
           className="p-2 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-          title="Open File (Cmd+O)"
+          title={t('toolbar.tooltip.openFile', { shortcut: `${cmdKey}+O` })}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -175,7 +189,7 @@ export function Toolbar() {
         <button
           onClick={handleSave}
           className="p-2 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-          title="Save (Cmd+S)"
+          title={t('toolbar.tooltip.save', { shortcut: `${cmdKey}+S` })}
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -190,7 +204,11 @@ export function Toolbar() {
         <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
 
         {/* 撤销/重做 */}
-        <ActionButton onClick={handleUndo} title="Undo (Cmd+Z)" disabled={!canUndo}>
+        <ActionButton
+          onClick={handleUndo}
+          title={t('toolbar.tooltip.undo', { shortcut: `${cmdKey}+Z` })}
+          disabled={!canUndo}
+        >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
@@ -200,7 +218,11 @@ export function Toolbar() {
             />
           </svg>
         </ActionButton>
-        <ActionButton onClick={handleRedo} title="Redo (Cmd+Shift+Z)" disabled={!canRedo}>
+        <ActionButton
+          onClick={handleRedo}
+          title={t('toolbar.tooltip.redo', { shortcut: `${cmdKey}+Shift+Z` })}
+          disabled={!canRedo}
+        >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
@@ -215,7 +237,10 @@ export function Toolbar() {
 
         {/* 格式化工具 */}
         <div className="flex items-center gap-0.5">
-          <FormatButton format="bold" title="Bold (Cmd+B)">
+          <FormatButton
+            format="bold"
+            title={t('toolbar.tooltip.bold', { shortcut: `${cmdKey}+B` })}
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -225,7 +250,10 @@ export function Toolbar() {
               />
             </svg>
           </FormatButton>
-          <FormatButton format="italic" title="Italic (Cmd+I)">
+          <FormatButton
+            format="italic"
+            title={t('toolbar.tooltip.italic', { shortcut: `${cmdKey}+I` })}
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -236,7 +264,7 @@ export function Toolbar() {
               />
             </svg>
           </FormatButton>
-          <FormatButton format="strike" title="Strikethrough">
+          <FormatButton format="strike" title={t('toolbar.tooltip.strikethrough')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -247,7 +275,7 @@ export function Toolbar() {
               <line x1="4" y1="12" x2="20" y2="12" strokeWidth={2} />
             </svg>
           </FormatButton>
-          <FormatButton format="code" title="Inline Code">
+          <FormatButton format="code" title={t('toolbar.tooltip.inlineCode')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -257,7 +285,7 @@ export function Toolbar() {
               />
             </svg>
           </FormatButton>
-          <FormatButton format="link" title="Link">
+          <FormatButton format="link" title={t('toolbar.tooltip.link')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -267,17 +295,17 @@ export function Toolbar() {
               />
             </svg>
           </FormatButton>
-          <ActionButton onClick={handleImage} title="Insert Image">
+          <ActionButton onClick={handleImage} title={t('toolbar.tooltip.insertImage')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 z"
               />
             </svg>
           </ActionButton>
-          <ActionButton onClick={handleTable} title="Insert Table">
+          <ActionButton onClick={handleTable} title={t('toolbar.tooltip.insertTable')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               {/* 表格外边框 */}
               <rect x="3" y="4" width="18" height="16" rx="2" strokeWidth={1.5} />
@@ -297,16 +325,16 @@ export function Toolbar() {
 
         {/* 块级格式化 */}
         <div className="flex items-center gap-0.5">
-          <FormatButton format="h1" title="Heading 1">
+          <FormatButton format="h1" title={t('toolbar.tooltip.heading1')}>
             <span className="text-xs font-bold">H1</span>
           </FormatButton>
-          <FormatButton format="h2" title="Heading 2">
+          <FormatButton format="h2" title={t('toolbar.tooltip.heading2')}>
             <span className="text-xs font-bold">H2</span>
           </FormatButton>
-          <FormatButton format="h3" title="Heading 3">
+          <FormatButton format="h3" title={t('toolbar.tooltip.heading3')}>
             <span className="text-xs font-bold">H3</span>
           </FormatButton>
-          <FormatButton format="quote" title="Quote">
+          <FormatButton format="quote" title={t('toolbar.tooltip.quote')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -316,7 +344,7 @@ export function Toolbar() {
               />
             </svg>
           </FormatButton>
-          <FormatButton format="list" title="List">
+          <FormatButton format="list" title={t('toolbar.tooltip.list')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -330,7 +358,7 @@ export function Toolbar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h6" />
             </svg>
           </FormatButton>
-          <FormatButton format="codeblock" title="Code Block">
+          <FormatButton format="codeblock" title={t('toolbar.tooltip.codeBlock')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
@@ -362,7 +390,7 @@ export function Toolbar() {
               : 'hover:bg-[var(--editor-border)]/50'
           }`}
         >
-          Source
+          {t('toolbar.viewMode.source')}
         </button>
         <button
           onClick={() => setViewMode('split')}
@@ -372,7 +400,7 @@ export function Toolbar() {
               : 'hover:bg-[var(--editor-border)]/50'
           }`}
         >
-          Split
+          {t('toolbar.viewMode.split')}
         </button>
         <button
           onClick={() => setViewMode('preview')}
@@ -382,7 +410,7 @@ export function Toolbar() {
               : 'hover:bg-[var(--editor-border)]/50'
           }`}
         >
-          Preview
+          {t('toolbar.viewMode.preview')}
         </button>
       </div>
 
@@ -395,10 +423,24 @@ export function Toolbar() {
 
       {/* 右侧 */}
       <div className="flex items-center gap-2">
+        {/* 语言切换 */}
+        <select
+          value={language}
+          onChange={(e) => handleLanguageChange(e.target.value as Language)}
+          className="text-sm bg-[var(--editor-bg)] border border-[var(--editor-border)] rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color)] cursor-pointer"
+          title={t('language.title')}
+        >
+          {availableLanguages.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.flag} {lang.name}
+            </option>
+          ))}
+        </select>
+
         <button
           onClick={toggleDarkMode}
           className="p-2 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-          title="Toggle Dark Mode"
+          title={t('toolbar.tooltip.toggleDarkMode')}
         >
           {isDarkMode ? (
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

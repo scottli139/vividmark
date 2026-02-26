@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next'
 import { useEditorStore, type RecentFile } from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
 
 export function Sidebar() {
+  const { t } = useTranslation()
   const { showSidebar, content, recentFiles, isDirty, fileName, clearRecentFiles } =
     useEditorStore()
 
@@ -19,19 +21,25 @@ export function Sidebar() {
 
   const handleRecentFileClick = async (file: RecentFile) => {
     if (isDirty) {
-      if (!confirm('Discard unsaved changes?')) {
+      if (!confirm(t('dialog.confirmDiscard'))) {
         return
       }
     }
     await openFileByPath(file.path)
   }
 
+  // 统计字数（支持中英文）
+  const wordCount = content
+    .replace(/\s/g, '')
+    .split('')
+    .filter((c) => /\w|\p{Unified_Ideograph}/u.test(c)).length
+
   return (
     <div className="w-56 border-r border-[var(--editor-border)] bg-[var(--sidebar-bg)] flex flex-col">
       {/* 当前文件 */}
       <div className="p-3 border-b border-[var(--editor-border)]">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Current File
+          {t('sidebar.currentFile')}
         </h3>
         <div className="text-sm truncate flex items-center gap-1">
           <span className="truncate">{fileName}</span>
@@ -43,20 +51,20 @@ export function Sidebar() {
       <div className="p-3 border-b border-[var(--editor-border)]">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Recent Files
+            {t('sidebar.recentFiles')}
           </h3>
           {recentFiles.length > 0 && (
             <button
               onClick={clearRecentFiles}
               className="text-xs text-gray-400 hover:text-gray-600"
-              title="Clear recent files"
+              title={t('sidebar.clearTooltip')}
             >
-              Clear
+              {t('sidebar.clear')}
             </button>
           )}
         </div>
         {recentFiles.length === 0 ? (
-          <div className="text-sm text-gray-400 italic">No recent files</div>
+          <div className="text-sm text-gray-400 italic">{t('sidebar.noRecentFiles')}</div>
         ) : (
           <ul className="space-y-1">
             {recentFiles.slice(0, 5).map((file) => (
@@ -89,10 +97,10 @@ export function Sidebar() {
       {/* 大纲区域 */}
       <div className="p-3 flex-1 overflow-auto">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          Outline
+          {t('sidebar.outline')}
         </h3>
         {headings.length === 0 ? (
-          <div className="text-sm text-gray-400 italic">No headings</div>
+          <div className="text-sm text-gray-400 italic">{t('sidebar.noHeadings')}</div>
         ) : (
           <ul className="space-y-1">
             {headings.map((heading, index) => (
@@ -110,8 +118,12 @@ export function Sidebar() {
 
       {/* 底部统计 */}
       <div className="p-3 border-t border-[var(--editor-border)] text-xs text-gray-500">
-        <div>Words: {content.split(/\s+/).filter(Boolean).length}</div>
-        <div>Chars: {content.length}</div>
+        <div>
+          {t('sidebar.chars')} {wordCount}
+        </div>
+        <div>
+          {t('sidebar.words')} {content.length}
+        </div>
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface TableDialogProps {
   isOpen: boolean
@@ -7,6 +8,7 @@ interface TableDialogProps {
 }
 
 export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
+  const { t } = useTranslation()
   const [rows, setRows] = useState(3)
   const [cols, setCols] = useState(3)
 
@@ -42,19 +44,21 @@ export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
       onKeyDown={handleKeyDown}
     >
       <div className="bg-[var(--editor-bg)] border border-[var(--editor-border)] rounded-lg shadow-xl p-6 w-80">
-        <h3 className="text-lg font-semibold mb-4 text-[var(--text-primary)]">Insert Table</h3>
+        <h3 className="text-lg font-semibold mb-4 text-[var(--text-primary)]">
+          {t('dialog.insertTable')}
+        </h3>
 
         <div className="space-y-4">
           {/* 行数输入 */}
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
-              Rows (excluding header)
+              {t('dialog.rows')}
             </label>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setRows(Math.max(1, rows - 1))}
                 className="w-8 h-8 flex items-center justify-center rounded border border-[var(--editor-border)] hover:bg-[var(--editor-border)]/50 text-[var(--text-primary)]"
-                aria-label="Decrease rows"
+                aria-label={t('dialog.decreaseRows')}
               >
                 -
               </button>
@@ -69,7 +73,7 @@ export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
               <button
                 onClick={() => setRows(Math.min(50, rows + 1))}
                 className="w-8 h-8 flex items-center justify-center rounded border border-[var(--editor-border)] hover:bg-[var(--editor-border)]/50 text-[var(--text-primary)]"
-                aria-label="Increase rows"
+                aria-label={t('dialog.increaseRows')}
               >
                 +
               </button>
@@ -79,13 +83,13 @@ export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
           {/* 列数输入 */}
           <div>
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">
-              Columns
+              {t('dialog.columns')}
             </label>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCols(Math.max(1, cols - 1))}
                 className="w-8 h-8 flex items-center justify-center rounded border border-[var(--editor-border)] hover:bg-[var(--editor-border)]/50 text-[var(--text-primary)]"
-                aria-label="Decrease columns"
+                aria-label={t('dialog.decreaseColumns')}
               >
                 -
               </button>
@@ -100,7 +104,7 @@ export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
               <button
                 onClick={() => setCols(Math.min(20, cols + 1))}
                 className="w-8 h-8 flex items-center justify-center rounded border border-[var(--editor-border)] hover:bg-[var(--editor-border)]/50 text-[var(--text-primary)]"
-                aria-label="Increase columns"
+                aria-label={t('dialog.increaseColumns')}
               >
                 +
               </button>
@@ -110,7 +114,7 @@ export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
           {/* 预览 */}
           <div className="pt-2">
             <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">
-              Preview
+              {t('dialog.preview')}
             </label>
             <div className="bg-[var(--editor-border)]/20 rounded p-3 overflow-x-auto">
               <TablePreview rows={rows} cols={cols} />
@@ -124,13 +128,13 @@ export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
             onClick={onClose}
             className="px-4 py-2 rounded text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--editor-border)]/50 transition-colors"
           >
-            Cancel
+            {t('dialog.cancel')}
           </button>
           <button
             onClick={handleInsert}
             className="px-4 py-2 rounded text-sm font-medium bg-[var(--accent-color)] text-white hover:opacity-90 transition-opacity"
           >
-            Insert
+            {t('dialog.insert')}
           </button>
         </div>
       </div>
@@ -142,6 +146,8 @@ export function TableDialog({ isOpen, onClose, onInsert }: TableDialogProps) {
  * 表格预览组件
  */
 function TablePreview({ rows, cols }: { rows: number; cols: number }) {
+  const { t } = useTranslation()
+
   return (
     <table className="w-full text-xs text-[var(--text-secondary)]">
       <thead>
@@ -151,7 +157,7 @@ function TablePreview({ rows, cols }: { rows: number; cols: number }) {
               key={`h-${i}`}
               className="border border-[var(--editor-border)] p-1 bg-[var(--editor-border)]/30"
             >
-              Col {i + 1}
+              {t('dialog.colHeader', { number: i + 1 })}
             </th>
           ))}
         </tr>

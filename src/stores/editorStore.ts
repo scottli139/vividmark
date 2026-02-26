@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { Language } from '../i18n'
 
 export interface RecentFile {
   path: string
@@ -22,6 +23,7 @@ export interface EditorState {
   showSidebar: boolean
   viewMode: 'source' | 'preview' | 'split'
   activeBlockId: string | null
+  language: Language
 
   // 历史记录状态
   canUndo: boolean
@@ -40,23 +42,59 @@ export interface EditorState {
   setActiveBlockId: (id: string | null) => void
   setCanUndo: (canUndo: boolean) => void
   setCanRedo: (canRedo: boolean) => void
-  resetDocument: () => void
+  setLanguage: (lang: Language) => void
+  resetDocument: (content?: string) => void
 }
 
-const DEFAULT_CONTENT = `# Welcome to VividMark
+// 获取默认内容（根据语言）
+export function getDefaultContent(t: (key: string, options?: Record<string, string>) => string): string {
+  return `# ${t('welcome.title')}
+
+${t('welcome.subtitle')}
+
+## ${t('welcome.features')}
+
+- ${t('welcome.featureList.blockEditing')}
+- ${t('welcome.featureList.syntaxHighlight')}
+- ${t('welcome.featureList.fileOperations')}
+- ${t('welcome.featureList.autoSave')}
+- ${t('welcome.featureList.dragDrop')}
+- ${t('welcome.featureList.darkMode')}
+
+## ${t('welcome.gettingStarted')}
+
+${t('welcome.gettingStartedList.openFile', { shortcut: 'Cmd+O' })}
+${t('welcome.gettingStartedList.newFile', { shortcut: 'Cmd+N' })}
+${t('welcome.gettingStartedList.saveFile', { shortcut: 'Cmd+S' })}
+${t('welcome.gettingStartedList.switchMode')}
+
+> "${t('welcome.quote')}"
+
+\`\`\`javascript
+console.log('Hello, VividMark!');
+\`\`\`
+`}
+
+// 初始默认内容（英语）
+const INITIAL_DEFAULT_CONTENT = `# Welcome to VividMark
 
 A **modern** Markdown editor built with Tauri and React.
 
 ## Features
 
-- Real-time Markdown preview
-- Clean, distraction-free interface
+- Block-level editing with live preview
+- Syntax highlighting for code blocks
+- Native file operations (Open/Save)
+- Auto-save after 2 seconds of inactivity
+- Drag & drop file opening
 - Dark mode support
-- Cross-platform
 
 ## Getting Started
 
-Start typing to see the magic happen!
+- Open an existing file with Cmd+O
+- Create a new file with Cmd+N
+- Save with Cmd+S
+- Switch between Source/Split/Preview modes
 
 > "The best writing tool is the one that gets out of your way."
 
@@ -70,9 +108,10 @@ const MAX_RECENT_FILES = 10
 export const useEditorStore = create<EditorState>()(
   persist(
     (set) => ({
-      content: DEFAULT_CONTENT,
+      content: INITIAL_DEFAULT_CONTENT,
       filePath: null,
       fileName: 'Untitled.md',
+      language: 'en',
       isDirty: false,
       recentFiles: [],
       isDarkMode: false,
@@ -110,9 +149,10 @@ export const useEditorStore = create<EditorState>()(
       setActiveBlockId: (id) => set({ activeBlockId: id }),
       setCanUndo: (canUndo) => set({ canUndo }),
       setCanRedo: (canRedo) => set({ canRedo }),
-      resetDocument: () =>
+      setLanguage: (lang: Language) => set({ language: lang }),
+      resetDocument: (content?: string) =>
         set({
-          content: '',
+          content: content ?? '',
           filePath: null,
           fileName: 'Untitled.md',
           isDirty: false,
@@ -127,6 +167,7 @@ export const useEditorStore = create<EditorState>()(
       partialize: (state) => ({
         recentFiles: state.recentFiles,
         isDarkMode: state.isDarkMode,
+        language: state.language,
       }),
     }
   )

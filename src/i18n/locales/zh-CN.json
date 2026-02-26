@@ -1,0 +1,122 @@
+{
+  "toolbar": {
+    "tooltip": {
+      "toggleSidebar": "切换侧边栏",
+      "newFile": "新建文件 ({{shortcut}})",
+      "openFile": "打开文件 ({{shortcut}})",
+      "save": "保存 ({{shortcut}})",
+      "saveAs": "另存为 ({{shortcut}})",
+      "undo": "撤销 ({{shortcut}})",
+      "redo": "重做 ({{shortcut}})",
+      "bold": "粗体 ({{shortcut}})",
+      "italic": "斜体 ({{shortcut}})",
+      "strikethrough": "删除线",
+      "inlineCode": "行内代码",
+      "link": "链接",
+      "insertImage": "插入图片",
+      "insertTable": "插入表格",
+      "heading1": "一级标题",
+      "heading2": "二级标题",
+      "heading3": "三级标题",
+      "quote": "引用",
+      "list": "无序列表",
+      "orderedList": "有序列表",
+      "codeBlock": "代码块",
+      "toggleDarkMode": "切换深色模式"
+    },
+    "viewMode": {
+      "source": "源码",
+      "split": "分屏",
+      "preview": "预览"
+    }
+  },
+  "sidebar": {
+    "currentFile": "当前文件",
+    "recentFiles": "最近文件",
+    "outline": "大纲",
+    "clear": "清空",
+    "clearTooltip": "清空最近文件",
+    "noRecentFiles": "无最近文件",
+    "noHeadings": "无大纲",
+    "words": "字数：",
+    "chars": "字符：",
+    "stats": "统计"
+  },
+  "dialog": {
+    "confirmDiscard": "放弃未保存的更改？",
+    "confirmDiscardMessage": "您有未保存的更改，确定要放弃吗？",
+    "insertTable": "插入表格",
+    "rows": "行数（不含表头）",
+    "columns": "列数",
+    "decreaseRows": "减少行数",
+    "increaseRows": "增加行数",
+    "decreaseColumns": "减少列数",
+    "increaseColumns": "增加列数",
+    "preview": "预览",
+    "cancel": "取消",
+    "insert": "插入",
+    "colHeader": "列 {{number}}",
+    "confirm": "确认",
+    "close": "关闭"
+  },
+  "app": {
+    "dropTitle": "拖放 Markdown 文件到此处",
+    "dropFileTypes": ".md, .markdown, .txt",
+    "untitled": "未命名.md"
+  },
+  "welcome": {
+    "title": "欢迎使用 VividMark",
+    "subtitle": "基于 Tauri 和 React 构建的**现代化** Markdown 编辑器。",
+    "features": "功能特性",
+    "gettingStarted": "开始使用",
+    "hint": "开始输入，体验神奇的写作之旅！",
+    "quote": "最好的写作工具是那种让你感觉不到它存在的工具。",
+    "featureList": {
+      "blockEditing": "块级编辑与实时预览",
+      "syntaxHighlight": "代码块语法高亮",
+      "fileOperations": "原生文件操作（打开/保存）",
+      "autoSave": "2 秒无操作自动保存",
+      "dragDrop": "拖拽打开文件",
+      "darkMode": "深色模式支持"
+    },
+    "gettingStartedList": {
+      "openFile": "使用 {{shortcut}} 打开现有文件",
+      "newFile": "使用 {{shortcut}} 创建新文件",
+      "saveFile": "使用 {{shortcut}} 保存文件",
+      "switchMode": "在源码/分屏/预览模式间切换"
+    }
+  },
+  "shortcuts": {
+    "title": "快捷键",
+    "openFile": "打开文件",
+    "saveFile": "保存文件",
+    "saveAs": "另存为",
+    "newFile": "新建文件",
+    "undo": "撤销",
+    "redo": "重做",
+    "bold": "粗体",
+    "italic": "斜体",
+    "link": "插入链接"
+  },
+  "file": {
+    "filters": {
+      "markdown": "Markdown",
+      "allFiles": "所有文件",
+      "text": "文本",
+      "images": "图片"
+    }
+  },
+  "messages": {
+    "invalidFileType": "请拖放 Markdown 文件（.md, .markdown, .txt）",
+    "openFileFailed": "打开文件失败",
+    "saveFileFailed": "保存文件失败",
+    "unknownFile": "未知文件",
+    "fileNotFound": "文件不存在",
+    "imageCopyFailed": "复制图片失败",
+    "invalidImage": "无效的图片文件"
+  },
+  "language": {
+    "title": "语言",
+    "switchTo": "切换到 {{language}}"
+  }
+}
