@@ -57,11 +57,11 @@ const md = new MarkdownIt({
 })
 
 // 自定义图片渲染规则
-const defaultRender = md.renderer.rules.image || function(tokens, idx, options, env, self) {
+const defaultRender = md.renderer.rules.image || function(tokens, idx, options, _env, self) {
   return self.renderToken(tokens, idx, options)
 }
 
-md.renderer.rules.image = function(tokens, idx, options, env, self) {
+md.renderer.rules.image = function(tokens, idx, options, _env, self) {
   const token = tokens[idx]
   const srcIndex = token.attrIndex('src')
   
@@ -70,7 +70,7 @@ md.renderer.rules.image = function(tokens, idx, options, env, self) {
     token.attrs![srcIndex][1] = convertImageSrc(src)
   }
   
-  return defaultRender(tokens, idx, options, env, self)
+  return defaultRender(tokens, idx, options, _env, self)
 }
 
 // 缓存已转换的图片

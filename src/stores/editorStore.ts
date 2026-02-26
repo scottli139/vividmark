@@ -36,7 +36,7 @@ export interface EditorState {
   clearRecentFiles: () => void
   toggleDarkMode: () => void
   toggleSidebar: () => void
-  setViewMode: (mode: 'edit' | 'preview' | 'split') => void
+  setViewMode: (mode: 'source' | 'preview' | 'split') => void
   setActiveBlockId: (id: string | null) => void
   setCanUndo: (canUndo: boolean) => void
   setCanRedo: (canRedo: boolean) => void
