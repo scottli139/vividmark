@@ -17,6 +17,57 @@ This document provides essential information for AI coding agents working on the
 - Recent files list
 - Formatting toolbar (Bold, Italic, Headings, Lists, etc.)
 
+## 当前任务看板 📋
+
+> 快速了解项目当前状态，详细计划见 [`PLAN.md`](./PLAN.md)
+
+### 🚧 当前迭代（进行中）
+
+| 优先级 | 任务 | 状态 | 备注 |
+|--------|------|------|------|
+| P1 | 数学公式 (KaTeX) | ⏳ 待开始 | Phase 4 剩余任务 |
+| P1 | 任务列表 (Checkbox) | ⏳ 待开始 | Phase 4 剩余任务 |
+| P2 | WYSIWYG 模式 | ⏳ 待开始 | 像 Typora 直接编辑 |
+
+### 📅 待办队列
+
+| 优先级 | 任务 | 阶段 | 预估工时 |
+|--------|------|------|---------|
+| P1 | 侧边栏文件树 | Phase 5 | 2-3 天 |
+| P1 | 文件夹打开 | Phase 5 | 1-2 天 |
+| P1 | 多标签页 | Phase 5 | 2-3 天 |
+| P2 | 文件变更监控 | Phase 5 | 1-2 天 |
+| P2 | 导出 PDF/HTML/Word | Phase 6 | 3-5 天 |
+| P2 | 搜索与替换 | Phase 6 | 2-3 天 |
+| P2 | 偏好设置面板 | Phase 7 | 2-3 天 |
+
+### 🔄 工程优化
+
+| 优先级 | 任务 | 状态 | 备注 |
+|--------|------|------|------|
+| P2 | E2E 测试增强 | ⏳ 待开始 | 完整用户流程 |
+| P2 | 大文件性能优化 | ⏳ 待开始 | Phase 7 |
+| P3 | Split 同步滚动优化 | 📋 规划中 | 智能同步算法 |
+| P3 | PlantUML 本地渲染 | 📋 规划中 | 离线支持 |
+
+### ⏸️ 暂停/待启动
+
+| 任务 | 文档 | 预计工期 | 阻塞原因 |
+|------|------|---------|---------|
+| **Typst 离线支持** | [`docs/typst-offline-plan.md`](./docs/typst-offline-plan.md) | 2-3 周 | 等待当前重要任务完成 |
+
+### ✅ 近期已完成
+
+- ~~多语言支持 (i18n)~~ ✅ 2026-03
+- ~~大纲视图点击跳转~~ ✅ 2026-03
+- ~~表格编辑~~ ✅ 2026-03
+- ~~撤销/重做修复~~ ✅ 2026-03
+- ~~图片插入与预览~~ ✅ 2026-03
+- ~~日志与诊断系统~~ ✅ 2026-03
+- ~~CI/CD 自动化测试~~ ✅ 2026-03
+
+---
+
 ## Technology Stack
 
 | Category | Technology |
@@ -910,6 +961,78 @@ playwright-report
 .env
 .env.local
 ```
+
+---
+
+## Future Plans / 待办任务
+
+### Typst 离线支持 (Pending)
+
+> **详细任务计划**: [`docs/typst-offline-plan.md`](./docs/typst-offline-plan.md)（含 9 个 Phase 的完整清单）
+
+**状态**: ⏸️ 待当前重要任务完成后启动  
+**创建时间**: 2026-03-02  
+**预计工期**: 2-3 周（完整功能）/ 1 周（MVP）
+
+#### 需求背景
+为 VividMark 添加 Typst 渲染支持，确保用户在离线/弱网环境下也能正常使用。
+
+#### 技术方案
+- 使用 `@myriaddreamin/typst.ts` 提供 JavaScript API
+- WASM 文件本地打包（compiler + renderer，约 5MB）
+- 字体文件本地打包（最小集约 1MB，含中文字体约 15-20MB）
+- Tauri 资源目录托管，零外部 CDN 依赖
+
+#### 任务进展追踪
+
+| Phase | 任务 | 状态 | 产出物 |
+|-------|------|------|--------|
+| P1 | 调研与准备 | ⏸️ 未开始 | 技术选型、字体清单 |
+| P2 | 资源准备 | ⏸️ 未开始 | WASM/字体文件、下载脚本 |
+| P3 | 前端集成 | ⏸️ 未开始 | `init.ts`、WASM 加载器 |
+| P4 | 解析器集成 | ⏸️ 未开始 | `parser.ts` Typst 支持 |
+| P5 | UI/UX | ⏸️ 未开始 | 样式、Loading 组件 |
+| P6 | 系统字体支持 | ⏸️ 未开始 | Rust 字体扫描 API |
+| P7 | 中文支持 | ⏸️ 未开始 | Noto CJK 或系统字体方案 |
+| P8 | 测试与优化 | ⏸️ 未开始 | 单元测试、离线验证 |
+| P9 | 文档与发布 | ⏸️ 未开始 | README、CHANGELOG |
+
+**当前阻塞**: 等待当前重要任务完成  
+**下一步行动**: 启动 Phase 1 调研
+
+#### 实现要点
+```typescript
+// WASM 本地加载配置
+$typst.setCompilerInitOptions({
+  getModule: () => '/typst/typst_ts_web_compiler_bg.wasm',
+  getFontAssets: () => ['/typst/fonts/']
+})
+
+// 代码块渲染
+if (lang === 'typst') {
+  const svg = await $typst.svg({ mainContent: code })
+  return `<div class="typst-render">${svg}</div>`
+}
+```
+
+#### 资源清单
+| 资源 | 大小 | 许可 |
+|------|------|------|
+| typst_ts_web_compiler_bg.wasm | ~3MB | Apache-2.0 |
+| typst_ts_renderer_bg.wasm | ~2MB | Apache-2.0 |
+| New Computer Modern (字体) | ~750KB | OFL 1.1 |
+| Libertinus (字体) | ~300KB | OFL 1.1 |
+| Noto Sans CJK (可选中文) | ~15MB | OFL 1.1 |
+
+#### 待决策事项
+| # | 问题 | 建议方案 |
+|---|------|---------|
+| 1 | 中文支持策略 | 先使用系统字体，后续可选打包 |
+| 2 | WASM 加载时机 | 懒加载（首次使用 Typst 时） |
+| 3 | 字体回退 | 宽松回退（用户体验优先） |
+| 4 | 缓存策略 | 从内存缓存开始 |
+
+---
 
 ### 最佳实践
 
