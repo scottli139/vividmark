@@ -113,7 +113,7 @@ admonitionTypes.forEach((type) => {
 })
 
 // 自定义图片渲染规则
-const defaultRender =
+const defaultImageRender =
   md.renderer.rules.image ||
   function (tokens, idx, options, _env, self) {
     return self.renderToken(tokens, idx, options)
@@ -128,7 +128,113 @@ md.renderer.rules.image = function (tokens, idx, options, _env, self) {
     token.attrs![srcIndex][1] = convertImageSrc(src)
   }
 
-  return defaultRender(tokens, idx, options, _env, self)
+  return defaultImageRender(tokens, idx, options, _env, self)
+}
+
+// ==================== 任务列表 (Task Lists) 支持 ====================
+// GitHub Flavored Markdown 任务列表语法: - [ ] 和 - [x]
+
+// 任务列表正则表达式 - 匹配行首的任务列表语法
+const TASK_LIST_REGEX = /^(\s*)([-*])\s+\[([\sxX])\]\s+(.*)$/
+
+// 全局任务索引计数器，用于给每个 checkbox 唯一标识
+let globalTaskIndex = 0
+
+// 重置任务索引（在每次渲染前调用）
+function resetTaskIndex(): void {
+  globalTaskIndex = 0
+}
+
+// 在渲染前预处理任务列表 - 将任务列表语法转换为特殊标记
+// 关键：只替换开头的任务标记部分，保留后面的 Markdown 内容不变
+// 这样后面的内容可以被正常解析为 Markdown
+function preprocessTaskLists(content: string): string {
+  const lines = content.split('\n')
+
+  return lines
+    .map((line) => {
+      const match = line.match(TASK_LIST_REGEX)
+      if (match) {
+        const indent = match[1]
+        const marker = match[2]
+        const isChecked = match[3].toLowerCase() === 'x'
+        const text = match[4]
+
+        // 使用特殊标记替换 [ ] 或 [x]，保留后面的文本内容不变
+        // 格式: [[TASK:index:status]] - 这样易于在后处理中识别
+        const status = isChecked ? 'checked' : 'unchecked'
+        const taskIdx = globalTaskIndex++
+        return `${indent}${marker} [[TASK:${taskIdx}:${status}]] ${text}`
+      }
+      return line
+    })
+    .join('\n')
+}
+
+/**
+ * 后处理任务列表 HTML
+ * 将特殊标记替换为 checkbox 元素
+ */
+function postprocessTaskLists(html: string): string {
+  // 首先处理嵌套在 <p> 中的情况（markdown-it 有时会这样做）
+  // 格式: <li>\n<p>[[TASK:0:checked]] 任务文本</p>\n</li>
+  html = html.replace(
+    /<li([^>]*)>\s*<p>\[\[TASK:(\d+):(\w+)\]\]\s*([\s\S]*?)<\/p>\s*<\/li>/g,
+    (match, attrs, taskIndex, status, content) => {
+      return createTaskListItemHtml(attrs, taskIndex, status, content)
+    }
+  )
+
+  // 处理普通情况
+  // 格式: <li>\n[[TASK:0:checked]] 任务文本\n</li>
+  html = html.replace(
+    /<li([^>]*)>\s*\[\[TASK:(\d+):(\w+)\]\]\s*([\s\S]*?)<\/li>/g,
+    (match, attrs, taskIndex, status, content) => {
+      return createTaskListItemHtml(attrs, taskIndex, status, content)
+    }
+  )
+
+  return html
+}
+
+/**
+ * 创建任务列表项 HTML
+ */
+function createTaskListItemHtml(
+  attrs: string,
+  taskIndex: string,
+  status: string,
+  content: string
+): string {
+  const isChecked = status === 'checked'
+  const checkboxId = `task-checkbox-${taskIndex}`
+
+  // 添加任务列表类名
+  const trimmedAttrs = attrs.trim()
+  const classMatch = trimmedAttrs.match(/class="([^"]*)"/)
+  let newAttrs: string
+
+  if (classMatch) {
+    // 已有 class 属性，追加
+    const existingClass = classMatch[1]
+    newAttrs = trimmedAttrs.replace(
+      /class="([^"]*)"/,
+      `class="${existingClass} task-list-item"`
+    )
+  } else if (trimmedAttrs) {
+    // 有其他属性但没有 class，添加 class
+    newAttrs = `${trimmedAttrs} class="task-list-item"`
+  } else {
+    // 没有任何属性
+    newAttrs = ' class="task-list-item"'
+  }
+
+  // 生成 checkbox HTML - 注意：unchecked 时不输出 checked 属性
+  const checkedAttr = isChecked ? ' checked' : ''
+  const checkboxHtml = `<input type="checkbox" id="${checkboxId}" class="task-checkbox"${checkedAttr} data-task-index="${taskIndex}" />`
+
+  // 将内容包装在 span 中，防止 flex 布局把子元素分散
+  return `<li${newAttrs} data-task-index="${taskIndex}" data-task-status="${status}">${checkboxHtml}<span class="task-content">${content}</span></li>`
 }
 
 // 缓存已转换的图片
@@ -312,10 +418,22 @@ export function parseMarkdown(content: string): string {
   // 如果需要图片支持，请使用 parseMarkdownAsync
   // 如果需要 baseDir 支持，可以在未来添加
 
-  // 预处理 PlantUML 行内语法
-  const processedContent = preprocessPlantUML(content)
+  // 重置任务索引
+  resetTaskIndex()
 
-  return md.render(processedContent)
+  // 预处理任务列表语法
+  const contentWithTasks = preprocessTaskLists(content)
+
+  // 预处理 PlantUML 行内语法
+  const processedContent = preprocessPlantUML(contentWithTasks)
+
+  // 渲染 markdown
+  let html = md.render(processedContent)
+
+  // 后处理任务列表（替换标记为 checkbox）
+  html = postprocessTaskLists(html)
+
+  return html
 }
 
 /**
@@ -324,10 +442,23 @@ export function parseMarkdown(content: string): string {
  * @param baseDir 可选的基础目录，用于解析相对路径
  */
 export async function parseMarkdownAsync(content: string, baseDir?: string): Promise<string> {
-  const processedContent = await preprocessImages(content, baseDir)
+  // 重置任务索引
+  resetTaskIndex()
+
+  // 预处理任务列表语法
+  const contentWithTasks = preprocessTaskLists(content)
+
+  const processedContent = await preprocessImages(contentWithTasks, baseDir)
   // 预处理 PlantUML 行内语法
   const contentWithPlantUML = preprocessPlantUML(processedContent)
-  return md.render(contentWithPlantUML)
+
+  // 渲染 markdown
+  let html = md.render(contentWithPlantUML)
+
+  // 后处理任务列表（替换标记为 checkbox）
+  html = postprocessTaskLists(html)
+
+  return html
 }
 
 // 获取纯文本摘要

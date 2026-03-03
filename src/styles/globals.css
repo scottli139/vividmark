@@ -533,6 +533,105 @@ body {
   --admonition-color: #3fb950;
 }
 
+/* ==================== 任务列表 (Task Lists) ==================== */
+
+.markdown-body ul {
+  list-style-type: disc;
+}
+
+.markdown-body ul:has(.task-list-item) {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.markdown-body ul:has(.task-list-item) ul {
+  list-style-type: disc;
+  padding-left: 2em;
+}
+
+.markdown-body ul:has(.task-list-item) ul:has(.task-list-item) {
+  list-style-type: none;
+  padding-left: 1.5em;
+}
+
+.task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+  list-style-type: none !important;
+}
+
+.task-list-item::before {
+  display: none !important;
+}
+
+.task-checkbox {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  cursor: pointer;
+  appearance: none;
+  border: 2px solid var(--editor-border, #d1d5db);
+  border-radius: 3px;
+  background-color: var(--editor-bg, #ffffff);
+  transition: all 0.15s ease;
+  position: relative;
+}
+
+.task-checkbox:checked {
+  background-color: var(--accent-color, #0066cc);
+  border-color: var(--accent-color, #0066cc);
+}
+
+.task-checkbox:checked::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0px;
+  width: 4px;
+  height: 9px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.task-checkbox:hover:not(:checked) {
+  border-color: var(--accent-color, #0066cc);
+}
+
+.task-checkbox:focus {
+  outline: 2px solid var(--accent-color, #0066cc);
+  outline-offset: 1px;
+}
+
+.task-content {
+  flex: 1;
+  margin: 0;
+}
+
+/* 深色模式适配 */
+.dark .task-checkbox {
+  border-color: var(--editor-border, #4b5563);
+  background-color: var(--editor-bg, #1f2937);
+}
+
+.dark .task-checkbox:checked {
+  background-color: var(--accent-color, #4da6ff);
+  border-color: var(--accent-color, #4da6ff);
+}
+
+.dark .task-checkbox:hover:not(:checked) {
+  border-color: var(--accent-color, #4da6ff);
+}
+
+/* 嵌套任务列表 */
+.task-list-item ul,
+.task-list-item ol {
+  margin-top: 4px;
+}
+
 /* ==================== PlantUML 图表 ==================== */
 
 .plantuml-diagram {

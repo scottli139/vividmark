@@ -508,3 +508,109 @@ Alice -> Bob: Async
     expect(result).toContain('plantuml.com/plantuml/svg')
   })
 })
+
+describe('parseMarkdown - Task Lists', () => {
+  it('should render unchecked task item', () => {
+    const markdown = '- [ ] Unchecked task'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<li')
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('<input type="checkbox"')
+    expect(result).toContain('<span class="task-content">')
+    expect(result).toContain('Unchecked task')
+    // 检查 checkbox 没有 checked 属性（但可能包含 data-task-status="unchecked"）
+    const checkboxMatch = result.match(/<input[^>]*type="checkbox"[^>]*>/)
+    expect(checkboxMatch).toBeTruthy()
+    expect(checkboxMatch![0]).not.toContain('checked')
+  })
+
+  it('should render checked task item with [x]', () => {
+    const markdown = '- [x] Checked task'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('<input type="checkbox"')
+    expect(result).toContain('checked')
+    expect(result).toContain('<span class="task-content">')
+    expect(result).toContain('Checked task')
+  })
+
+  it('should render checked task item with [X]', () => {
+    const markdown = '- [X] Checked task with capital X'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('checked')
+    expect(result).toContain('<span class="task-content">')
+    expect(result).toContain('Checked task with capital X')
+  })
+
+  it('should render multiple task items', () => {
+    const markdown = `- [ ] Task 1
+- [x] Task 2
+- [ ] Task 3`
+    const result = parseMarkdown(markdown)
+    expect(result.match(/task-list-item/g)?.length).toBe(3)
+    expect(result.match(/<input[^>]*type="checkbox"/g)?.length).toBe(3)
+  })
+
+  it('should render task list with asterisk marker', () => {
+    const markdown = '* [ ] Asterisk task'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('<span class="task-content">')
+    expect(result).toContain('Asterisk task')
+  })
+
+  it('should render mixed normal and task list items', () => {
+    const markdown = `- Normal item
+- [ ] Task item
+- Another normal`
+    const result = parseMarkdown(markdown)
+    // 应该有一个任务列表项
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('<span class="task-content">')
+    // 普通列表项不应该有 task-list-item 类
+    expect(result).toContain('Normal item')
+    expect(result).toContain('Another normal')
+    expect(result).toContain('Task item')
+  })
+
+  it('should add data-task-index attribute', () => {
+    const markdown = '- [ ] First task'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('data-task-index="0"')
+    expect(result).toContain('<span class="task-content">')
+  })
+
+  it('should handle task items with markdown formatting', () => {
+    const markdown = '- [ ] Task with **bold** text'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('<span class="task-content">')
+    expect(result).toContain('<strong>bold</strong>')
+  })
+
+  it('should handle task items with links', () => {
+    const markdown = '- [ ] Task with [link](https://example.com)'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('<span class="task-content">')
+    expect(result).toContain('<a href="https://example.com">')
+  })
+
+  it('should handle empty task description', () => {
+    const markdown = '- [ ] '
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('class="task-list-item"')
+    expect(result).toContain('<span class="task-content">')
+    expect(result).toContain('<input type="checkbox"')
+  })
+
+  it('should not treat regular brackets as task list', () => {
+    const markdown = '- [not a task] Regular item'
+    const result = parseMarkdown(markdown)
+    // 不应该被识别为任务列表项
+    expect(result).not.toContain('task-list-item')
+    expect(result).not.toContain('task-checkbox')
+    expect(result).toContain('[not a task]')
+  })
+})

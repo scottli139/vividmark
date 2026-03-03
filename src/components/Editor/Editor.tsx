@@ -327,6 +327,63 @@ export function Editor() {
     }
   }, [viewMode])
 
+  // ==================== 任务列表 (Checkbox) 点击处理 ====================
+  // 处理预览区域的 checkbox 点击事件
+  const handlePreviewClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
+
+      // 检查点击的是否是任务列表的 checkbox
+      if (target.classList.contains('task-checkbox')) {
+        const checkbox = target as HTMLInputElement
+        const taskIndex = parseInt(checkbox.getAttribute('data-task-index') || '-1', 10)
+
+        if (taskIndex >= 0) {
+          e.preventDefault()
+
+          // 查找对应位置的 checkbox 并切换状态
+          toggleTaskCheckbox(taskIndex, !checkbox.checked)
+        }
+      }
+    },
+    [localContent]
+  )
+
+  // 切换指定索引的任务 checkbox 状态
+  const toggleTaskCheckbox = useCallback(
+    (taskIndex: number, newChecked: boolean) => {
+      const content = localContent
+      const lines = content.split('\n')
+      let currentTaskIndex = 0
+
+      // 遍历所有行，找到对应索引的任务列表项
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]
+        // 匹配任务列表语法: - [ ] 或 - [x]
+        const taskMatch = line.match(/^(\s*)([-*])\s+\[([\sxX])\]\s+(.*)$/)
+
+        if (taskMatch) {
+          if (currentTaskIndex === taskIndex) {
+            // 找到目标行，切换状态
+            const indent = taskMatch[1]
+            const marker = taskMatch[2]
+            const text = taskMatch[4]
+            const newStatus = newChecked ? 'x' : ' '
+
+            lines[i] = `${indent}${marker} [${newStatus}] ${text}`
+
+            // 更新内容
+            const newContent = lines.join('\n')
+            handleContentChange(newContent)
+            return
+          }
+          currentTaskIndex++
+        }
+      }
+    },
+    [localContent, handleContentChange]
+  )
+
   // Source 模式：纯源码编辑
   if (viewMode === 'source') {
     return (
@@ -353,6 +410,7 @@ export function Editor() {
         <div
           className="markdown-body min-h-full p-8"
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
+          onClick={handlePreviewClick}
         />
       </div>
     )
@@ -386,6 +444,7 @@ export function Editor() {
         <div
           className="markdown-body min-h-full p-8"
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
+          onClick={handlePreviewClick}
         />
       </div>
     </div>

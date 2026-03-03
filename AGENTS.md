@@ -26,7 +26,7 @@ This document provides essential information for AI coding agents working on the
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
 | P1 | 数学公式 (KaTeX) | ⏳ 待开始 | Phase 4 剩余任务 |
-| P1 | 任务列表 (Checkbox) | ⏳ 待开始 | Phase 4 剩余任务 |
+| P1 | **任务列表 (Checkbox)** | ✅ 已完成 | 支持 `- [ ]` 和 `- [x]` 语法，可点击切换 |
 | P2 | WYSIWYG 模式 | ⏳ 待开始 | 像 Typora 直接编辑 |
 
 ### 📅 待办队列
