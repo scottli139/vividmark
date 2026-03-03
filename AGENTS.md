@@ -721,6 +721,55 @@ Before committing:
    - `AGENTS.md` - Technical knowledge base
 
 
+### 任务列表 (Checkbox) 实现
+
+**Markdown 语法:**
+```markdown
+- [ ] 未完成任务
+- [x] 已完成任务
+* [ ] 支持星号标记
+```
+
+**实现要点:**
+
+1. **预处理器 (preprocessTaskLists)**
+   - 使用正则 `/^(\s*)([-*])\s+\[([\sxX])\]\s+(.*)$/` 匹配任务列表
+   - 将 `[ ]` 或 `[x]` 替换为特殊标记 `[[TASK:index:status]]`
+   - 保留后续内容不变，以便 markdown-it 正常解析 Markdown
+
+2. **后处理器 (postprocessTaskLists)**
+   - 将 `[[TASK:index:status]]` 替换为 checkbox HTML
+   - 处理两种格式:
+     - `<li><p>[[TASK:...]]</p></li>` (markdown-it 自动包裹 p 标签)
+     - `<li>[[TASK:...]]</li>` (普通情况)
+   - 生成带有 `data-task-index` 属性的 checkbox，用于交互
+
+3. **HTML 结构**
+   ```html
+   <li class="task-list-item" data-task-index="0" data-task-status="unchecked">
+     <input type="checkbox" class="task-checkbox" data-task-index="0" />
+     <span class="task-content">任务文本（支持 <strong>粗体</strong>、<a href="...">链接</a>）</span>
+   </li>
+   ```
+
+4. **CSS 关键样式**
+   - `display: flex` 布局让 checkbox 和文本对齐
+   - **重要**: 内容必须包装在 `<span class="task-content">` 中，避免 flex 把子元素分散
+   - 自定义 checkbox 样式，支持深色模式
+
+5. **交互实现 (Editor.tsx)**
+   - 监听预览区域的点击事件
+   - 点击 checkbox 时，根据 `data-task-index` 找到对应的 Markdown 行
+   - 切换 `- [ ]` ↔ `- [x]`，更新文档内容
+   - 与历史记录系统集成，支持撤销/重做
+
+**注意事项:**
+- 任务列表与普通列表混用时，只有任务列表项有 `task-list-item` 类
+- 全局 `globalTaskIndex` 用于给每个 checkbox 唯一标识
+- 每次渲染前调用 `resetTaskIndex()` 重置计数器
+
+---
+
 ### GitHub Release 发布流程
 
 **版本号管理:**
