@@ -180,7 +180,7 @@ function postprocessTaskLists(html: string): string {
   // 格式: <li>\n<p>[[TASK:0:checked]] 任务文本</p>\n</li>
   html = html.replace(
     /<li([^>]*)>\s*<p>\[\[TASK:(\d+):(\w+)\]\]\s*([\s\S]*?)<\/p>\s*<\/li>/g,
-    (match, attrs, taskIndex, status, content) => {
+    (_match, attrs, taskIndex, status, content) => {
       return createTaskListItemHtml(attrs, taskIndex, status, content)
     }
   )
@@ -189,7 +189,7 @@ function postprocessTaskLists(html: string): string {
   // 格式: <li>\n[[TASK:0:checked]] 任务文本\n</li>
   html = html.replace(
     /<li([^>]*)>\s*\[\[TASK:(\d+):(\w+)\]\]\s*([\s\S]*?)<\/li>/g,
-    (match, attrs, taskIndex, status, content) => {
+    (_match, attrs, taskIndex, status, content) => {
       return createTaskListItemHtml(attrs, taskIndex, status, content)
     }
   )
