@@ -32,7 +32,7 @@ jobs:
           version: 10
 
       - name: Install Rust stable
-        uses: dtolnay/rust-action@stable
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install dependencies (Ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -42,9 +42,6 @@ jobs:
 
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Install Tauri CLI
-        run: pnpm add -D @tauri-apps/cli
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
