@@ -58,6 +58,7 @@ This document provides essential information for AI coding agents working on the
 
 ### ✅ 近期已完成
 
+- ~~外部链接系统浏览器打开~~ ✅ 2026-03
 - ~~多语言支持 (i18n)~~ ✅ 2026-03
 - ~~大纲视图点击跳转~~ ✅ 2026-03
 - ~~表格编辑~~ ✅ 2026-03
@@ -767,6 +768,68 @@ Before committing:
 - 任务列表与普通列表混用时，只有任务列表项有 `task-list-item` 类
 - 全局 `globalTaskIndex` 用于给每个 checkbox 唯一标识
 - 每次渲染前调用 `resetTaskIndex()` 重置计数器
+
+---
+
+### 外部链接打开（系统浏览器）
+
+**需求:** 点击 Markdown 中的链接时，使用系统默认浏览器打开，而不是在 VividMark 窗口内打开。
+
+**实现方案:**
+
+1. **依赖安装**
+   ```bash
+   pnpm add @tauri-apps/plugin-shell
+   ```
+
+2. **Rust 后端配置**
+   - `src-tauri/Cargo.toml` 添加依赖:
+     ```toml
+     tauri-plugin-shell = "2"
+     ```
+   - `src-tauri/src/lib.rs` 初始化插件:
+     ```rust
+     .plugin(tauri_plugin_shell::init())
+     ```
+   - `src-tauri/capabilities/default.json` 添加权限:
+     ```json
+     "permissions": [
+       "shell:default"
+     ]
+     ```
+
+3. **前端实现 (Editor.tsx)**
+   ```typescript
+   import { open } from '@tauri-apps/plugin-shell'
+   
+   // 在预览区域点击事件处理中
+   const handlePreviewClick = useCallback(async (e: React.MouseEvent) => {
+     const target = e.target as HTMLElement
+     
+     // 检查点击的是否是链接（或链接内的元素）
+     const linkElement = target.closest('a[href]') as HTMLAnchorElement | null
+     if (linkElement) {
+       const href = linkElement.getAttribute('href')
+       if (href) {
+         // 阻止默认行为（在应用内打开）
+         e.preventDefault()
+         
+         // 使用系统浏览器打开外部链接
+         try {
+           await open(href)
+         } catch (error) {
+           console.error('Failed to open external link:', error)
+         }
+       }
+       return
+     }
+   }, [])
+   ```
+
+**关键点:**
+- 使用 `target.closest('a[href]')` 捕获点击链接的事件（包括点击链接内的元素）
+- **必须**调用 `e.preventDefault()` 阻止默认的导航行为
+- 权限配置 `shell:default` 是关键，缺少会导致功能无法工作
 
 ---
 
