@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  # 当推送到以 'v' 开头的标签时触发 (如 v0.1.0)
+  push:
+    tags:
+      - 'v*'
+  # 允许手动触发
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如: 0.1.0)'
+        required: true
+        default: '0.1.0'
+      draft:
+        description: '是否创建为草稿 Release'
+        type: boolean
+        required: true
+        default: true
+      prerelease:
+        description: '是否标记为预发布'
+        type: boolean
+        required: true
+        default: false
+
+jobs:
+  # 构建阶段 - 多平台并行构建
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS Intel
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+            arch: 'x86_64'
+          # macOS Apple Silicon
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+            arch: 'aarch64'
+          # Windows
+          - platform: 'windows-latest'
+            args: ''
+            arch: 'x64'
+          # Linux
+          - platform: 'ubuntu-22.04'
+            args: ''
+            arch: 'x64'
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-action@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'VividMark ${{ github.ref_name }}'
+          releaseBody: |
+            ## VividMark ${{ github.ref_name }}
+
+            ### 下载
+            请根据您的操作系统选择对应的安装包：
+
+            | 平台 | 文件 | 说明 |
+            |------|------|------|
+            | macOS (Apple Silicon) | `VividMark_*_aarch64.dmg` | M1/M2/M3 Mac |
+            | macOS (Intel) | `VividMark_*_x86_64.dmg` | Intel Mac |
+            | Windows | `VividMark_*_x64-setup.exe` | Windows 10/11 |
+            | Linux | `VividMark_*_amd64.deb` / `.AppImage` | Debian/Ubuntu |
+
+            ### 安装说明
+            - **macOS**: 下载 `.dmg` 文件，双击打开并拖拽到 Applications 文件夹
+            - **Windows**: 下载 `.exe` 文件，双击运行安装程序
+            - **Linux**: 下载 `.deb` (Debian/Ubuntu) 或 `.AppImage` (通用)
+
+            ### 校验
+            下载文件后，建议校验 SHA256 校验和以确保文件完整性。
+          releaseDraft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+          args: ${{ matrix.args }}
+
+  # 更新最新版本标签（可选）
+  update-latest:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update latest tag
+        if: ${{ !github.event.inputs.prerelease }}
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@github.com"
+          git tag -f latest
+          git push -f origin latest

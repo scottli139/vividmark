@@ -833,6 +833,55 @@ Before committing:
 
 ---
 
+### GitHub Actions 自动构建与发布
+
+**工作流文件:** `.github/workflows/release.yml`
+
+**功能:**
+- 推送 `v*` 标签时自动触发构建
+- 支持手动触发（带参数）
+- 多平台并行构建：
+  - macOS Intel (x86_64)
+  - macOS Apple Silicon (aarch64)
+  - Windows (x64)
+  - Linux (x64, deb + AppImage)
+- 自动上传到 GitHub Releases
+
+**触发方式:**
+
+1. **标签推送触发:**
+   ```bash
+   git tag v0.1.1
+   git push origin v0.1.1
+   ```
+
+2. **手动触发:**
+   - 进入 GitHub Actions 页面
+   - 选择 "Release" 工作流
+   - 点击 "Run workflow"
+   - 输入版本号和选项
+
+**构建产物:**
+
+| 平台 | 产物 |
+|------|------|
+| macOS Intel | `VividMark_*_x86_64.dmg` |
+| macOS Apple Silicon | `VividMark_*_aarch64.dmg` |
+| Windows | `VividMark_*_x64-setup.exe` |
+| Linux | `VividMark_*_amd64.deb` / `.AppImage` |
+
+**必需的 Secrets:**
+- `GITHUB_TOKEN`: 自动生成，无需配置
+- `TAURI_SIGNING_PRIVATE_KEY` (可选): 用于应用签名
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (可选): 签名密钥密码
+
+**注意事项:**
+- macOS 构建需要配置代码签名才能在发布时通过 Gatekeeper
+- Windows 构建需要配置证书签名以避免 SmartScreen 警告
+- Linux 构建使用 `ubuntu-22.04` 以确保兼容性
+
+---
+
 ### GitHub Release 发布流程
 
 **版本号管理:**
