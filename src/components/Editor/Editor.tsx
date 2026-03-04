@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { open } from '@tauri-apps/plugin-shell'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdownAsync } from '../../lib/markdown/parser'
 import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
@@ -328,27 +329,6 @@ export function Editor() {
   }, [viewMode])
 
   // ==================== 任务列表 (Checkbox) 点击处理 ====================
-  // 处理预览区域的 checkbox 点击事件
-  const handlePreviewClick = useCallback(
-    (e: React.MouseEvent) => {
-      const target = e.target as HTMLElement
-
-      // 检查点击的是否是任务列表的 checkbox
-      if (target.classList.contains('task-checkbox')) {
-        const checkbox = target as HTMLInputElement
-        const taskIndex = parseInt(checkbox.getAttribute('data-task-index') || '-1', 10)
-
-        if (taskIndex >= 0) {
-          e.preventDefault()
-
-          // 查找对应位置的 checkbox 并切换状态
-          toggleTaskCheckbox(taskIndex, !checkbox.checked)
-        }
-      }
-    },
-    [localContent]
-  )
-
   // 切换指定索引的任务 checkbox 状态
   const toggleTaskCheckbox = useCallback(
     (taskIndex: number, newChecked: boolean) => {
@@ -382,6 +362,44 @@ export function Editor() {
       }
     },
     [localContent, handleContentChange]
+  )
+
+  // 处理预览区域的 checkbox 点击事件和链接点击事件
+  const handlePreviewClick = useCallback(
+    async (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
+
+      // 检查点击的是否是任务列表的 checkbox
+      if (target.classList.contains('task-checkbox')) {
+        const checkbox = target as HTMLInputElement
+        const taskIndex = parseInt(checkbox.getAttribute('data-task-index') || '-1', 10)
+
+        if (taskIndex >= 0) {
+          e.preventDefault()
+          toggleTaskCheckbox(taskIndex, !checkbox.checked)
+        }
+        return
+      }
+
+      // 检查点击的是否是链接（或链接内的元素）
+      const linkElement = target.closest('a[href]') as HTMLAnchorElement | null
+      if (linkElement) {
+        const href = linkElement.getAttribute('href')
+        if (href) {
+          // 阻止默认行为（在应用内打开）
+          e.preventDefault()
+
+          // 使用系统浏览器打开外部链接
+          try {
+            await open(href)
+          } catch (error) {
+            console.error('Failed to open external link:', error)
+          }
+        }
+        return
+      }
+    },
+    [localContent, toggleTaskCheckbox]
   )
 
   // Source 模式：纯源码编辑
