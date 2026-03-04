@@ -839,10 +839,9 @@ Before committing:
 
 **功能:**
 - 推送 `v*` 标签时自动触发构建
-- 支持手动触发（带参数）
+- 支持手动触发
 - 多平台并行构建：
-  - macOS Intel (x86_64)
-  - macOS Apple Silicon (aarch64)
+  - macOS (Universal Binary - Intel & Apple Silicon)
   - Windows (x64)
   - Linux (x64, deb + AppImage)
 - 自动上传到 GitHub Releases
@@ -859,26 +858,75 @@ Before committing:
    - 进入 GitHub Actions 页面
    - 选择 "Release" 工作流
    - 点击 "Run workflow"
-   - 输入版本号和选项
+
+**工作流配置要点:**
+
+```yaml
+jobs:
+  build:
+    strategy:
+      matrix:
+        platform: [macos-latest, ubuntu-22.04, windows-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: dtolnay/rust-toolchain@stable  # 注意：不是 rust-action
+      - name: Install dependencies (Ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: pnpm install --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
 
 **构建产物:**
 
 | 平台 | 产物 |
 |------|------|
-| macOS Intel | `VividMark_*_x86_64.dmg` |
-| macOS Apple Silicon | `VividMark_*_aarch64.dmg` |
+| macOS | `VividMark_*.dmg` |
 | Windows | `VividMark_*_x64-setup.exe` |
 | Linux | `VividMark_*_amd64.deb` / `.AppImage` |
 
+**常见问题及解决:**
+
+1. **Rust toolchain action 找不到** (`dtolnay/rust-action`)
+   - 正确名称是 `dtolnay/rust-toolchain@stable`
+
+2. **TypeScript 编译错误** (`TS6133: 'match' is declared but its value is never read`)
+   - CI 环境使用严格模式，未使用变量需要加下划线前缀 `_match`
+
+3. **macOS "应用已损坏" 提示**
+   - 原因：没有代码签名，被 Gatekeeper 拦截
+   - 解决：
+     ```bash
+     # 移除隔离属性
+     xattr -rd com.apple.quarantine /Applications/VividMark.app
+     ```
+   - 或在 系统设置 → 隐私与安全性 → 仍要打开
+
 **必需的 Secrets:**
 - `GITHUB_TOKEN`: 自动生成，无需配置
-- `TAURI_SIGNING_PRIVATE_KEY` (可选): 用于应用签名
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (可选): 签名密钥密码
+
+**可选 Secrets (用于代码签名):**
+- `APPLE_CERTIFICATE`: Apple 开发者证书 (Base64)
+- `APPLE_CERTIFICATE_PASSWORD`: 证书密码
+- `APPLE_SIGNING_IDENTITY`: 签名身份
+- `APPLE_ID`: Apple ID (用于公证)
+- `APPLE_PASSWORD`: Apple ID 应用专用密码
 
 **注意事项:**
-- macOS 构建需要配置代码签名才能在发布时通过 Gatekeeper
-- Windows 构建需要配置证书签名以避免 SmartScreen 警告
-- Linux 构建使用 `ubuntu-22.04` 以确保兼容性
+- macOS 未签名应用需要通过命令行或系统设置绕过 Gatekeeper
+- Windows 未签名应用会显示 SmartScreen 警告
+- Linux 无需签名，但 `.deb` 包需要管理员权限安装
 
 ---
 

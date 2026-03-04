@@ -124,8 +124,8 @@ eslint.config.js # ESLint flat config
   - [x] 自动运行 TypeScript 类型检查
   - [x] 自动运行 ESLint + Prettier 检查
   - [x] 自动运行单元测试 (Vitest)
-  - [x] 自动构建多平台版本 ✅ (配置完成)
-  - [x] 自动发布 Release ✅ (配置完成)
+  - [x] 自动构建多平台版本 ✅ (已验证)
+  - [x] 自动发布 Release ✅ (已验证)
 
 **测试策略：**
 - 单元测试：hooks, utils, store
