@@ -13,13 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - platform: macos-latest
-            args: ''
-          - platform: ubuntu-22.04
-            args: ''
-          - platform: windows-latest
-            args: ''
+        platform: [macos-latest, ubuntu-22.04, windows-latest]
 
     runs-on: ${{ matrix.platform }}
 
@@ -49,6 +43,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install Tauri CLI
+        run: pnpm add -D @tauri-apps/cli
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -60,17 +57,10 @@ jobs:
             ## VividMark ${{ github.ref_name }}
 
             ### 下载
-            请根据您的操作系统选择对应的安装包：
-
-            | 平台 | 文件 | 说明 |
-            |------|------|------|
-            | macOS | `VividMark_*.dmg` | Universal (Intel & Apple Silicon) |
-            | Windows | `VividMark_*_x64-setup.exe` | Windows 10/11 |
-            | Linux | `VividMark_*_amd64.deb` / `.AppImage` | Debian/Ubuntu |
-
-            ### 安装说明
-            - **macOS**: 下载 `.dmg` 文件，双击打开并拖拽到 Applications 文件夹
-            - **Windows**: 下载 `.exe` 文件，双击运行安装程序
-            - **Linux**: 下载 `.deb` (Debian/Ubuntu) 或 `.AppImage` (通用)
+            | 平台 | 文件 |
+            |------|------|
+            | macOS | `VividMark_*.dmg` |
+            | Windows | `VividMark_*_x64-setup.exe` |
+            | Linux | `VividMark_*_amd64.deb` / `.AppImage` |
           releaseDraft: true
           prerelease: false
