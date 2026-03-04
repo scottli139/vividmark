@@ -1,53 +1,25 @@
 name: Release
 
 on:
-  # 当推送到以 'v' 开头的标签时触发 (如 v0.1.0)
   push:
     tags:
       - 'v*'
-  # 允许手动触发
   workflow_dispatch:
-    inputs:
-      version:
-        description: '版本号 (如: 0.1.0)'
-        required: true
-        default: '0.1.0'
-      draft:
-        description: '是否创建为草稿 Release'
-        type: boolean
-        required: true
-        default: true
-      prerelease:
-        description: '是否标记为预发布'
-        type: boolean
-        required: true
-        default: false
 
 jobs:
-  # 构建阶段 - 多平台并行构建
   build:
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, ubuntu-22.04, windows-latest]
         include:
-          # macOS Intel
           - platform: macos-latest
-            args: '--target x86_64-apple-darwin'
-            arch: x86_64
-            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
-          # Ubuntu
+            args: ''
           - platform: ubuntu-22.04
             args: ''
-            arch: x64
-            rust-targets: ''
-          # Windows
           - platform: windows-latest
             args: ''
-            arch: x64
-            rust-targets: ''
 
     runs-on: ${{ matrix.platform }}
 
@@ -67,8 +39,6 @@ jobs:
 
       - name: Install Rust stable
         uses: dtolnay/rust-action@stable
-        with:
-          targets: ${{ matrix.rust-targets }}
 
       - name: Install dependencies (Ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
@@ -94,7 +64,7 @@ jobs:
 
             | 平台 | 文件 | 说明 |
             |------|------|------|
-            | macOS | `VividMark_*.dmg` | Intel & Apple Silicon |
+            | macOS | `VividMark_*.dmg` | Universal (Intel & Apple Silicon) |
             | Windows | `VividMark_*_x64-setup.exe` | Windows 10/11 |
             | Linux | `VividMark_*_amd64.deb` / `.AppImage` | Debian/Ubuntu |
 
@@ -104,4 +74,3 @@ jobs:
             - **Linux**: 下载 `.deb` (Debian/Ubuntu) 或 `.AppImage` (通用)
           releaseDraft: true
           prerelease: false
-          args: ${{ matrix.args }}
