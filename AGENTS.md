@@ -64,6 +64,7 @@ This document provides essential information for AI coding agents working on the
 - ~~表格编辑~~ ✅ 2026-03
 - ~~撤销/重做修复~~ ✅ 2026-03
 - ~~图片插入与预览~~ ✅ 2026-03
+- ~~图片路径 Windows 兼容性~~ ✅ 2026-03
 - ~~日志与诊断系统~~ ✅ 2026-03
 - ~~CI/CD 自动化测试~~ ✅ 2026-03
 
@@ -578,6 +579,40 @@ function preprocessPlantUML(content: string): string {
 ```
 
 **Note:** Currently uses PlantUML online service. Offline rendering requires additional setup.
+
+### Windows 路径处理
+
+**问题背景:**
+Windows 系统使用 `\` 作为路径分隔符，而 Unix/macOS 使用 `/`。在处理跨平台文件路径时，需要统一处理两种分隔符，否则会导致路径解析错误。
+
+**涉及场景:**
+1. **图片插入** - 计算相对路径时（`src/lib/imageUtils.ts`）
+2. **Markdown 渲染** - 解析相对路径为绝对路径时（`src/lib/markdown/parser.ts`）
+3. **baseDir 计算** - 从文件路径提取目录时（`src/components/Editor/Editor.tsx`）
+
+**解决方案:**
+统一将路径转换为 POSIX 风格（使用 `/`）后再进行处理：
+
+```typescript
+// 统一转换为 POSIX 风格路径
+const normalizedPath = windowsPath.replace(/\\/g, '/')
+
+// 处理路径分隔符（支持 Windows 和 Unix）
+const lastSlash = filePath.lastIndexOf('/')
+const lastBackslash = filePath.lastIndexOf('\\')
+const separatorIndex = Math.max(lastSlash, lastBackslash)
+```
+
+**关键函数:**
+- `getRelativePath()` - 计算相对路径（imageUtils.ts）
+- `resolveRelativePath()` - 解析相对路径为绝对路径（parser.ts）
+- Editor.tsx 中的 baseDir 计算
+
+**注意事项:**
+- Windows 绝对路径如 `C:\Users\...` 转换后仍为 `C:/Users/...`，Tauri API 可以正常处理
+- 相对路径中的 `../` 和 `./` 在转换后保持一致
+
+---
 
 ### Outline Navigation (大纲视图点击跳转)
 
