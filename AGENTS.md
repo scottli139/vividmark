@@ -29,12 +29,18 @@ This document provides essential information for AI coding agents working on the
 | P1 | **任务列表 (Checkbox)** | ✅ 已完成 | 支持 `- [ ]` 和 `- [x]` 语法，可点击切换，工具栏按钮 |
 | P2 | WYSIWYG 模式 | ⏳ 待开始 | 像 Typora 直接编辑 |
 
+### ✅ 本次迭代已完成
+
+| 任务 | 说明 |
+|------|------|
+| **侧边栏文件树** | 支持打开文件夹、递归展开、Markdown 文件过滤、可拖拽调整宽度 |
+
 ### 📅 待办队列
 
 | 优先级 | 任务 | 阶段 | 预估工时 |
 |--------|------|------|---------|
-| P1 | 侧边栏文件树 | Phase 5 | 2-3 天 |
-| P1 | 文件夹打开 | Phase 5 | 1-2 天 |
+| ~~P1 | ~~侧边栏文件树~~ | ~~Phase 5~~ | ~~2-3 天~~ | ✅ 已完成 |
+| ~~P1 | ~~文件夹打开~~ | ~~Phase 5~~ | ~~1-2 天~~ | ✅ 已完成 |
 | P1 | 多标签页 | Phase 5 | 2-3 天 |
 | P2 | 文件变更监控 | Phase 5 | 1-2 天 |
 | P2 | 导出 PDF/HTML/Word | Phase 6 | 3-5 天 |
@@ -58,6 +64,8 @@ This document provides essential information for AI coding agents working on the
 
 ### ✅ 近期已完成
 
+- ~~侧边栏文件树~~ ✅ 2026-03 - 支持打开文件夹、递归展开、Markdown 文件过滤、可拖拽调整宽度
+- ~~文件夹打开~~ ✅ 2026-03 - 集成到文件树功能中
 - ~~外部链接系统浏览器打开~~ ✅ 2026-03
 - ~~多语言支持 (i18n)~~ ✅ 2026-03
 - ~~大纲视图点击跳转~~ ✅ 2026-03
@@ -1307,6 +1315,98 @@ if (lang === 'typst') {
 | 2 | WASM 加载时机 | 懒加载（首次使用 Typst 时） |
 | 3 | 字体回退 | 宽松回退（用户体验优先） |
 | 4 | 缓存策略 | 从内存缓存开始 |
+
+---
+
+### 最佳实践
+
+1. **项目初始化时就配置好 `.gitignore`**
+2. **定期检查** `git status` 确保没有遗漏
+3. **提交前审查** `git diff --cached --name-only`
+4. **已提交的大文件** 使用 `git filter-branch` 或 BFG Repo-Cleaner 清理历史
+5. **敏感信息泄露** 立即轮换密钥，清理历史，启用 secret scanning
+
+---
+
+### 侧边栏文件树实现
+
+**文件结构:**
+```
+src/
+├── components/FileTree/
+│   ├── FileTree.tsx        # 文件树主组件
+│   ├── FileTreeItem.tsx    # 单个文件/文件夹项
+│   └── index.ts
+├── hooks/useResizable.ts   # 可拖拽调整宽度 hook
+└── lib/fileTreeUtils.ts    # 文件树工具函数
+
+src-tauri/src/lib.rs        # Rust 后端 read_directory 命令
+```
+
+**关键技术点:**
+
+1. **Rust 后端类型映射**
+   ```rust
+   #[derive(Debug, Clone, Serialize, Deserialize)]
+   pub struct FileTreeItem {
+       pub name: String,
+       pub path: String,
+       #[serde(rename = "isDirectory")]  // 重要：驼峰命名映射
+       pub is_directory: bool,
+       pub children: Option<Vec<FileTreeItem>>,
+   }
+   ```
+
+2. **递归展开所有子目录**
+   ```typescript
+   const setAllExpanded = (items: FileTreeItem[], expanded: boolean): FileTreeItem[] => {
+     return items.map((item) => ({
+       ...item,
+       isExpanded: item.isDirectory ? expanded : undefined,
+       children: item.children ? setAllExpanded(item.children, expanded) : undefined,
+     }))
+   }
+   ```
+
+3. **Markdown 文件过滤**
+   ```typescript
+   export function filterMarkdownFiles(items: FileTreeItem[]): FileTreeItem[] {
+     return items
+       .filter((item) => {
+         if (item.isDirectory) return true
+         return item.name.endsWith('.md') || 
+                item.name.endsWith('.markdown') || 
+                item.name.endsWith('.txt')
+       })
+       .map((item) => ({
+         ...item,
+         children: item.children ? filterMarkdownFiles(item.children) : undefined,
+       }))
+   }
+   ```
+
+4. **可拖拽调整宽度 Hook**
+   ```typescript
+   export function useResizable({
+     initialWidth,
+     minWidth = 200,
+     maxWidth = 500,
+     onResize,
+   }: UseResizableOptions)
+   ```
+
+**界面元素:**
+- 标签页切换（大纲 / 文件树）
+- 文件夹标题栏（显示文件夹名 + 关闭按钮）
+- 文件项（展开/折叠指示器 + 文件图标 + 文件名）
+- 拖拽 handle（右侧边缘，hover 显示）
+
+**默认行为:**
+- 默认只显示 Markdown/txt 文件和文件夹（`showMarkdownOnly = true`）
+- 所有文件夹默认展开
+- 点击文件夹切换展开/折叠
+- 点击文件打开（有未保存更改时确认）
+- 当前打开的文件高亮显示
 
 ---
 
