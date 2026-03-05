@@ -217,10 +217,7 @@ function createTaskListItemHtml(
   if (classMatch) {
     // 已有 class 属性，追加
     const existingClass = classMatch[1]
-    newAttrs = trimmedAttrs.replace(
-      /class="([^"]*)"/,
-      `class="${existingClass} task-list-item"`
-    )
+    newAttrs = trimmedAttrs.replace(/class="([^"]*)"/, `class="${existingClass} task-list-item"`)
   } else if (trimmedAttrs) {
     // 有其他属性但没有 class，添加 class
     newAttrs = `${trimmedAttrs} class="task-list-item"`
