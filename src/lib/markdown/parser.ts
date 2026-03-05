@@ -297,12 +297,16 @@ async function convertImageToBase64(imagePath: string): Promise<string> {
  * 解析相对路径为绝对路径
  */
 function resolveRelativePath(relativePath: string, baseDir: string): string {
-  if (relativePath.startsWith('./')) {
-    return `${baseDir}/${relativePath.slice(2)}`
-  } else if (relativePath.startsWith('../')) {
+  // 统一转换为 POSIX 风格路径（处理 Windows 路径）
+  const normalizedBase = baseDir.replace(/\\/g, '/')
+  const normalizedRelative = relativePath.replace(/\\/g, '/')
+
+  if (normalizedRelative.startsWith('./')) {
+    return `${normalizedBase}/${normalizedRelative.slice(2)}`
+  } else if (normalizedRelative.startsWith('../')) {
     // 处理上级目录
-    const parts = baseDir.split('/')
-    const relativeParts = relativePath.split('/')
+    const parts = normalizedBase.split('/').filter((p) => p.length > 0)
+    const relativeParts = normalizedRelative.split('/')
     let upCount = 0
     for (const part of relativeParts) {
       if (part === '..') {
@@ -313,9 +317,11 @@ function resolveRelativePath(relativePath: string, baseDir: string): string {
     }
     const newBase = parts.slice(0, parts.length - upCount).join('/')
     const remaining = relativeParts.slice(upCount).join('/')
-    return `${newBase}/${remaining}`
+    // 保留 Windows 盘符（如果有）
+    const prefix = normalizedBase.startsWith('/') ? '/' : ''
+    return `${prefix}${newBase}/${remaining}`
   }
-  return `${baseDir}/${relativePath}`
+  return `${normalizedBase}/${normalizedRelative}`
 }
 
 /**

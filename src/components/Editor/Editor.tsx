@@ -284,8 +284,15 @@ export function Editor() {
     let cancelled = false
 
     const render = async () => {
-      // 提取文档目录作为 baseDir
-      const baseDir = filePath ? filePath.substring(0, filePath.lastIndexOf('/')) : undefined
+      // 提取文档目录作为 baseDir（支持 Windows 和 Unix 路径）
+      let baseDir: string | undefined
+      if (filePath) {
+        // 处理 Windows 路径(\)和 Unix 路径(/)
+        const lastSlash = filePath.lastIndexOf('/')
+        const lastBackslash = filePath.lastIndexOf('\\')
+        const separatorIndex = Math.max(lastSlash, lastBackslash)
+        baseDir = separatorIndex > 0 ? filePath.substring(0, separatorIndex) : undefined
+      }
       const html = await parseMarkdownAsync(localContent, baseDir)
 
       if (!cancelled) {
