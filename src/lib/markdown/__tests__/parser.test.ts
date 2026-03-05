@@ -521,7 +521,8 @@ describe('parseMarkdown - Task Lists', () => {
     // 检查 checkbox 没有 checked 属性（但可能包含 data-task-status="unchecked"）
     const checkboxMatch = result.match(/<input[^>]*type="checkbox"[^>]*>/)
     expect(checkboxMatch).toBeTruthy()
-    expect(checkboxMatch![0]).not.toContain('checked')
+    // 精确检查：不是 data-task-status 中的 checked，而是 checked 属性
+    expect(checkboxMatch![0]).not.toMatch(/\schecked[\s>]/) // 匹配 " checked" 或 "checked>"，但不匹配 data-task-status="unchecked"
   })
 
   it('should render checked task item with [x]', () => {

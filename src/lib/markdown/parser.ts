@@ -231,7 +231,7 @@ function createTaskListItemHtml(
 
   // 生成 checkbox HTML - 注意：unchecked 时不输出 checked 属性
   const checkedAttr = isChecked ? ' checked' : ''
-  const checkboxHtml = `<input type="checkbox" id="${checkboxId}" class="task-checkbox"${checkedAttr} data-task-index="${taskIndex}" />`
+  const checkboxHtml = `<input type="checkbox" id="${checkboxId}" class="task-checkbox"${checkedAttr} data-task-index="${taskIndex}" data-task-status="${status}" />`
 
   // 将内容包装在 span 中，防止 flex 布局把子元素分散
   return `<li${newAttrs} data-task-index="${taskIndex}" data-task-status="${status}">${checkboxHtml}<span class="task-content">${content}</span></li>`

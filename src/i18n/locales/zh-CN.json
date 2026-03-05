@@ -20,6 +20,7 @@
       "heading3": "三级标题",
       "quote": "引用",
       "list": "无序列表",
+      "tasklist": "任务列表",
       "orderedList": "有序列表",
       "codeBlock": "代码块",
       "toggleDarkMode": "切换深色模式"

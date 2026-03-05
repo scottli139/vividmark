@@ -300,6 +300,21 @@ export function Editor() {
     }
   }, [localContent, filePath])
 
+  // HTML 更新后同步 checkbox 状态（解决 dangerouslySetInnerHTML 与浏览器状态的冲突）
+  useEffect(() => {
+    if (previewContainerRef.current) {
+      const checkboxes = previewContainerRef.current.querySelectorAll('.task-checkbox')
+      checkboxes.forEach((checkbox) => {
+        const el = checkbox as HTMLInputElement
+        const status = el.getAttribute('data-task-status')
+        const shouldBeChecked = status === 'checked'
+        if (el.checked !== shouldBeChecked) {
+          el.checked = shouldBeChecked
+        }
+      })
+    }
+  }, [renderedHtml])
+
   // 监听大纲点击事件 - 滚动到对应标题
   useEffect(() => {
     const handleScrollToHeading = (
@@ -373,10 +388,14 @@ export function Editor() {
       if (target.classList.contains('task-checkbox')) {
         const checkbox = target as HTMLInputElement
         const taskIndex = parseInt(checkbox.getAttribute('data-task-index') || '-1', 10)
+        const currentStatus = checkbox.getAttribute('data-task-status')
 
         if (taskIndex >= 0) {
           e.preventDefault()
-          toggleTaskCheckbox(taskIndex, !checkbox.checked)
+          // 使用 data-task-status 来判断当前状态，而不是 checkbox.checked
+          // 因为浏览器会在 click 事件触发前自动切换 checkbox 的 checked 属性
+          const isChecked = currentStatus === 'checked'
+          toggleTaskCheckbox(taskIndex, !isChecked)
         }
         return
       }
@@ -399,7 +418,7 @@ export function Editor() {
         return
       }
     },
-    [localContent, toggleTaskCheckbox]
+    [toggleTaskCheckbox]
   )
 
   // Source 模式：纯源码编辑

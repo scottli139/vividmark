@@ -203,6 +203,25 @@ describe('Toolbar', () => {
 
       dispatchEventSpy.mockRestore()
     })
+
+    it('should dispatch editor-format event with tasklist format', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Toolbar />)
+
+      // Use getByTitle with the translation key since i18n is mocked
+      const tasklistButton = screen.getByTitle('toolbar.tooltip.tasklist')
+      fireEvent.click(tasklistButton)
+
+      expect(dispatchEventSpy).toHaveBeenCalled()
+      const call = dispatchEventSpy.mock.calls.find((call) => {
+        const event = call[0] as CustomEvent
+        return event.type === 'editor-format' && event.detail?.format === 'tasklist'
+      })
+      expect(call).toBeTruthy()
+
+      dispatchEventSpy.mockRestore()
+    })
   })
 
   describe('language switcher', () => {

@@ -359,6 +359,15 @@ export function Toolbar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h6" />
             </svg>
           </FormatButton>
+          <FormatButton format="tasklist" title={t('toolbar.tooltip.tasklist')}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {/* 复选框图标 */}
+              <rect x="3" y="5" width="4" height="4" rx="1" strokeWidth={2} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 7h10" />
+              <rect x="3" y="12" width="4" height="4" rx="1" strokeWidth={2} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 14h10" />
+            </svg>
+          </FormatButton>
           <FormatButton format="codeblock" title={t('toolbar.tooltip.codeBlock')}>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path

@@ -26,7 +26,7 @@ This document provides essential information for AI coding agents working on the
 | 优先级 | 任务 | 状态 | 备注 |
 |--------|------|------|------|
 | P1 | 数学公式 (KaTeX) | ⏳ 待开始 | Phase 4 剩余任务 |
-| P1 | **任务列表 (Checkbox)** | ✅ 已完成 | 支持 `- [ ]` 和 `- [x]` 语法，可点击切换 |
+| P1 | **任务列表 (Checkbox)** | ✅ 已完成 | 支持 `- [ ]` 和 `- [x]` 语法，可点击切换，工具栏按钮 |
 | P2 | WYSIWYG 模式 | ⏳ 待开始 | 像 Typora 直接编辑 |
 
 ### 📅 待办队列
@@ -748,7 +748,7 @@ Before committing:
 3. **HTML 结构**
    ```html
    <li class="task-list-item" data-task-index="0" data-task-status="unchecked">
-     <input type="checkbox" class="task-checkbox" data-task-index="0" />
+     <input type="checkbox" class="task-checkbox" data-task-index="0" data-task-status="unchecked" />
      <span class="task-content">任务文本（支持 <strong>粗体</strong>、<a href="...">链接</a>）</span>
    </li>
    ```
@@ -764,10 +764,42 @@ Before committing:
    - 切换 `- [ ]` ↔ `- [x]`，更新文档内容
    - 与历史记录系统集成，支持撤销/重做
 
+6. **关键修复：dangerouslySetInnerHTML 状态同步**
+   
+   **问题**: 使用 `dangerouslySetInnerHTML` 时，浏览器会在 click 事件触发前自动改变 checkbox 的 `checked` 属性，导致状态判断错误。
+   
+   **解决方案**:
+   - 使用 `data-task-status` 属性判断状态，而不是 `checkbox.checked`
+   - HTML 更新后，使用 `useEffect` 手动同步 checkbox 的 DOM 状态
+   
+   ```typescript
+   // HTML 更新后同步 checkbox 状态
+   useEffect(() => {
+     if (previewContainerRef.current) {
+       const checkboxes = previewContainerRef.current.querySelectorAll('.task-checkbox')
+       checkboxes.forEach((checkbox) => {
+         const el = checkbox as HTMLInputElement
+         const status = el.getAttribute('data-task-status')
+         const shouldBeChecked = status === 'checked'
+         if (el.checked !== shouldBeChecked) {
+           el.checked = shouldBeChecked
+         }
+       })
+     }
+   }, [renderedHtml])
+   ```
+
+7. **工具栏按钮**
+   - 在 Toolbar 添加任务列表按钮（位于无序列表按钮旁边）
+   - 使用 `FormatButton` 组件，format 类型为 `'tasklist'`
+   - 在 `useTextFormat.ts` 中添加配置：`tasklist: { prefix: '- [ ] ', suffix: '' }`
+   - 点击后在当前光标位置插入 `- [ ] `（未勾选的任务列表项）
+
 **注意事项:**
 - 任务列表与普通列表混用时，只有任务列表项有 `task-list-item` 类
 - 全局 `globalTaskIndex` 用于给每个 checkbox 唯一标识
 - 每次渲染前调用 `resetTaskIndex()` 重置计数器
+- **重要**: checkbox 和 li 都必须有 `data-task-status` 属性，点击处理时使用 checkbox 上的属性判断状态
 
 ---
 

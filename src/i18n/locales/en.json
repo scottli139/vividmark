@@ -20,6 +20,7 @@
       "heading3": "Heading 3",
       "quote": "Quote",
       "list": "List",
+      "tasklist": "Task List",
       "orderedList": "Ordered List",
       "codeBlock": "Code Block",
       "toggleDarkMode": "Toggle Dark Mode"

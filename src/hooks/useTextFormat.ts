@@ -12,6 +12,7 @@ export type FormatType =
   | 'h3'
   | 'quote'
   | 'list'
+  | 'tasklist'
   | 'codeblock'
 
 interface FormatConfig {
@@ -32,6 +33,7 @@ const FORMAT_CONFIGS: Record<FormatType, FormatConfig> = {
   h3: { prefix: '### ', suffix: '' },
   quote: { prefix: '> ', suffix: '' },
   list: { prefix: '- ', suffix: '' },
+  tasklist: { prefix: '- [ ] ', suffix: '' },
   codeblock: { prefix: '```\n', suffix: '\n```', placeholder: 'code here' },
 }
 
