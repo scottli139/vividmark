@@ -65,7 +65,8 @@
 - [x] **多语言支持** ✅ - 支持简体中文和英语（可扩展）
 - [ ] 数学公式 (KaTeX)
 - [x] **任务列表 (Checkbox)** ✅ - 支持 `- [ ]` 和 `- [x]` 语法，可点击切换状态，工具栏新增任务列表按钮
-- [ ] WYSIWYG 模式 (像 Typora 一样直接编辑渲染内容)
+- [x] **WYSIWYG 模式 Phase 1** ✅ - 四模式架构完成（WYSIWYG/Source/Preview/Split），默认 WYSIWYG
+- [ ] WYSIWYG 模式 Phase 2 - 双向同步核心（Markdown ↔ HTML）
 
 ### Phase 5: 文件管理 ⏳ (进行中)
 
@@ -303,6 +304,7 @@ vividmark/
 5. ~~**Phase 4.1: 撤销/重做**~~ ✅
 6. ~~**Phase 4.2: 图片插入与预览**~~ ✅
 7. ~~**Phase 5.1: 侧边栏文件树**~~ ✅ (支持打开文件夹、递归展开、Markdown 过滤、可拖拽宽度)
+8. ~~**Phase 4.3: WYSIWYG 模式 Phase 1**~~ ✅ (四模式架构，默认 WYSIWYG)
 
 ### 功能开发 (下一迭代)
 

@@ -26,6 +26,7 @@
       "toggleDarkMode": "切换深色模式"
     },
     "viewMode": {
+      "wysiwyg": "编辑",
       "source": "源码",
       "split": "分屏",
       "preview": "预览"
@@ -92,7 +93,7 @@
       "openFile": "使用 {{shortcut}} 打开现有文件",
       "newFile": "使用 {{shortcut}} 创建新文件",
       "saveFile": "使用 {{shortcut}} 保存文件",
-      "switchMode": "在源码/分屏/预览模式间切换"
+      "switchMode": "在编辑/源码/分屏/预览模式间切换"
     }
   },
   "shortcuts": {

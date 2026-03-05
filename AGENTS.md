@@ -27,7 +27,7 @@ This document provides essential information for AI coding agents working on the
 |--------|------|------|------|
 | P1 | 数学公式 (KaTeX) | ⏳ 待开始 | Phase 4 剩余任务 |
 | P1 | **任务列表 (Checkbox)** | ✅ 已完成 | 支持 `- [ ]` 和 `- [x]` 语法，可点击切换，工具栏按钮 |
-| P2 | WYSIWYG 模式 | ⏳ 待开始 | 像 Typora 直接编辑 |
+| P2 | **WYSIWYG 模式** | 🚧 进行中 | Phase 1 完成，四模式共存架构已搭建 |
 
 ### ✅ 本次迭代已完成
 
@@ -1417,3 +1417,72 @@ src-tauri/src/lib.rs        # Rust 后端 read_directory 命令
 3. **提交前审查** `git diff --cached --name-only`
 4. **已提交的大文件** 使用 `git filter-branch` 或 BFG Repo-Cleaner 清理历史
 5. **敏感信息泄露** 立即轮换密钥，清理历史，启用 secret scanning
+
+---
+
+## WYSIWYG 模式架构
+
+> 2026-03-05 创建  
+> 状态：Phase 1 已完成，Phase 2 待开始
+
+### 设计方案
+
+**选择方案**：方案 A（四模式共存，WYSIWYG 作为默认模式）
+
+```
+[WYSIWYG] [Source] [Preview] [Split]
+   ↑ 默认选中
+```
+
+### 类型定义
+
+```typescript
+// editorStore.ts
+viewMode: 'wysiwyg' | 'source' | 'preview' | 'split'
+
+// 默认模式
+viewMode: 'wysiwyg'  // 从 'source' 改为 'wysiwyg'
+```
+
+### 文件变更记录
+
+| 文件 | 变更内容 |
+|------|----------|
+| `src/stores/editorStore.ts` | 扩展 ViewMode 类型，修改默认值，持久化 viewMode |
+| `src/i18n/locales/en.json` | 添加 `toolbar.viewMode.wysiwyg`: "WYSIWYG" |
+| `src/i18n/locales/zh-CN.json` | 添加 `toolbar.viewMode.wysiwyg`: "编辑" |
+| `src/components/Toolbar/Toolbar.tsx` | 添加 WYSIWYG 模式切换按钮 |
+| `src/components/Editor/Editor.tsx` | 添加 WYSIWYG 模式渲染分支（临时占位） |
+
+### 实现阶段
+
+#### Phase 1 ✅ 已完成（2026-03-05）
+- Store 类型扩展与默认值变更
+- 模式切换 UI（四模式按钮）
+- i18n 翻译更新
+- 测试覆盖
+
+#### Phase 2 ⏳ 待开始
+- Markdown → HTML 渲染（带位置映射）
+- HTML → Markdown 反向转换（turndown）
+- 基础编辑同步
+
+#### Phase 3-7 📋 规划中
+- 块级元素支持（列表、代码块、表格）
+- 行内样式与快捷键
+- 高级功能（图片、Admonitions）
+- 优化与测试
+
+### 技术文档
+
+- **调研文档**: `docs/wysiwyg-research.md`
+- **实现计划**: `docs/wysiwyg-implementation-plan.md`
+
+### 待决策事项
+
+| # | 问题 | 当前状态 |
+|---|------|----------|
+| 1 | 工具栏按钮在 WYSIWYG 模式下的行为 | 待讨论 |
+| 2 | 快捷键设计（`Cmd+/` 切换） | 待实现 |
+| 3 | 是否使用 ProseMirror 替代 contenteditable | 待调研 |
+

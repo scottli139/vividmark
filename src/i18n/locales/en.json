@@ -26,6 +26,7 @@
       "toggleDarkMode": "Toggle Dark Mode"
     },
     "viewMode": {
+      "wysiwyg": "WYSIWYG",
       "source": "Source",
       "split": "Split",
       "preview": "Preview"

@@ -428,6 +428,29 @@ export function Editor() {
     [toggleTaskCheckbox]
   )
 
+  // WYSIWYG 模式：所见即所得编辑（开发中）
+  if (viewMode === 'wysiwyg') {
+    return (
+      <div className={`flex-1 flex flex-col items-center justify-center ${isDarkMode ? 'dark' : ''}`}>
+        <div className="text-center p-8">
+          <div className="mb-4">
+            <svg className="w-16 h-16 mx-auto text-[var(--accent-color)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold mb-2 text-[var(--text-primary)]">WYSIWYG Mode</h2>
+          <p className="text-[var(--text-secondary)] mb-4">Coming soon! This mode will allow you to edit rendered content directly.</p>
+          <button
+            onClick={() => useEditorStore.getState().setViewMode('source')}
+            className="px-4 py-2 bg-[var(--accent-color)] text-white rounded hover:opacity-90 transition-opacity"
+          >
+            Switch to Source Mode
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Source 模式：纯源码编辑
   if (viewMode === 'source') {
     return (

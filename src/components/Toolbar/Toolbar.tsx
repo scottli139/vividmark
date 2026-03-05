@@ -393,6 +393,16 @@ export function Toolbar() {
       {/* 中间 - 视图切换 */}
       <div className="flex items-center gap-1 bg-[var(--editor-border)]/30 rounded-lg p-1">
         <button
+          onClick={() => setViewMode('wysiwyg')}
+          className={`px-3 py-1 rounded text-sm transition-colors ${
+            viewMode === 'wysiwyg'
+              ? 'bg-white dark:bg-gray-700 shadow-sm'
+              : 'hover:bg-[var(--editor-border)]/50'
+          }`}
+        >
+          {t('toolbar.viewMode.wysiwyg')}
+        </button>
+        <button
           onClick={() => setViewMode('source')}
           className={`px-3 py-1 rounded text-sm transition-colors ${
             viewMode === 'source'

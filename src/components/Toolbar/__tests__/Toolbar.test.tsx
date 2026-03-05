@@ -28,7 +28,7 @@ describe('Toolbar', () => {
       recentFiles: [],
       isDarkMode: false,
       showSidebar: true,
-      viewMode: 'source',
+      viewMode: 'wysiwyg',
       activeBlockId: null,
       language: 'en',
     })
@@ -126,6 +126,24 @@ describe('Toolbar', () => {
   })
 
   describe('view mode switching', () => {
+    it('should default to wysiwyg view mode', () => {
+      render(<Toolbar />)
+
+      // WYSIWYG button should be active by default (has bg-white class)
+      const wysiwygButton = screen.getByRole('button', { name: 'toolbar.viewMode.wysiwyg' })
+      expect(wysiwygButton).toBeInTheDocument()
+      expect(useEditorStore.getState().viewMode).toBe('wysiwyg')
+    })
+
+    it('should switch to source view mode', () => {
+      render(<Toolbar />)
+
+      const sourceButton = screen.getByRole('button', { name: 'Source' })
+      fireEvent.click(sourceButton)
+
+      expect(useEditorStore.getState().viewMode).toBe('source')
+    })
+
     it('should switch to split view mode', () => {
       render(<Toolbar />)
 
@@ -144,14 +162,14 @@ describe('Toolbar', () => {
       expect(useEditorStore.getState().viewMode).toBe('preview')
     })
 
-    it('should switch back to source view mode', () => {
-      useEditorStore.getState().setViewMode('preview')
+    it('should switch back to wysiwyg view mode', () => {
+      useEditorStore.getState().setViewMode('source')
       render(<Toolbar />)
 
-      const sourceButton = screen.getByRole('button', { name: 'Source' })
-      fireEvent.click(sourceButton)
+      const wysiwygButton = screen.getByRole('button', { name: 'toolbar.viewMode.wysiwyg' })
+      fireEvent.click(wysiwygButton)
 
-      expect(useEditorStore.getState().viewMode).toBe('source')
+      expect(useEditorStore.getState().viewMode).toBe('wysiwyg')
     })
   })
 

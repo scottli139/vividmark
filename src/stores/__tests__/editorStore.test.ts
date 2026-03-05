@@ -12,7 +12,7 @@ describe('editorStore', () => {
       recentFiles: [],
       isDarkMode: false,
       showSidebar: true,
-      viewMode: 'source',
+      viewMode: 'wysiwyg',
       activeBlockId: null,
     })
   })
@@ -178,6 +178,9 @@ describe('editorStore', () => {
     it('should set view mode', () => {
       const store = useEditorStore.getState()
 
+      // Default should be wysiwyg
+      expect(store.viewMode).toBe('wysiwyg')
+
       store.setViewMode('preview')
 
       expect(useEditorStore.getState().viewMode).toBe('preview')
@@ -185,6 +188,10 @@ describe('editorStore', () => {
       useEditorStore.getState().setViewMode('split')
 
       expect(useEditorStore.getState().viewMode).toBe('split')
+
+      useEditorStore.getState().setViewMode('source')
+
+      expect(useEditorStore.getState().viewMode).toBe('source')
     })
 
     it('should set active block id', () => {

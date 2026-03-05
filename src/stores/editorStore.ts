@@ -21,7 +21,7 @@ export interface EditorState {
   // UI 状态
   isDarkMode: boolean
   showSidebar: boolean
-  viewMode: 'source' | 'preview' | 'split'
+  viewMode: 'wysiwyg' | 'source' | 'preview' | 'split'
   activeBlockId: string | null
   language: Language
 
@@ -41,7 +41,7 @@ export interface EditorState {
   clearRecentFiles: () => void
   toggleDarkMode: () => void
   toggleSidebar: () => void
-  setViewMode: (mode: 'source' | 'preview' | 'split') => void
+  setViewMode: (mode: 'wysiwyg' | 'source' | 'preview' | 'split') => void
   setActiveBlockId: (id: string | null) => void
   setCanUndo: (canUndo: boolean) => void
   setCanRedo: (canRedo: boolean) => void
@@ -123,7 +123,7 @@ export const useEditorStore = create<EditorState>()(
       recentFiles: [],
       isDarkMode: false,
       showSidebar: true,
-      viewMode: 'source',
+      viewMode: 'wysiwyg',
       activeBlockId: null,
       canUndo: false,
       canRedo: false,
@@ -153,7 +153,7 @@ export const useEditorStore = create<EditorState>()(
 
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
       toggleSidebar: () => set((state) => ({ showSidebar: !state.showSidebar })),
-      setViewMode: (mode: 'source' | 'preview' | 'split') => set({ viewMode: mode }),
+      setViewMode: (mode: 'wysiwyg' | 'source' | 'preview' | 'split') => set({ viewMode: mode }),
       setActiveBlockId: (id) => set({ activeBlockId: id }),
       setCanUndo: (canUndo) => set({ canUndo }),
       setCanRedo: (canRedo) => set({ canRedo }),
@@ -177,6 +177,7 @@ export const useEditorStore = create<EditorState>()(
         recentFiles: state.recentFiles,
         isDarkMode: state.isDarkMode,
         language: state.language,
+        viewMode: state.viewMode,
       }),
     }
   )
