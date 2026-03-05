@@ -123,9 +123,13 @@ export async function copyImageToAssets(
  * @param to 目标路径（图片路径）
  */
 function getRelativePath(fromDir: string, toPath: string): string {
+  // 统一转换为 POSIX 风格路径（处理 Windows 路径）
+  const normalizedFrom = fromDir.replace(/\\/g, '/')
+  const normalizedTo = toPath.replace(/\\/g, '/')
+
   // 将路径分割为组件
-  const fromParts = fromDir.split('/').filter((p) => p.length > 0)
-  const toParts = toPath.split('/').filter((p) => p.length > 0)
+  const fromParts = normalizedFrom.split('/').filter((p) => p.length > 0)
+  const toParts = normalizedTo.split('/').filter((p) => p.length > 0)
 
   // 找到共同前缀
   let commonLength = 0
