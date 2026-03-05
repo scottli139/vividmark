@@ -71,7 +71,6 @@ vi.mock('react-i18next', () => ({
         'fileTree.closeFolder': 'Close Folder',
         'fileTree.loading': 'Loading...',
         'fileTree.emptyFolder': 'Empty folder',
-        'dialog.confirmDiscard': 'Discard unsaved changes?',
       }
       return translations[key] || key
     },
