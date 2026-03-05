@@ -29,6 +29,9 @@ export interface EditorState {
   canUndo: boolean
   canRedo: boolean
 
+  // 文件树状态
+  openedFolder: string | null
+
   // Actions
   setContent: (content: string) => void
   setFilePath: (path: string | null) => void
@@ -43,6 +46,7 @@ export interface EditorState {
   setCanUndo: (canUndo: boolean) => void
   setCanRedo: (canRedo: boolean) => void
   setLanguage: (lang: Language) => void
+  setOpenedFolder: (path: string | null) => void
   resetDocument: (content?: string) => void
 }
 
@@ -123,6 +127,7 @@ export const useEditorStore = create<EditorState>()(
       activeBlockId: null,
       canUndo: false,
       canRedo: false,
+      openedFolder: null,
 
       setContent: (content) => set({ content, isDirty: true }),
       setFilePath: (path) => set({ filePath: path }),
@@ -153,6 +158,7 @@ export const useEditorStore = create<EditorState>()(
       setCanUndo: (canUndo) => set({ canUndo }),
       setCanRedo: (canRedo) => set({ canRedo }),
       setLanguage: (lang: Language) => set({ language: lang }),
+      setOpenedFolder: (path) => set({ openedFolder: path }),
       resetDocument: (content?: string) =>
         set({
           content: content ?? '',

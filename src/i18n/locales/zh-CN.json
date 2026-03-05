@@ -35,6 +35,7 @@
     "currentFile": "当前文件",
     "recentFiles": "最近文件",
     "outline": "大纲",
+    "fileTree": "文件树",
     "clear": "清空",
     "clearTooltip": "清空最近文件",
     "noRecentFiles": "无最近文件",
@@ -42,6 +43,13 @@
     "words": "字数：",
     "chars": "字符：",
     "stats": "统计"
+  },
+  "fileTree": {
+    "openFolder": "打开文件夹",
+    "closeFolder": "关闭文件夹",
+    "loading": "加载中...",
+    "emptyFolder": "空文件夹",
+    "error": "加载文件夹失败"
   },
   "dialog": {
     "confirmDiscard": "放弃未保存的更改？",

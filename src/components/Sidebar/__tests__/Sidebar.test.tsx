@@ -8,6 +8,11 @@ vi.mock('../../../lib/fileOps', () => ({
   openFileByPath: vi.fn(),
 }))
 
+// Mock FileTree component
+vi.mock('../../FileTree', () => ({
+  FileTree: () => <div data-testid="file-tree">FileTree Component</div>,
+}))
+
 // Mock outlineUtils module
 vi.mock('../../../lib/outlineUtils', () => ({
   extractOutline: vi.fn((content: string) => {
@@ -265,6 +270,61 @@ describe('Sidebar', () => {
 
       const heading = screen.getByText('Heading 1')
       expect(heading).toHaveAttribute('title', 'Heading 1')
+    })
+  })
+
+  describe('tab switching', () => {
+    it('should show outline tab by default', () => {
+      render(<Sidebar />)
+
+      // Outline tab should be active
+      const outlineTab = screen.getByText('Outline')
+      expect(outlineTab).toHaveClass('text-[var(--accent-color)]')
+
+      // Outline content should be visible
+      expect(screen.getByText('Heading 1')).toBeInTheDocument()
+    })
+
+    it('should switch to file tree tab when clicked', () => {
+      render(<Sidebar />)
+
+      const fileTreeTab = screen.getByText('File Tree')
+      fireEvent.click(fileTreeTab)
+
+      // File tree tab should be active
+      expect(fileTreeTab).toHaveClass('text-[var(--accent-color)]')
+
+      // FileTree component should be visible
+      expect(screen.getByTestId('file-tree')).toBeInTheDocument()
+    })
+
+    it('should switch back to outline tab when clicked', () => {
+      render(<Sidebar />)
+
+      // First switch to file tree
+      const fileTreeTab = screen.getByText('File Tree')
+      fireEvent.click(fileTreeTab)
+
+      // Then switch back to outline
+      const outlineTab = screen.getByText('Outline')
+      fireEvent.click(outlineTab)
+
+      // Outline tab should be active
+      expect(outlineTab).toHaveClass('text-[var(--accent-color)]')
+
+      // Outline content should be visible
+      expect(screen.getByText('Heading 1')).toBeInTheDocument()
+    })
+
+    it('should render tab buttons with correct styling', () => {
+      render(<Sidebar />)
+
+      const outlineTab = screen.getByText('Outline')
+      const fileTreeTab = screen.getByText('File Tree')
+
+      // Both tabs should have base styling
+      expect(outlineTab).toHaveClass('flex-1', 'px-3', 'py-2', 'text-xs', 'font-medium')
+      expect(fileTreeTab).toHaveClass('flex-1', 'px-3', 'py-2', 'text-xs', 'font-medium')
     })
   })
 })

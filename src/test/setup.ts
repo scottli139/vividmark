@@ -57,6 +57,7 @@ vi.mock('react-i18next', () => ({
         'sidebar.currentFile': 'Current File',
         'sidebar.recentFiles': 'Recent Files',
         'sidebar.outline': 'Outline',
+        'sidebar.fileTree': 'File Tree',
         'sidebar.clear': 'Clear',
         'sidebar.clearTooltip': 'Clear recent files',
         'sidebar.noRecentFiles': 'No recent files',
@@ -66,6 +67,11 @@ vi.mock('react-i18next', () => ({
         'messages.invalidFileType': 'Please drop a Markdown file (.md, .markdown, .txt)',
         'messages.openFileFailed': 'Failed to open file',
         'messages.unknownFile': 'Unknown file',
+        'fileTree.openFolder': 'Open Folder',
+        'fileTree.closeFolder': 'Close Folder',
+        'fileTree.loading': 'Loading...',
+        'fileTree.emptyFolder': 'Empty folder',
+        'dialog.confirmDiscard': 'Discard unsaved changes?',
       }
       return translations[key] || key
     },

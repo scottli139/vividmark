@@ -2,12 +2,25 @@ import { useTranslation } from 'react-i18next'
 import { useEditorStore, type RecentFile } from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
 import { extractOutline, type OutlineItem } from '../../lib/outlineUtils'
-import { useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
+import { FileTree } from '../FileTree'
+import { useResizable } from '../../hooks/useResizable'
+
+type SidebarTab = 'outline' | 'fileTree'
 
 export function Sidebar() {
   const { t } = useTranslation()
   const { showSidebar, content, recentFiles, isDirty, fileName, clearRecentFiles } =
     useEditorStore()
+
+  const [activeTab, setActiveTab] = useState<SidebarTab>('outline')
+
+  // 可拖拽调整宽度
+  const { width, isResizing, handleMouseDown } = useResizable({
+    initialWidth: 224, // w-56 = 14rem = 224px
+    minWidth: 180,
+    maxWidth: 400,
+  })
 
   // 提取大纲（使用工具函数）
   const headings = useMemo(() => extractOutline(content), [content])
@@ -48,7 +61,10 @@ export function Sidebar() {
   if (!showSidebar) return null
 
   return (
-    <div className="w-56 border-r border-[var(--editor-border)] bg-[var(--sidebar-bg)] flex flex-col">
+    <div
+      className="border-r border-[var(--editor-border)] bg-[var(--sidebar-bg)] flex flex-col relative"
+      style={{ width: `${width}px`, minWidth: `${width}px` }}
+    >
       {/* 当前文件 */}
       <div className="p-3 border-b border-[var(--editor-border)]">
         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -107,27 +123,62 @@ export function Sidebar() {
         )}
       </div>
 
-      {/* 大纲区域 */}
-      <div className="p-3 flex-1 overflow-auto">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+      {/* 标签页切换 */}
+      <div className="flex border-b border-[var(--editor-border)]">
+        <button
+          onClick={() => setActiveTab('outline')}
+          className={`
+            flex-1 px-3 py-2 text-xs font-medium transition-colors duration-150
+            ${
+              activeTab === 'outline'
+                ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]'
+                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }
+          `}
+        >
           {t('sidebar.outline')}
-        </h3>
-        {headings.length === 0 ? (
-          <div className="text-sm text-gray-400 italic">{t('sidebar.noHeadings')}</div>
+        </button>
+        <button
+          onClick={() => setActiveTab('fileTree')}
+          className={`
+            flex-1 px-3 py-2 text-xs font-medium transition-colors duration-150
+            ${
+              activeTab === 'fileTree'
+                ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]'
+                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            }
+          `}
+        >
+          {t('sidebar.fileTree')}
+        </button>
+      </div>
+
+      {/* 内容区域 */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {activeTab === 'outline' ? (
+          // 大纲视图
+          <div className="p-3 flex-1 overflow-y-auto overflow-x-hidden">
+            {headings.length === 0 ? (
+              <div className="text-sm text-gray-400 italic">{t('sidebar.noHeadings')}</div>
+            ) : (
+              <ul className="space-y-1">
+                {headings.map((heading, index) => (
+                  <li
+                    key={index}
+                    onClick={() => handleHeadingClick(heading)}
+                    className="text-sm text-gray-600 dark:text-gray-300 hover:text-[var(--accent-color)] cursor-pointer truncate transition-colors duration-150"
+                    style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}
+                    title={heading.text}
+                  >
+                    {heading.text}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         ) : (
-          <ul className="space-y-1">
-            {headings.map((heading, index) => (
-              <li
-                key={index}
-                onClick={() => handleHeadingClick(heading)}
-                className="text-sm text-gray-600 dark:text-gray-300 hover:text-[var(--accent-color)] cursor-pointer truncate transition-colors duration-150"
-                style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}
-                title={heading.text}
-              >
-                {heading.text}
-              </li>
-            ))}
-          </ul>
+          // 文件树视图
+          <FileTree />
         )}
       </div>
 
@@ -140,6 +191,17 @@ export function Sidebar() {
           {t('sidebar.words')} {content.length}
         </div>
       </div>
+
+      {/* 拖拽调整宽度的 handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className={`
+          absolute right-0 top-0 bottom-0 w-1 cursor-col-resize
+          hover:bg-[var(--accent-color)] hover:opacity-50
+          ${isResizing ? 'bg-[var(--accent-color)] opacity-50' : 'bg-transparent'}
+        `}
+        title="Drag to resize"
+      />
     </div>
   )
 }

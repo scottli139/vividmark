@@ -35,6 +35,7 @@
     "currentFile": "Current File",
     "recentFiles": "Recent Files",
     "outline": "Outline",
+    "fileTree": "File Tree",
     "clear": "Clear",
     "clearTooltip": "Clear recent files",
     "noRecentFiles": "No recent files",
@@ -42,6 +43,13 @@
     "words": "Words:",
     "chars": "Chars:",
     "stats": "Statistics"
+  },
+  "fileTree": {
+    "openFolder": "Open Folder",
+    "closeFolder": "Close Folder",
+    "loading": "Loading...",
+    "emptyFolder": "Empty folder",
+    "error": "Failed to load folder"
   },
   "dialog": {
     "confirmDiscard": "Discard unsaved changes?",

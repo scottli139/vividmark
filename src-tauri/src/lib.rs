@@ -7,6 +7,23 @@ use tauri::Manager;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
+/// 文件树项
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileTreeItem {
+    pub name: String,
+    pub path: String,
+    #[serde(rename = "isDirectory")]
+    pub is_directory: bool,
+    pub children: Option<Vec<FileTreeItem>>,
+}
+
+/// 读取目录参数
+#[derive(Debug, Deserialize)]
+pub struct ReadDirectoryParams {
+    pub path: String,
+    pub recursive: Option<bool>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileInfo {
     pub path: String,
@@ -232,15 +249,105 @@ fn file_exists(path: String) -> bool {
     let path_buf = PathBuf::from(&path);
     let exists = path_buf.exists();
     let is_file = path_buf.is_file();
-    
+
     log::debug!(
         "[file_exists] {} -> exists={}, is_file={}",
         path,
         exists,
         is_file
     );
-    
+
     exists && is_file
+}
+
+/// 读取目录内容
+#[tauri::command]
+fn read_directory(params: ReadDirectoryParams) -> Result<Vec<FileTreeItem>, String> {
+    let start = Instant::now();
+    let path_buf = PathBuf::from(&params.path);
+    let recursive = params.recursive.unwrap_or(false);
+
+    log::info!("[read_directory] Starting directory read operation");
+    log::debug!("[read_directory] Target path: {}", params.path);
+    log::debug!("[read_directory] Recursive: {}", recursive);
+
+    if !path_buf.exists() {
+        log::error!("[read_directory] Directory does not exist: {}", params.path);
+        return Err(format!("Directory does not exist: {}", params.path));
+    }
+
+    if !path_buf.is_dir() {
+        log::error!("[read_directory] Path is not a directory: {}", params.path);
+        return Err(format!("Path is not a directory: {}", params.path));
+    }
+
+    let entries = read_directory_recursive(&path_buf, recursive, 0)
+        .map_err(|e| format!("Failed to read directory: {}", e))?;
+
+    let elapsed = start.elapsed();
+    log::info!(
+        "[read_directory] ✓ Success: {} entries in {:?}",
+        entries.len(),
+        elapsed
+    );
+
+    Ok(entries)
+}
+
+/// 递归读取目录
+fn read_directory_recursive(
+    path: &PathBuf,
+    recursive: bool,
+    depth: usize,
+) -> Result<Vec<FileTreeItem>, std::io::Error> {
+    const MAX_DEPTH: usize = 10;
+
+    if depth > MAX_DEPTH {
+        log::warn!("[read_directory] Maximum recursion depth reached: {}", path.display());
+        return Ok(vec![]);
+    }
+
+    let mut entries = vec![];
+    let mut dir_entries: Vec<_> = fs::read_dir(path)?.collect::<Result<Vec<_>, _>>()?;
+
+    // 排序：文件夹在前，文件在后，按名称排序
+    dir_entries.sort_by(|a, b| {
+        let a_is_dir = a.file_type().map(|t| t.is_dir()).unwrap_or(false);
+        let b_is_dir = b.file_type().map(|t| t.is_dir()).unwrap_or(false);
+
+        match (a_is_dir, b_is_dir) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.file_name().cmp(&b.file_name()),
+        }
+    });
+
+    for entry in dir_entries {
+        let file_type = entry.file_type()?;
+        let is_directory = file_type.is_dir();
+        let name = entry.file_name().to_string_lossy().to_string();
+        let entry_path = entry.path().to_string_lossy().to_string();
+
+        // 跳过隐藏文件和特定目录
+        if name.starts_with('.') || name == "node_modules" || name == "target" {
+            continue;
+        }
+
+        let children = if is_directory && recursive {
+            Some(read_directory_recursive(&entry.path(), recursive, depth + 1)?)
+        } else {
+            None
+        };
+
+        entries.push(FileTreeItem {
+            name,
+            path: entry_path,
+            is_directory,
+            children,
+        });
+    }
+
+    Ok(entries)
 }
 
 /// 获取系统信息，用于启动诊断
@@ -323,7 +430,7 @@ pub fn run() {
             log::info!("[VividMark] Application started successfully");
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists])
+        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
