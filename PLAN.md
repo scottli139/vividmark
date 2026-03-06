@@ -66,6 +66,7 @@
 - [ ] 数学公式 (KaTeX)
 - [x] **任务列表 (Checkbox)** ✅ - 支持 `- [ ]` 和 `- [x]` 语法，可点击切换状态，工具栏新增任务列表按钮
 - [x] **WYSIWYG 模式 Phase 1** ✅ - 四模式架构完成（WYSIWYG/Source/Preview/Split），默认 WYSIWYG
+- [x] **工具栏优化** ✅ - 精简按钮布局，标题下拉菜单，插入/格式下拉菜单，Windows 兼容的语言标签
 - [ ] WYSIWYG 模式 Phase 2 - 双向同步核心（Markdown ↔ HTML）
 
 ### Phase 5: 文件管理 ⏳ (进行中)

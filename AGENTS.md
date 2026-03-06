@@ -65,6 +65,7 @@ This document provides essential information for AI coding agents working on the
 
 ### ✅ 近期已完成
 
+- ~~工具栏优化~~ ✅ 2026-03-06 - 精简按钮布局，功能分组，标题下拉菜单，插入/格式下拉菜单，语言标签改用文字
 - ~~缩放功能~~ ✅ 2026-03-06 - 支持 50%-200% 内容缩放，工具栏按钮 + 快捷键，状态持久化
 - ~~侧边栏文件树~~ ✅ 2026-03 - 支持打开文件夹、递归展开、Markdown 文件过滤、可拖拽调整宽度
 - ~~文件夹打开~~ ✅ 2026-03 - 集成到文件树功能中
@@ -1540,4 +1541,70 @@ viewMode: 'wysiwyg'  // 从 'source' 改为 'wysiwyg'
 | 1 | 工具栏按钮在 WYSIWYG 模式下的行为 | 待讨论 |
 | 2 | 快捷键设计（`Cmd+/` 切换） | 待实现 |
 | 3 | 是否使用 ProseMirror 替代 contenteditable | 待调研 |
+
+---
+
+## 工具栏优化 (2026-03-06)
+
+### 优化目标
+解决工具栏按钮过多、布局拥挤的问题，将功能合理分组，提升用户体验。
+
+### 优化方案
+
+**布局调整：**
+- **左侧**：文件操作（新建、打开、保存）+ 撤销/重做
+- **中间**：核心格式化工具 + 视图切换
+- **右侧**：缩放控制 + 语言/主题设置
+
+**功能分组：**
+
+| 按钮组 | 包含功能 |
+|--------|----------|
+| 基础格式化 | 粗体、斜体 |
+| 标题下拉 | H1/H2/H3 合并为一个下拉菜单 |
+| 列表 | 无序列表 |
+| 插入菜单 | 图片、表格、代码块（下拉） |
+| 更多格式 | 删除线、行内代码、链接、有序列表、任务列表、引用（下拉） |
+
+### 新增组件
+
+**1. HeadingDropdown.tsx**
+```typescript
+// 标题级别选择下拉
+// Props: onSelect: (level: 1 | 2 | 3) => void
+// 显示 H1/H2/H3 选项，带快捷键提示
+```
+
+**2. InsertMenu.tsx**
+```typescript
+// 插入功能下拉菜单
+// Props: onImage, onTable, onCodeBlock
+// 包含：插入图片、插入表格、代码块
+```
+
+**3. FormatMenu.tsx**
+```typescript
+// 更多格式化选项下拉
+// Props: onFormat: (format: FormatType) => void
+// 包含：删除线、行内代码、链接、有序列表、任务列表、引用
+```
+
+### 窗口标题优化
+- 将文件名从工具栏移除，改为显示在窗口标题栏
+- 格式：`文件名 ● - VividMark`（有未保存更改时显示 ●）
+- 使用 `@tauri-apps/api/window` 的 `setTitle` API
+
+### 语言选择器优化
+- 原使用 emoji 国旗（🇺🇸 🇨🇳）在 Windows 上可能显示异常
+- 改为使用文字标签：`EN` / `中`
+- 数据结构增加 `label` 字段：
+```typescript
+{ code: 'en', name: 'English', flag: '🇺🇸', label: 'EN' },
+{ code: 'zh-CN', name: '简体中文', flag: '🇨🇳', label: '中' }
+```
+
+### 视图切换按钮
+- 四个模式按钮改为紧凑的文字按钮
+- 使用 bg 色区分激活状态
+- 顺序：WYSIWYG | Source | Split | Preview
 

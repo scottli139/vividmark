@@ -39,24 +39,12 @@ describe('Toolbar', () => {
   })
 
   describe('rendering', () => {
-    it('should render file name', () => {
+    // 文件名现在显示在窗口标题栏，不再在工具栏中
+    it('should render toolbar', () => {
       render(<Toolbar />)
-      expect(screen.getByText('Untitled.md')).toBeInTheDocument()
-    })
-
-    it('should show dirty indicator when document has unsaved changes', () => {
-      useEditorStore.getState().setDirty(true)
-      render(<Toolbar />)
-
-      // The asterisk should be visible - find it by looking for text containing * near the filename
-      const fileNameContainer = screen.getByText('Untitled.md').parentElement
-      expect(fileNameContainer).toHaveTextContent('*')
-    })
-
-    it('should display custom file name', () => {
-      useEditorStore.getState().setFileName('MyDocument.md')
-      render(<Toolbar />)
-      expect(screen.getByText('MyDocument.md')).toBeInTheDocument()
+      // 检查关键元素存在
+      expect(screen.getByTitle('Open File (Cmd+O)')).toBeInTheDocument()
+      expect(screen.getByTitle('Save (Cmd+S)')).toBeInTheDocument()
     })
   })
 
@@ -130,7 +118,7 @@ describe('Toolbar', () => {
       render(<Toolbar />)
 
       // WYSIWYG button should be active by default (has bg-white class)
-      const wysiwygButton = screen.getByRole('button', { name: 'toolbar.viewMode.wysiwyg' })
+      const wysiwygButton = screen.getByRole('button', { name: 'WYSIWYG' })
       expect(wysiwygButton).toBeInTheDocument()
       expect(useEditorStore.getState().viewMode).toBe('wysiwyg')
     })
@@ -166,7 +154,7 @@ describe('Toolbar', () => {
       useEditorStore.getState().setViewMode('source')
       render(<Toolbar />)
 
-      const wysiwygButton = screen.getByRole('button', { name: 'toolbar.viewMode.wysiwyg' })
+      const wysiwygButton = screen.getByRole('button', { name: 'WYSIWYG' })
       fireEvent.click(wysiwygButton)
 
       expect(useEditorStore.getState().viewMode).toBe('wysiwyg')
@@ -222,14 +210,18 @@ describe('Toolbar', () => {
       dispatchEventSpy.mockRestore()
     })
 
-    it('should dispatch editor-format event with tasklist format', () => {
+    it('should dispatch editor-format event from format menu', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       render(<Toolbar />)
 
-      // Use getByTitle with the translation key since i18n is mocked
-      const tasklistButton = screen.getByTitle('toolbar.tooltip.tasklist')
-      fireEvent.click(tasklistButton)
+      // 打开更多格式化菜单
+      const moreButton = screen.getByTitle('More Formatting')
+      fireEvent.click(moreButton)
+
+      // 点击任务列表选项（现在在下拉菜单中）
+      const tasklistOption = screen.getByText('Task List')
+      fireEvent.click(tasklistOption)
 
       expect(dispatchEventSpy).toHaveBeenCalled()
       const call = dispatchEventSpy.mock.calls.find((call) => {
@@ -246,26 +238,16 @@ describe('Toolbar', () => {
     it('should render language selector', () => {
       render(<Toolbar />)
 
-      const languageSelect = screen.getByTitle('Toggle Dark Mode').previousElementSibling
+      // 语言选择器通过 title 查找
+      const languageSelect = screen.getByTitle('Language')
       expect(languageSelect).toBeInTheDocument()
     })
 
     it('should change language when selecting different option', () => {
-      const changeLanguageSpy = vi.fn()
-      vi.doMock('react-i18next', () => ({
-        useTranslation: () => ({
-          t: (key: string) => key,
-          i18n: {
-            changeLanguage: changeLanguageSpy,
-            language: 'en',
-          },
-        }),
-      }))
-
       render(<Toolbar />)
 
-      // Get language select element
-      const languageSelect = screen.getByDisplayValue('🇺🇸 English') as HTMLSelectElement
+      // Get language select element by title
+      const languageSelect = screen.getByTitle('Language') as HTMLSelectElement
       expect(languageSelect).toBeInTheDocument()
 
       // Change language to Chinese
@@ -276,16 +258,20 @@ describe('Toolbar', () => {
     })
   })
 
-  describe('table button', () => {
-    it('should open table dialog when table button is clicked', () => {
+  describe('insert menu', () => {
+    it('should open table dialog from insert menu', () => {
       render(<Toolbar />)
 
       // Initially, dialog should not be visible
       expect(screen.queryByText('Insert Table')).not.toBeInTheDocument()
 
-      // Click table button
-      const tableButton = screen.getByTitle('Insert Table')
-      fireEvent.click(tableButton)
+      // 打开插入菜单
+      const insertButton = screen.getByTitle('Insert')
+      fireEvent.click(insertButton)
+
+      // 点击表格选项
+      const tableOption = screen.getByText('Insert Table')
+      fireEvent.click(tableOption)
 
       // Dialog should now be visible
       expect(screen.getByText('Insert Table')).toBeInTheDocument()
@@ -295,8 +281,8 @@ describe('Toolbar', () => {
       render(<Toolbar />)
 
       // Open dialog
-      const tableButton = screen.getByTitle('Insert Table')
-      fireEvent.click(tableButton)
+      fireEvent.click(screen.getByTitle('Insert'))
+      fireEvent.click(screen.getByText('Insert Table'))
 
       // Dialog should be visible
       expect(screen.getByText('Insert Table')).toBeInTheDocument()
@@ -314,8 +300,8 @@ describe('Toolbar', () => {
       render(<Toolbar />)
 
       // Open dialog
-      const tableButton = screen.getByTitle('Insert Table')
-      fireEvent.click(tableButton)
+      fireEvent.click(screen.getByTitle('Insert'))
+      fireEvent.click(screen.getByText('Insert Table'))
 
       // Insert table
       fireEvent.click(screen.getByText('Insert'))
@@ -337,7 +323,8 @@ describe('Toolbar', () => {
       render(<Toolbar />)
 
       // Open dialog
-      fireEvent.click(screen.getByTitle('Insert Table'))
+      fireEvent.click(screen.getByTitle('Insert'))
+      fireEvent.click(screen.getByText('Insert Table'))
 
       // Change dimensions
       const rowInput = screen.getAllByRole('spinbutton')[0]

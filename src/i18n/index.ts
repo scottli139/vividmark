@@ -36,7 +36,12 @@ export default i18n
 
 export type Language = 'en' | 'zh-CN'
 
-export const availableLanguages: { code: Language; name: string; flag: string }[] = [
-  { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'zh-CN', name: '简体中文', flag: '🇨🇳' },
+export const availableLanguages: {
+  code: Language
+  name: string
+  flag: string
+  label: string
+}[] = [
+  { code: 'en', name: 'English', flag: '🇺🇸', label: 'EN' },
+  { code: 'zh-CN', name: '简体中文', flag: '🇨🇳', label: '中' },
 ]
