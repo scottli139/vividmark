@@ -344,7 +344,12 @@ export function Toolbar() {
                 strokeWidth={2}
                 d="M4 6h16M4 12h16M4 18h16"
               />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 6h.01M8 12h.01M8 18h.01" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 6h.01M8 12h.01M8 18h.01"
+              />
             </svg>
           </FormatButton>
         </div>
@@ -410,7 +415,12 @@ export function Toolbar() {
             title={t('toolbar.tooltip.zoomIn', { shortcut: `${cmdKey}+=` })}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 4v16m8-8H4"
+              />
             </svg>
           </button>
         </div>

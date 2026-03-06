@@ -71,16 +71,6 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
       ),
     },
     {
-      format: 'orderedList',
-      label: t('toolbar.tooltip.orderedList'),
-      icon: (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h12M7 12h12M7 17h12" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h.01M3 12h.01M3 17h.01" />
-        </svg>
-      ),
-    },
-    {
       format: 'tasklist',
       label: t('toolbar.tooltip.tasklist'),
       icon: (
@@ -160,7 +150,9 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
                 <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
                 {item.shortcut && (
-                  <span className="text-xs text-[var(--color-text-secondary)]">{item.shortcut}</span>
+                  <span className="text-xs text-[var(--color-text-secondary)]">
+                    {item.shortcut}
+                  </span>
                 )}
               </button>
             </div>
