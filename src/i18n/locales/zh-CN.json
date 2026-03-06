@@ -23,7 +23,10 @@
       "tasklist": "任务列表",
       "orderedList": "有序列表",
       "codeBlock": "代码块",
-      "toggleDarkMode": "切换深色模式"
+      "toggleDarkMode": "切换深色模式",
+      "zoomIn": "放大 ({{shortcut}})",
+      "zoomOut": "缩小 ({{shortcut}})",
+      "zoomReset": "重置缩放 ({{shortcut}})"
     },
     "viewMode": {
       "wysiwyg": "编辑",

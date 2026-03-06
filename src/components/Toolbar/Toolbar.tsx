@@ -70,10 +70,14 @@ export function Toolbar() {
     canUndo,
     canRedo,
     language,
+    zoomLevel,
     toggleDarkMode,
     toggleSidebar,
     setViewMode,
     setLanguage,
+    zoomIn,
+    zoomOut,
+    zoomReset,
   } = useEditorStore()
 
   const handleSave = async () => {
@@ -443,6 +447,37 @@ export function Toolbar() {
 
       {/* 右侧 */}
       <div className="flex items-center gap-2">
+        {/* 缩放控制 */}
+        <div className="flex items-center gap-0.5 bg-[var(--editor-border)]/30 rounded-lg px-1">
+          <button
+            onClick={zoomOut}
+            className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
+            title={t('toolbar.tooltip.zoomOut', { shortcut: `${cmdKey}+-` })}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+            </svg>
+          </button>
+          <button
+            onClick={zoomReset}
+            className="px-2 py-1 text-xs font-medium min-w-[48px] text-center hover:bg-[var(--editor-border)]/50 rounded transition-colors"
+            title={t('toolbar.tooltip.zoomReset', { shortcut: `${cmdKey}+0` })}
+          >
+            {zoomLevel}%
+          </button>
+          <button
+            onClick={zoomIn}
+            className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
+            title={t('toolbar.tooltip.zoomIn', { shortcut: `${cmdKey}+=` })}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
+
         {/* 语言切换 */}
         <select
           value={language}

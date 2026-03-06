@@ -33,6 +33,7 @@ This document provides essential information for AI coding agents working on the
 
 | 任务 | 说明 |
 |------|------|
+| **缩放功能** | 支持 50%-200% 内容缩放，工具栏按钮 + 快捷键，状态持久化 |
 | **侧边栏文件树** | 支持打开文件夹、递归展开、Markdown 文件过滤、可拖拽调整宽度 |
 
 ### 📅 待办队列
@@ -64,6 +65,7 @@ This document provides essential information for AI coding agents working on the
 
 ### ✅ 近期已完成
 
+- ~~缩放功能~~ ✅ 2026-03-06 - 支持 50%-200% 内容缩放，工具栏按钮 + 快捷键，状态持久化
 - ~~侧边栏文件树~~ ✅ 2026-03 - 支持打开文件夹、递归展开、Markdown 文件过滤、可拖拽调整宽度
 - ~~文件夹打开~~ ✅ 2026-03 - 集成到文件树功能中
 - ~~外部链接系统浏览器打开~~ ✅ 2026-03
@@ -261,6 +263,56 @@ beforeEach(() => {
 })
 ```
 
+---
+
+## Zoom / 缩放功能
+
+支持编辑器内容区域的缩放（50% - 200%）。
+
+### 功能特性
+
+- **缩放范围**: 50% - 200%，步进 10%
+- **工具栏控制**: 显示当前百分比，放大/缩小/重置按钮
+- **快捷键支持**:
+  - `Cmd/Ctrl + +` 或 `Cmd/Ctrl + =` - 放大
+  - `Cmd/Ctrl + -` - 缩小
+  - `Cmd/Ctrl + 0` - 重置为 100%
+- **状态持久化**: 缩放级别自动保存到本地存储
+
+### 实现细节
+
+**Store 状态** (`editorStore.ts`):
+```typescript
+zoomLevel: number  // 默认 100
+setZoomLevel: (level: number) => void
+zoomIn: () => void   // +10%，上限 200%
+zoomOut: () => void  // -10%，下限 50%
+zoomReset: () => void // 重置为 100%
+```
+
+**应用缩放** (`Editor.tsx`):
+```typescript
+// Source / Split / Preview 模式下都支持
+<textarea style={{ zoom: `${zoomLevel}%` }} />
+<div style={{ zoom: `${zoomLevel}%` }} />
+```
+
+**快捷键处理**:
+```typescript
+if (isMod && (e.key === '=' || e.key === '+')) {
+  e.preventDefault()
+  zoomIn()
+} else if (isMod && e.key === '-') {
+  e.preventDefault()
+  zoomOut()
+} else if (isMod && e.key === '0') {
+  e.preventDefault()
+  zoomReset()
+}
+```
+
+---
+
 ## State Management (Zustand)
 
 The main store is `editorStore.ts` with persistence for user preferences:
@@ -398,6 +450,9 @@ interface FileInfo {
 | `Cmd/Ctrl + S` | Save file | `useKeyboardShortcuts.ts` |
 | `Cmd/Ctrl + Shift + S` | Save as | `useKeyboardShortcuts.ts` |
 | `Cmd/Ctrl + N` | New file | `useKeyboardShortcuts.ts` |
+| `Cmd/Ctrl + =/+` | Zoom in | `Editor.tsx` |
+| `Cmd/Ctrl + -` | Zoom out | `Editor.tsx` |
+| `Cmd/Ctrl + 0` | Reset zoom | `Editor.tsx` |
 | `Escape` | Exit edit mode | `Editor.tsx` |
 
 ## Logging

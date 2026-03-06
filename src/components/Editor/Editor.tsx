@@ -8,7 +8,7 @@ import { scrollToPosition, scrollPreviewToHeading } from '../../lib/outlineUtils
 import '../../styles/globals.css'
 
 export function Editor() {
-  const { content, setContent, isDarkMode, viewMode, setCanUndo, setCanRedo, filePath } =
+  const { content, setContent, isDarkMode, viewMode, setCanUndo, setCanRedo, filePath, zoomLevel } =
     useEditorStore()
 
   // 本地编辑状态（用于 Source 和 Split 模式）
@@ -53,7 +53,7 @@ export function Editor() {
     [setContent, pushHistory]
   )
 
-  // 处理键盘快捷键
+  // 处理键盘快捷键（textarea 内部）
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     const isMod = e.metaKey || e.ctrlKey
 
@@ -64,6 +64,30 @@ export function Editor() {
       e.preventDefault()
       window.dispatchEvent(new CustomEvent('editor-redo'))
     }
+  }, [])
+
+  // 全局快捷键监听（包括缩放）- 在 Preview 模式下也能使用
+  // 使用 getState() 避免闭包问题
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey
+      const store = useEditorStore.getState()
+
+      // 缩放快捷键
+      if (isMod && (e.code === 'Equal' || e.code === 'NumpadAdd')) {
+        e.preventDefault()
+        store.zoomIn()
+      } else if (isMod && (e.code === 'Minus' || e.code === 'NumpadSubtract')) {
+        e.preventDefault()
+        store.zoomOut()
+      } else if (isMod && (e.code === 'Digit0' || e.code === 'Numpad0')) {
+        e.preventDefault()
+        store.zoomReset()
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
   }, [])
 
   // 同步滚动状态
@@ -462,7 +486,8 @@ export function Editor() {
           onKeyDown={handleKeyDown}
           className="flex-1 w-full p-8 bg-[var(--editor-bg)] text-[var(--text-primary)] 
                      font-mono text-sm leading-relaxed resize-none outline-none
-                     border-none focus:ring-0 overflow-auto"
+                     border-none focus:ring-0 overflow-auto origin-top-left"
+          style={{ zoom: `${zoomLevel}%` }}
           spellCheck={false}
           autoFocus
         />
@@ -475,7 +500,8 @@ export function Editor() {
     return (
       <div ref={previewContainerRef} className={`flex-1 overflow-auto ${isDarkMode ? 'dark' : ''}`}>
         <div
-          className="markdown-body min-h-full p-8"
+          className="markdown-body min-h-full p-8 origin-top-left"
+          style={{ zoom: `${zoomLevel}%` }}
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
           onClick={handlePreviewClick}
         />
@@ -496,7 +522,8 @@ export function Editor() {
           onScroll={() => handleSourceScroll()}
           className="flex-1 w-full p-8 bg-[var(--editor-bg)] text-[var(--text-primary)] 
                      font-mono text-sm leading-relaxed resize-none outline-none
-                     border-none focus:ring-0 overflow-auto"
+                     border-none focus:ring-0 overflow-auto origin-top-left"
+          style={{ zoom: `${zoomLevel}%` }}
           spellCheck={false}
           autoFocus
         />
@@ -509,7 +536,8 @@ export function Editor() {
         onScroll={() => handlePreviewScroll()}
       >
         <div
-          className="markdown-body min-h-full p-8"
+          className="markdown-body min-h-full p-8 origin-top-left"
+          style={{ zoom: `${zoomLevel}%` }}
           dangerouslySetInnerHTML={{ __html: renderedHtml }}
           onClick={handlePreviewClick}
         />

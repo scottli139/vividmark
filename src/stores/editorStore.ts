@@ -24,6 +24,7 @@ export interface EditorState {
   viewMode: 'wysiwyg' | 'source' | 'preview' | 'split'
   activeBlockId: string | null
   language: Language
+  zoomLevel: number
 
   // 历史记录状态
   canUndo: boolean
@@ -48,6 +49,10 @@ export interface EditorState {
   setLanguage: (lang: Language) => void
   setOpenedFolder: (path: string | null) => void
   resetDocument: (content?: string) => void
+  setZoomLevel: (level: number) => void
+  zoomIn: () => void
+  zoomOut: () => void
+  zoomReset: () => void
 }
 
 // 获取默认内容（根据语言）
@@ -128,6 +133,7 @@ export const useEditorStore = create<EditorState>()(
       canUndo: false,
       canRedo: false,
       openedFolder: null,
+      zoomLevel: 100,
 
       setContent: (content) => set({ content, isDirty: true }),
       setFilePath: (path) => set({ filePath: path }),
@@ -169,6 +175,10 @@ export const useEditorStore = create<EditorState>()(
           canUndo: false,
           canRedo: false,
         }),
+      setZoomLevel: (level) => set({ zoomLevel: Math.max(50, Math.min(200, level)) }),
+      zoomIn: () => set((state) => ({ zoomLevel: Math.min(200, state.zoomLevel + 10) })),
+      zoomOut: () => set((state) => ({ zoomLevel: Math.max(50, state.zoomLevel - 10) })),
+      zoomReset: () => set({ zoomLevel: 100 }),
     }),
     {
       name: 'vividmark-storage',
@@ -178,6 +188,7 @@ export const useEditorStore = create<EditorState>()(
         isDarkMode: state.isDarkMode,
         language: state.language,
         viewMode: state.viewMode,
+        zoomLevel: state.zoomLevel,
       }),
     }
   )

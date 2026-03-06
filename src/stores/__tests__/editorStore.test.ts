@@ -14,6 +14,7 @@ describe('editorStore', () => {
       showSidebar: true,
       viewMode: 'wysiwyg',
       activeBlockId: null,
+      zoomLevel: 100,
     })
   })
 
@@ -143,6 +144,82 @@ describe('editorStore', () => {
       const afterTime = Date.now()
       expect(state.recentFiles[0].lastOpened).toBeGreaterThanOrEqual(beforeTime)
       expect(state.recentFiles[0].lastOpened).toBeLessThanOrEqual(afterTime)
+    })
+  })
+
+  describe('zoom level', () => {
+    it('should have default zoom level of 100', () => {
+      const { zoomLevel } = useEditorStore.getState()
+      expect(zoomLevel).toBe(100)
+    })
+
+    it('should zoom in by 10%', () => {
+      const store = useEditorStore.getState()
+
+      store.zoomIn()
+
+      expect(useEditorStore.getState().zoomLevel).toBe(110)
+    })
+
+    it('should zoom out by 10%', () => {
+      const store = useEditorStore.getState()
+
+      store.zoomOut()
+
+      expect(useEditorStore.getState().zoomLevel).toBe(90)
+    })
+
+    it('should reset zoom to 100', () => {
+      const store = useEditorStore.getState()
+
+      store.setZoomLevel(150)
+      expect(useEditorStore.getState().zoomLevel).toBe(150)
+
+      store.zoomReset()
+
+      expect(useEditorStore.getState().zoomLevel).toBe(100)
+    })
+
+    it('should set zoom level directly', () => {
+      const store = useEditorStore.getState()
+
+      store.setZoomLevel(125)
+
+      expect(useEditorStore.getState().zoomLevel).toBe(125)
+    })
+
+    it('should not exceed max zoom level of 200', () => {
+      const store = useEditorStore.getState()
+
+      store.setZoomLevel(195)
+      store.zoomIn()
+
+      expect(useEditorStore.getState().zoomLevel).toBe(200)
+
+      store.zoomIn()
+      expect(useEditorStore.getState().zoomLevel).toBe(200)
+    })
+
+    it('should not go below min zoom level of 50', () => {
+      const store = useEditorStore.getState()
+
+      store.setZoomLevel(55)
+      store.zoomOut()
+
+      expect(useEditorStore.getState().zoomLevel).toBe(50)
+
+      store.zoomOut()
+      expect(useEditorStore.getState().zoomLevel).toBe(50)
+    })
+
+    it('should clamp zoom level when set directly', () => {
+      const store = useEditorStore.getState()
+
+      store.setZoomLevel(250)
+      expect(useEditorStore.getState().zoomLevel).toBe(200)
+
+      store.setZoomLevel(10)
+      expect(useEditorStore.getState().zoomLevel).toBe(50)
     })
   })
 

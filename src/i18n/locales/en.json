@@ -23,7 +23,10 @@
       "tasklist": "Task List",
       "orderedList": "Ordered List",
       "codeBlock": "Code Block",
-      "toggleDarkMode": "Toggle Dark Mode"
+      "toggleDarkMode": "Toggle Dark Mode",
+      "zoomIn": "Zoom In ({{shortcut}})",
+      "zoomOut": "Zoom Out ({{shortcut}})",
+      "zoomReset": "Reset Zoom ({{shortcut}})"
     },
     "viewMode": {
       "wysiwyg": "WYSIWYG",
