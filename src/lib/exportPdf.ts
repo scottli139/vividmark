@@ -14,12 +14,12 @@ interface ExportPdfResult {
 
 /**
  * 使用 WebView 原生打印功能导出 PDF
- * 
+ *
  * 工作原理：
  * 1. 调用 Rust 后端的 print_pdf 命令
  * 2. Rust 在当前 WebView 中注入打印样式并执行 window.print()
  * 3. 系统弹出原生打印对话框，用户可选择"保存为 PDF"
- * 
+ *
  * 优点：
  * - 在应用内完成，无需跳转浏览器
  * - 使用系统原生打印对话框
@@ -54,7 +54,7 @@ export async function printToPdf(): Promise<boolean> {
 
 /**
  * 导出当前文档为 PDF（使用浏览器方式，保留备用）
- * 
+ *
  * 工作原理：
  * 1. 将 Markdown 渲染后的 HTML 发送到 Rust 后端
  * 2. Rust 创建临时 HTML 文件并添加打印样式
@@ -63,7 +63,10 @@ export async function printToPdf(): Promise<boolean> {
  */
 export async function exportToPdf(params: ExportPdfParams): Promise<boolean> {
   fileOpsLogger.time('exportPdf')
-  fileOpsLogger.debug('Exporting to PDF:', { title: params.title, contentSize: params.htmlContent.length })
+  fileOpsLogger.debug('Exporting to PDF:', {
+    title: params.title,
+    contentSize: params.htmlContent.length,
+  })
 
   try {
     const result = await invoke<ExportPdfResult>('export_pdf', {
@@ -89,7 +92,7 @@ export async function exportToPdf(params: ExportPdfParams): Promise<boolean> {
 
 /**
  * 导出当前编辑器内容（使用新的原生打印方式）
- * 
+ *
  * @returns 是否成功
  */
 export async function exportCurrentDocument(): Promise<boolean> {

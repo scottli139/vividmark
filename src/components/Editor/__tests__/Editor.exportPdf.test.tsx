@@ -44,7 +44,7 @@ describe('Editor - Export PDF', () => {
 
   it('should listen for editor-request-html event', async () => {
     mockPrintToPdf.mockResolvedValue(true)
-    
+
     render(<Editor />)
 
     // Dispatch the export PDF request event
@@ -58,7 +58,7 @@ describe('Editor - Export PDF', () => {
 
   it('should call export function when event is dispatched', async () => {
     mockPrintToPdf.mockResolvedValue(true)
-    
+
     render(<Editor />)
 
     // Wait for initial render
@@ -78,9 +78,9 @@ describe('Editor - Export PDF', () => {
   it('should handle export errors gracefully', async () => {
     // Mock export function to throw error
     mockPrintToPdf.mockRejectedValue(new Error('Export failed'))
-    
+
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    
+
     render(<Editor />)
 
     // Dispatch the export PDF request event

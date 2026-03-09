@@ -131,9 +131,11 @@ export function Toolbar() {
 
   const handleExportPdf = useCallback(async () => {
     // 派发事件请求 Editor 提供 HTML 内容
-    window.dispatchEvent(new CustomEvent('editor-request-html', {
-      detail: { requestId: Date.now() }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('editor-request-html', {
+        detail: { requestId: Date.now() },
+      })
+    )
   }, [])
 
   const handleOpen = useCallback(async () => {

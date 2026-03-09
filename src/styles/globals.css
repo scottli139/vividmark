@@ -9,8 +9,8 @@
   line-height: 1.5;
   white-space: pre;
   font-variant-ligatures: none;
-  font-feature-settings: "liga" 0;
-  -webkit-font-feature-settings: "liga" 0;
+  font-feature-settings: 'liga' 0;
+  -webkit-font-feature-settings: 'liga' 0;
 }
 
 .hljs-comment,
@@ -78,9 +78,9 @@ pre.hljs,
 .markdown-body pre.hljs {
   font-family: 'Courier New', 'Courier', monospace !important;
   font-variant-ligatures: none;
-  font-feature-settings: "liga" 0;
+  font-feature-settings: 'liga' 0;
   letter-spacing: 0;
-  -webkit-font-feature-settings: "liga" 0;
+  -webkit-font-feature-settings: 'liga' 0;
 }
 
 pre code.hljs,
@@ -95,8 +95,8 @@ code.hljs {
   word-break: normal !important;
   tab-size: 4;
   font-variant-ligatures: none;
-  font-feature-settings: "liga" 0;
-  -webkit-font-feature-settings: "liga" 0;
+  font-feature-settings: 'liga' 0;
+  -webkit-font-feature-settings: 'liga' 0;
 }
 
 /* highlight.js 内部所有元素强制继承 */
@@ -288,8 +288,8 @@ body {
   word-wrap: normal;
   word-break: normal;
   font-variant-ligatures: none;
-  font-feature-settings: "liga" 0;
-  -webkit-font-feature-settings: "liga" 0;
+  font-feature-settings: 'liga' 0;
+  -webkit-font-feature-settings: 'liga' 0;
   letter-spacing: 0;
 }
 
