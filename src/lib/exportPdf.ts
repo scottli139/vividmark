@@ -1,5 +1,4 @@
 import { invoke } from '@tauri-apps/api/core'
-import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEditorStore } from '../stores/editorStore'
 import { fileOpsLogger } from './logger'
 

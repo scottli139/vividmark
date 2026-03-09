@@ -13,9 +13,10 @@ vi.mock('@tauri-apps/api/core', () => ({
 }))
 
 // Mock exportPdf module
-const mockExportCurrentDocument = vi.fn()
+const mockPrintToPdf = vi.fn()
 vi.mock('../../../lib/exportPdf', () => ({
-  exportCurrentDocument: (...args: unknown[]) => mockExportCurrentDocument(...args),
+  printToPdf: (...args: unknown[]) => mockPrintToPdf(...args),
+  exportCurrentDocument: (...args: unknown[]) => mockPrintToPdf(...args),
 }))
 
 // Mock markdown parser
@@ -42,7 +43,7 @@ describe('Editor - Export PDF', () => {
   })
 
   it('should listen for editor-request-html event', async () => {
-    mockExportCurrentDocument.mockResolvedValue(true)
+    mockPrintToPdf.mockResolvedValue(true)
     
     render(<Editor />)
 
@@ -51,35 +52,32 @@ describe('Editor - Export PDF', () => {
 
     // Wait for the export function to be called
     await waitFor(() => {
-      expect(mockExportCurrentDocument).toHaveBeenCalled()
+      expect(mockPrintToPdf).toHaveBeenCalled()
     })
   })
 
-  it('should pass rendered HTML to export function', async () => {
-    mockExportCurrentDocument.mockResolvedValue(true)
+  it('should call export function when event is dispatched', async () => {
+    mockPrintToPdf.mockResolvedValue(true)
     
     render(<Editor />)
 
     // Wait for initial render
     await waitFor(() => {
-      expect(mockExportCurrentDocument).not.toHaveBeenCalled()
+      expect(mockPrintToPdf).not.toHaveBeenCalled()
     })
 
     // Dispatch the export PDF request event
     window.dispatchEvent(new CustomEvent('editor-request-html'))
 
-    // Wait for the export function to be called with HTML content
+    // Wait for the export function to be called
     await waitFor(() => {
-      expect(mockExportCurrentDocument).toHaveBeenCalledTimes(1)
-      const htmlContent = mockExportCurrentDocument.mock.calls[0][0]
-      // HTML content should be a string
-      expect(typeof htmlContent).toBe('string')
+      expect(mockPrintToPdf).toHaveBeenCalledTimes(1)
     })
   })
 
   it('should handle export errors gracefully', async () => {
     // Mock export function to throw error
-    mockExportCurrentDocument.mockRejectedValue(new Error('Export failed'))
+    mockPrintToPdf.mockRejectedValue(new Error('Export failed'))
     
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     
@@ -90,7 +88,7 @@ describe('Editor - Export PDF', () => {
 
     // Wait and verify no unhandled errors
     await waitFor(() => {
-      expect(mockExportCurrentDocument).toHaveBeenCalled()
+      expect(mockPrintToPdf).toHaveBeenCalled()
     })
 
     consoleSpy.mockRestore()

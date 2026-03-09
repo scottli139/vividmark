@@ -66,13 +66,10 @@ describe('exportPdf', () => {
       const mockInvoke = vi.mocked(invoke)
       mockInvoke.mockResolvedValue({ success: true, error: null })
 
-      await exportCurrentDocument('<h1>Test Content</h1>')
+      await exportCurrentDocument()
 
-      expect(mockInvoke).toHaveBeenCalledWith('export_pdf', {
-        params: {
-          html_content: '<h1>Test Content</h1>',
-          title: 'Untitled',
-        },
+      expect(mockInvoke).toHaveBeenCalledWith('print_pdf', {
+        fileName: 'Untitled',
       })
     })
   })
