@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { open } from '@tauri-apps/plugin-shell'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdownAsync } from '../../lib/markdown/parser'
+import { printToPdf } from '../../lib/exportPdf'
 import { useTextFormat, type FormatType } from '../../hooks/useTextFormat'
 import { useHistory } from '../../hooks/useHistory'
 import { scrollToPosition, scrollPreviewToHeading } from '../../lib/outlineUtils'
@@ -373,6 +374,19 @@ export function Editor() {
       window.removeEventListener('editor-scroll-to-heading', handleScrollToHeading as EventListener)
     }
   }, [viewMode])
+
+  // 监听 PDF 导出请求事件
+  useEffect(() => {
+    const handleRequestHtml = () => {
+      // 使用 WebView 原生打印功能导出 PDF
+      printToPdf()
+    }
+
+    window.addEventListener('editor-request-html', handleRequestHtml as EventListener)
+    return () => {
+      window.removeEventListener('editor-request-html', handleRequestHtml as EventListener)
+    }
+  }, [])
 
   // ==================== 任务列表 (Checkbox) 点击处理 ====================
   // 切换指定索引的任务 checkbox 状态

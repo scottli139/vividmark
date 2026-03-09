@@ -258,6 +258,33 @@ describe('Toolbar', () => {
     })
   })
 
+  describe('export pdf', () => {
+    it('should dispatch editor-request-html event when export pdf button is clicked', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Toolbar />)
+
+      const exportPdfButton = screen.getByTitle('Export PDF (Cmd+P)')
+      fireEvent.click(exportPdfButton)
+
+      expect(dispatchEventSpy).toHaveBeenCalled()
+      const call = dispatchEventSpy.mock.calls.find((call) => {
+        const event = call[0] as CustomEvent
+        return event.type === 'editor-request-html'
+      })
+      expect(call).toBeTruthy()
+
+      dispatchEventSpy.mockRestore()
+    })
+
+    it('should render export pdf button with correct icon', () => {
+      render(<Toolbar />)
+
+      const exportPdfButton = screen.getByTitle('Export PDF (Cmd+P)')
+      expect(exportPdfButton).toBeInTheDocument()
+    })
+  })
+
   describe('insert menu', () => {
     it('should open table dialog from insert menu', () => {
       render(<Toolbar />)

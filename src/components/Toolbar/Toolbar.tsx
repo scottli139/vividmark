@@ -129,6 +129,13 @@ export function Toolbar() {
     await saveFile()
   }, [])
 
+  const handleExportPdf = useCallback(async () => {
+    // 派发事件请求 Editor 提供 HTML 内容
+    window.dispatchEvent(new CustomEvent('editor-request-html', {
+      detail: { requestId: Date.now() }
+    }))
+  }, [])
+
   const handleOpen = useCallback(async () => {
     await openFile()
   }, [])
@@ -262,6 +269,19 @@ export function Toolbar() {
               strokeLinejoin="round"
               strokeWidth={2}
               d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+            />
+          </svg>
+        </ActionButton>
+        <ActionButton
+          onClick={handleExportPdf}
+          title={t('toolbar.tooltip.exportPdf', { shortcut: `${cmdKey}+P` })}
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
             />
           </svg>
         </ActionButton>

@@ -29,7 +29,8 @@
       "toggleDarkMode": "切换深色模式",
       "zoomIn": "放大 ({{shortcut}})",
       "zoomOut": "缩小 ({{shortcut}})",
-      "zoomReset": "重置缩放 ({{shortcut}})"
+      "zoomReset": "重置缩放 ({{shortcut}})",
+      "exportPdf": "导出 PDF ({{shortcut}})"
     },
     "viewMode": {
       "wysiwyg": "编辑",
@@ -129,7 +130,9 @@
     "unknownFile": "未知文件",
     "fileNotFound": "文件不存在",
     "imageCopyFailed": "复制图片失败",
-    "invalidImage": "无效的图片文件"
+    "invalidImage": "无效的图片文件",
+    "exportPdfSuccess": "PDF 导出已启动。请在浏览器中选择「打印为 PDF」。",
+    "exportPdfFailed": "导出 PDF 失败"
   },
   "language": {
     "title": "语言",

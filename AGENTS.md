@@ -35,6 +35,7 @@ This document provides essential information for AI coding agents working on the
 |------|------|
 | **缩放功能** | 支持 50%-200% 内容缩放，工具栏按钮 + 快捷键，状态持久化 |
 | **侧边栏文件树** | 支持打开文件夹、递归展开、Markdown 文件过滤、可拖拽调整宽度 |
+| **导出 PDF (基础版)** | 支持将 Markdown 导出为 PDF，通过系统打印对话框（默认文件名为 vividmark.pdf，需手动修改） |
 
 ### 📅 待办队列
 
@@ -44,7 +45,8 @@ This document provides essential information for AI coding agents working on the
 | ~~P1 | ~~文件夹打开~~ | ~~Phase 5~~ | ~~1-2 天~~ | ✅ 已完成 |
 | P1 | 多标签页 | Phase 5 | 2-3 天 |
 | P2 | 文件变更监控 | Phase 5 | 1-2 天 |
-| P2 | 导出 PDF/HTML/Word | Phase 6 | 3-5 天 |
+| ~~P2 | ~~导出 PDF~~ | ~~Phase 6~~ | ~~1 天~~ | ✅ 已完成 |
+| P2 | 导出 HTML/Word | Phase 6 | 2-3 天 |
 | P2 | 搜索与替换 | Phase 6 | 2-3 天 |
 | P2 | 偏好设置面板 | Phase 7 | 2-3 天 |
 
@@ -54,8 +56,62 @@ This document provides essential information for AI coding agents working on the
 |--------|------|------|------|
 | P2 | E2E 测试增强 | ⏳ 待开始 | 完整用户流程 |
 | P2 | 大文件性能优化 | ⏳ 待开始 | Phase 7 |
+| P2 | **PDF 导出默认文件名** | 📋 规划中 | 详见下方说明 |
+| P3 | **代码块等宽字体（中文对齐）** | ⚠️ 已知问题 | 详见下方说明 |
 | P3 | Split 同步滚动优化 | 📋 规划中 | 智能同步算法 |
 | P3 | PlantUML 本地渲染 | 📋 规划中 | 离线支持 |
+
+**代码块等宽字体（中文对齐）**
+
+> 当前状态：中英文混排的 ASCII 艺术图无法对齐
+
+**问题描述：**
+在 Markdown 代码块中，如果混用中英文（如 ASCII 流程图），中文字符和 ASCII 字符无法正确对齐。
+
+**原因分析：**
+- 中文字符（全角）宽度应为 ASCII 字符（半角）的 2 倍
+- 但在 WebView 中渲染时，实际宽度比例无法严格保持 2:1
+- 尝试多种等宽字体（Menlo、Monaco、Courier New 等）均无法解决
+- 这是 WebKit/WebView 的底层渲染限制
+
+**尝试过的解决方案：**
+1. ✅ 设置多种系统等宽字体
+2. ✅ 使用 `font-variant-ligatures: none` 禁用连字
+3. ✅ 强制所有子元素继承等宽字体
+4. ✅ 添加 `-webkit-font-feature-settings` 前缀
+5. ❌ 均无效
+
+**建议替代方案：**
+- 使用 **Mermaid** 语法绘制图表（VividMark 已支持）
+- 使用 **PlantUML** 绘制专业图表
+- 避免在 ASCII 图中混用中英文，使用纯 ASCII 字符
+
+---
+
+**PDF 导出默认文件名优化**
+
+> 当前状态：打印对话框默认文件名为 `vividmark.pdf`，期望使用文档名称如 `document.pdf`
+
+**问题分析：**
+- macOS 系统打印对话框默认使用应用 bundle 名称作为 PDF 默认文件名
+- 尝试 `document.title` 修改无效
+- 尝试 `NSPrintInfo.setJobName:` 方法导致崩溃
+- 这是 macOS 系统的标准行为
+
+**可能的解决方案：**
+1. **方案 A**：使用 `tauri-plugin-dialog` 显示保存对话框，让用户指定文件名和位置
+   - 优点：用户体验好，直接指定文件名
+   - 缺点：需要额外实现 HTML → PDF 的转换（可能需要 `wkhtmltopdf` 或类似工具）
+   
+2. **方案 B**：接受当前限制，在 UI 中提示用户手动修改文件名
+   - 优点：无需额外开发
+   - 缺点：用户体验不佳
+
+**参考实现：**
+- 文件：`src-tauri/src/lib.rs` 中的 `print_pdf` 函数
+- 前端：`src/lib/exportPdf.ts` 中的 `printToPdf` 函数
+
+**优先级：** P2（低优先级，当前方案可用，只是体验不够理想）
 
 ### ⏸️ 暂停/待启动
 
@@ -65,6 +121,8 @@ This document provides essential information for AI coding agents working on the
 
 ### ✅ 近期已完成
 
+- ~~PDF 导出功能~~ ✅ 2026-03-09 - 使用系统打印对话框导出 PDF，支持多页、隐藏 UI、代码高亮（默认文件名为 vividmark.pdf，需手动修改）
+- ~~代码块等宽字体优化~~ ✅ 2026-03-09 - 尝试多种方案优化中英文对齐（最终受限于 WebView 渲染）
 - ~~工具栏优化~~ ✅ 2026-03-06 - 精简按钮布局，功能分组，标题下拉菜单，插入/格式下拉菜单，语言标签改用文字
 - ~~缩放功能~~ ✅ 2026-03-06 - 支持 50%-200% 内容缩放，工具栏按钮 + 快捷键，状态持久化
 - ~~侧边栏文件树~~ ✅ 2026-03 - 支持打开文件夹、递归展开、Markdown 文件过滤、可拖拽调整宽度
@@ -454,7 +512,68 @@ interface FileInfo {
 | `Cmd/Ctrl + =/+` | Zoom in | `Editor.tsx` |
 | `Cmd/Ctrl + -` | Zoom out | `Editor.tsx` |
 | `Cmd/Ctrl + 0` | Reset zoom | `Editor.tsx` |
+| `Cmd/Ctrl + P` | Export PDF | `Toolbar.tsx` |
 | `Escape` | Exit edit mode | `Editor.tsx` |
+
+## Export PDF
+
+VividMark 支持将 Markdown 文档导出为 PDF。
+
+### 工作原理
+
+由于 Tauri 的安全限制，无法直接静默生成 PDF 文件。导出 PDF 的工作流程如下：
+
+1. **用户点击导出按钮** - 工具栏上的打印机图标或 `Cmd/Ctrl + P` 快捷键
+2. **前端发送 HTML 内容** - Editor 组件通过 `editor-request-html` 事件将渲染后的 HTML 发送到 exportPdf 模块
+3. **Rust 后端创建临时 HTML 文件** - 添加打印友好的 CSS 样式
+4. **系统浏览器打开 HTML** - 使用 `tauri-plugin-opener` 打开系统默认浏览器
+5. **用户手动打印为 PDF** - 在浏览器中使用 "打印为 PDF" 功能保存
+
+### 实现文件
+
+| 文件 | 说明 |
+|------|------|
+| `src-tauri/src/lib.rs` | Rust `export_pdf` 命令 |
+| `src/lib/exportPdf.ts` | 前端导出工具函数 |
+| `src/components/Toolbar/Toolbar.tsx` | 导出按钮 |
+| `src/components/Editor/Editor.tsx` | 监听导出事件 |
+
+### 添加的依赖
+
+**Rust (Cargo.toml):**
+```toml
+tauri-plugin-opener = "2"
+```
+
+**Capabilities (`src-tauri/capabilities/default.json`):**
+```json
+"opener:default"
+```
+
+### CSS 打印样式
+
+临时 HTML 文件包含针对打印优化的 CSS：
+- 字体：系统默认无衬线字体栈
+- 标题：层级缩进和底部边框
+- 代码：灰色背景和等宽字体
+- 表格：边框和斑马纹
+- 引用：左侧边框
+- 图片：最大宽度 100%
+
+### 使用方法
+
+```typescript
+import { exportToPdf, exportCurrentDocument } from './lib/exportPdf'
+
+// 导出指定 HTML 内容
+await exportToPdf({
+  htmlContent: '<h1>Hello World</h1>',
+  title: 'My Document'
+})
+
+// 导出当前文档（自动使用文件名作为标题）
+await exportCurrentDocument(renderedHtml)
+```
 
 ## Logging
 

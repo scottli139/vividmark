@@ -52,6 +52,7 @@ vi.mock('react-i18next', () => ({
         'toolbar.tooltip.zoomIn': shortcut ? `Zoom In (${shortcut})` : 'Zoom In',
         'toolbar.tooltip.zoomOut': shortcut ? `Zoom Out (${shortcut})` : 'Zoom Out',
         'toolbar.tooltip.zoomReset': shortcut ? `Reset Zoom (${shortcut})` : 'Reset Zoom',
+        'toolbar.tooltip.exportPdf': shortcut ? `Export PDF (${shortcut})` : 'Export PDF',
         'toolbar.viewMode.wysiwyg': 'WYSIWYG',
         'toolbar.viewMode.source': 'Source',
         'toolbar.viewMode.split': 'Split',

@@ -29,7 +29,8 @@
       "toggleDarkMode": "Toggle Dark Mode",
       "zoomIn": "Zoom In ({{shortcut}})",
       "zoomOut": "Zoom Out ({{shortcut}})",
-      "zoomReset": "Reset Zoom ({{shortcut}})"
+      "zoomReset": "Reset Zoom ({{shortcut}})",
+      "exportPdf": "Export PDF ({{shortcut}})"
     },
     "viewMode": {
       "wysiwyg": "WYSIWYG",
@@ -129,7 +130,9 @@
     "unknownFile": "Unknown file",
     "fileNotFound": "File not found",
     "imageCopyFailed": "Failed to copy image",
-    "invalidImage": "Invalid image file"
+    "invalidImage": "Invalid image file",
+    "exportPdfSuccess": "PDF export initiated. Please print to PDF in your browser.",
+    "exportPdfFailed": "Failed to export PDF"
   },
   "language": {
     "title": "Language",

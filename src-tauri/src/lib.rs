@@ -2,10 +2,12 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
-use tauri::Manager;
+use tauri::{Manager, WebviewWindow};
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+
+
 
 /// 文件树项
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +37,19 @@ pub struct FileInfo {
 pub struct SaveResult {
     pub success: bool,
     pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ExportPdfResult {
+    pub success: bool,
+    pub error: Option<String>,
+}
+
+/// PDF 导出参数
+#[derive(Debug, Deserialize)]
+pub struct ExportPdfParams {
+    pub html_content: String,
+    pub title: Option<String>,
 }
 
 /// 文件元数据信息，用于诊断
@@ -294,6 +309,342 @@ fn read_directory(params: ReadDirectoryParams) -> Result<Vec<FileTreeItem>, Stri
     Ok(entries)
 }
 
+// 导出 PDF - 使用系统打印对话框
+#[tauri::command]
+async fn export_pdf(
+    _window: tauri::Window,
+    params: ExportPdfParams,
+) -> Result<ExportPdfResult, String> {
+    let start = Instant::now();
+    log::info!("[export_pdf] Starting PDF export operation");
+    log::debug!("[export_pdf] Title: {:?}", params.title);
+    log::debug!("[export_pdf] HTML content size: {} bytes", params.html_content.len());
+
+    // 创建临时 HTML 文件
+    let temp_dir = std::env::temp_dir();
+    let timestamp = start.elapsed().as_millis();
+    let temp_html_path = temp_dir.join(format!("vividmark_export_{}.html", timestamp));
+    
+    // 构建完整的 HTML 文档
+    let title = params.title.unwrap_or_else(|| "VividMark Export".to_string());
+    let full_html = format!(
+        r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{}</title>
+    <style>
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+        }}
+        h1, h2, h3, h4, h5, h6 {{
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }}
+        h1 {{ font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }}
+        h2 {{ font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }}
+        h3 {{ font-size: 1.25em; }}
+        p {{ margin-bottom: 16px; }}
+        code {{
+            background-color: #f6f8fa;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+            font-size: 85%;
+        }}
+        pre {{
+            background-color: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow: auto;
+            font-size: 85%;
+            line-height: 1.45;
+        }}
+        pre code {{
+            background-color: transparent;
+            padding: 0;
+        }}
+        blockquote {{
+            margin: 0;
+            padding: 0 1em;
+            color: #6a737d;
+            border-left: 0.25em solid #dfe2e5;
+        }}
+        ul, ol {{
+            margin-bottom: 16px;
+            padding-left: 2em;
+        }}
+        li + li {{
+            margin-top: 0.25em;
+        }}
+        table {{
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }}
+        th, td {{
+            padding: 6px 13px;
+            border: 1px solid #dfe2e5;
+        }}
+        th {{
+            background-color: #f6f8fa;
+            font-weight: 600;
+        }}
+        tr:nth-child(2n) {{
+            background-color: #f6f8fa;
+        }}
+        img {{
+            max-width: 100%;
+            height: auto;
+        }}
+        .task-list-item {{
+            list-style-type: none;
+        }}
+        .admonition {{
+            margin: 16px 0;
+            padding: 12px 16px;
+            border-left: 4px solid;
+            border-radius: 4px;
+        }}
+        .admonition.tip {{ border-color: #28a745; background-color: #f8fff8; }}
+        .admonition.warning {{ border-color: #ffc107; background-color: #fffbf0; }}
+        .admonition.info {{ border-color: #17a2b8; background-color: #f0f9fb; }}
+        .admonition.note {{ border-color: #6c757d; background-color: #f8f9fa; }}
+        .admonition.danger {{ border-color: #dc3545; background-color: #fff5f5; }}
+        .admonition-title {{
+            font-weight: 600;
+            margin-bottom: 8px;
+        }}
+    </style>
+</head>
+<body>
+    {}
+</body>
+</html>"#,
+        title, params.html_content
+    );
+
+    // 写入临时文件
+    if let Err(e) = fs::write(&temp_html_path, full_html) {
+        log::error!("[export_pdf] Failed to create temp HTML file: {}", e);
+        return Ok(ExportPdfResult {
+            success: false,
+            error: Some(format!("Failed to create temp file: {}", e)),
+        });
+    }
+
+    log::debug!("[export_pdf] Temp HTML file created: {:?}", temp_html_path);
+
+    // 使用系统命令打开 HTML 文件进行打印
+    let path_str = temp_html_path.to_string_lossy().to_string();
+    
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open")
+        .arg(&path_str)
+        .spawn();
+    
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("cmd")
+        .args(["/C", "start", "", &path_str])
+        .spawn();
+    
+    #[cfg(target_os = "linux")]
+    let result = std::process::Command::new("xdg-open")
+        .arg(&path_str)
+        .spawn();
+    
+    match result {
+        Ok(_) => {
+            log::info!("[export_pdf] ✓ Success: opened HTML for printing in {:?}", start.elapsed());
+            Ok(ExportPdfResult {
+                success: true,
+                error: None,
+            })
+        }
+        Err(e) => {
+            log::error!("[export_pdf] Failed to open for printing: {}", e);
+            Ok(ExportPdfResult {
+                success: false,
+                error: Some(format!("Failed to open for printing: {}", e)),
+            })
+        }
+    }
+}
+
+/// 使用 WebView 原生打印功能导出 PDF（应用内打印对话框）
+#[tauri::command]
+async fn print_pdf(window: WebviewWindow, file_name: String) -> Result<ExportPdfResult, String> {
+    log::info!("[print_pdf] Opening native print dialog for: {}", file_name);
+    
+    // 注入 CSS 进行打印准备
+    let prepare_print = r#"
+        (function() {
+            // 清理之前的样式
+            const existing = document.getElementById('print-pdf-style');
+            if (existing) existing.remove();
+            
+            // 移除之前的内联样式恢复
+            if (window._printCleanup) {
+                window._printCleanup();
+                delete window._printCleanup;
+            }
+            
+            // 保存原始标题用于恢复
+            if (!window._originalTitle) {
+                window._originalTitle = document.title;
+            }
+            
+            // 保存需要恢复的元素和值
+            const toRestore = [];
+            
+            // 修复高度限制 - 找到所有限制高度的元素
+            document.querySelectorAll('*').forEach(el => {
+                const style = window.getComputedStyle(el);
+                const height = style.height;
+                const maxHeight = style.maxHeight;
+                const overflow = style.overflow;
+                
+                // 检查是否有固定高度或溢出隐藏
+                if ((height.includes('px') || height.includes('vh') || height.includes('%')) &&
+                    height !== 'auto' && parseInt(height) > 100) {
+                    toRestore.push({ el: el, height: el.style.height });
+                    el.style.height = 'auto';
+                }
+                
+                if ((maxHeight.includes('px') || maxHeight.includes('vh')) && maxHeight !== 'none') {
+                    toRestore.push({ el: el, maxHeight: el.style.maxHeight });
+                    el.style.maxHeight = 'none';
+                }
+                
+                if (overflow === 'hidden' || overflow === 'auto' || overflow === 'scroll') {
+                    toRestore.push({ el: el, overflow: el.style.overflow });
+                    el.style.overflow = 'visible';
+                }
+            });
+            
+            // 创建恢复函数
+            window._printCleanup = function() {
+                toRestore.forEach(item => {
+                    if (item.height !== undefined) item.el.style.height = item.height;
+                    if (item.maxHeight !== undefined) item.el.style.maxHeight = item.maxHeight;
+                    if (item.overflow !== undefined) item.el.style.overflow = item.overflow;
+                });
+                // 恢复原标题
+                if (window._originalTitle) {
+                    document.title = window._originalTitle;
+                }
+            };
+            
+            // 添加打印样式
+            const style = document.createElement('style');
+            style.id = 'print-pdf-style';
+            style.textContent = `
+                @media print {
+                    @page { margin: 15mm; size: auto; }
+                    
+                    /* 隐藏工具栏 */
+                    .h-12, .h-14, header, nav,
+                    div[class*="toolbar"],
+                    div[style*="height: 3rem"] {
+                        display: none !important;
+                    }
+                    
+                    /* 隐藏侧边栏 */
+                    aside, .border-r, .w-64, .w-60, .w-56,
+                    div[class*="sidebar"] {
+                        display: none !important;
+                    }
+                    
+                    /* 主内容 */
+                    main, .flex-1, article, body {
+                        width: 100% !important;
+                        height: auto !important;
+                        max-height: none !important;
+                        overflow: visible !important;
+                        margin: 0 !important;
+                        padding: 20px !important;
+                    }
+                    
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                        line-height: 1.6 !important;
+                        color: #333 !important;
+                        font-size: 11pt !important;
+                    }
+                    
+                    /* 代码块使用等宽字体 */
+                    code, pre, pre code {
+                        font-family: 'Courier New', 'Courier', monospace !important;
+                        font-variant-ligatures: none !important;
+                        -webkit-font-feature-settings: "liga" 0 !important;
+                    }
+                    
+                    /* 强制所有子元素继承 */
+                    pre *, code *, pre code * {
+                        font-family: inherit !important;
+                    }
+                    
+                    pre {
+                        background-color: #f6f8fa !important;
+                        padding: 12px !important;
+                        border-radius: 6px !important;
+                        overflow-x: auto !important;
+                        white-space: pre !important;
+                        word-wrap: normal !important;
+                    }
+                    
+                    pre, code, h1, h2, h3, h4, img, table {
+                        page-break-inside: avoid !important;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // 打印后清理
+            window.addEventListener('afterprint', function onAfterPrint() {
+                window.removeEventListener('afterprint', onAfterPrint);
+                
+                const s = document.getElementById('print-pdf-style');
+                if (s) s.remove();
+                
+                if (window._printCleanup) {
+                    window._printCleanup();
+                    delete window._printCleanup;
+                }
+            });
+            
+            return true;
+        })()
+    "#;
+    
+    if let Err(e) = window.eval(prepare_print) {
+        log::warn!("[print_pdf] Failed to prepare print: {}", e);
+    }
+    
+    // 注意：macOS 的打印对话框默认使用应用 bundle 名称作为 PDF 文件名
+    // 这是系统行为，无法通过标准 API 修改
+    // 用户需要在打印对话框中手动更改文件名
+    
+    // 使用 WebView 的 print 方法
+    match window.print() {
+        Ok(_) => {
+            log::info!("[print_pdf] ✓ Print dialog opened");
+            Ok(ExportPdfResult { success: true, error: None })
+        }
+        Err(e) => {
+            log::error!("[print_pdf] Failed: {}", e);
+            Ok(ExportPdfResult { success: false, error: Some(e.to_string()) })
+        }
+    }
+}
+
 /// 递归读取目录
 fn read_directory_recursive(
     path: &PathBuf,
@@ -430,7 +781,7 @@ pub fn run() {
             log::info!("[VividMark] Application started successfully");
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory])
+        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, export_pdf, print_pdf])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

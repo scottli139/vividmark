@@ -4,6 +4,13 @@
 .hljs {
   background: #f6f8fa;
   color: #24292e;
+  font-family: 'Courier New', 'Courier', monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  -webkit-font-feature-settings: "liga" 0;
 }
 
 .hljs-comment,
@@ -62,6 +69,55 @@
 
 .hljs-addition {
   background: #e6ffed;
+}
+
+/* 强制代码块使用等宽字体 */
+pre,
+pre.hljs,
+.markdown-body pre,
+.markdown-body pre.hljs {
+  font-family: 'Courier New', 'Courier', monospace !important;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  letter-spacing: 0;
+  -webkit-font-feature-settings: "liga" 0;
+}
+
+pre code.hljs,
+.markdown-body pre code,
+.markdown-body code.hljs,
+.markdown-body pre.hljs code,
+.hljs code,
+code.hljs {
+  font-family: 'Courier New', 'Courier', monospace !important;
+  white-space: pre !important;
+  word-wrap: normal !important;
+  word-break: normal !important;
+  tab-size: 4;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  -webkit-font-feature-settings: "liga" 0;
+}
+
+/* highlight.js 内部所有元素强制继承 */
+.hljs *,
+.hljs code *,
+pre code *,
+.markdown-body pre *,
+.markdown-body pre code * {
+  font-family: inherit !important;
+  font-variant-ligatures: none !important;
+  -webkit-font-variant-ligatures: none !important;
+}
+
+/* 禁用所有可能破坏对齐的 CSS */
+.hljs,
+.hljs *,
+pre,
+pre code,
+code {
+  text-rendering: geometricPrecision !important;
+  -webkit-text-size-adjust: 100% !important;
 }
 
 .hljs-emphasis {
@@ -211,7 +267,7 @@ body {
   background-color: rgba(0, 0, 0, 0.05);
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-family: 'Courier New', 'Courier', monospace;
   font-size: 0.9em;
 }
 
@@ -225,6 +281,16 @@ body {
   border-radius: 6px;
   overflow-x: auto;
   margin-bottom: 1em;
+  font-family: 'Courier New', 'Courier', monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  white-space: pre;
+  word-wrap: normal;
+  word-break: normal;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+  -webkit-font-feature-settings: "liga" 0;
+  letter-spacing: 0;
 }
 
 .dark .markdown-body pre {
@@ -234,6 +300,11 @@ body {
 .markdown-body pre code {
   background-color: transparent;
   padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  white-space: pre;
+  word-wrap: normal;
+  word-break: normal;
 }
 
 .markdown-body blockquote {
