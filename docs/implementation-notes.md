@@ -1000,3 +1000,75 @@ if (lang === 'typst') {
 | 2   | WASM 加载时机 | 懒加载（首次使用 Typst 时）  |
 | 3   | 字体回退      | 宽松回退（用户体验优先）     |
 | 4   | 缓存策略      | 从内存缓存开始               |
+
+---
+
+## 2026-08-04 CodeMirror 6 编辑器地基（UX 改进 P0/P1）
+
+> 背景与完整方案：`docs/ux-improvement-plan.md`；任务看板：PLAN.md「Phase 13」。
+
+### 架构要点
+
+- **编辑内核**：Source/Split 的 textarea 已全部替换为 CodeMirror 6，封装在 `src/components/Editor/CodeMirrorEditor.tsx`。WYSIWYG 占位页未动（Editor.tsx wysiwyg 分支）。
+- **格式化逻辑是纯函数**：`src/lib/markdownEditing.ts`（`formatTransaction` / `insertTextAtCursor`），接收 EditorState 返回 TransactionSpec；工具栏 `editor-format` 事件与快捷键（Mod-B/I/K/1/2/3，`Prec.highest` keymap）共用，可脱离 DOM 单测。
+- **store ↔ CM 同步防回环**：updateListener 写 store 前比较 `value !== store.content`；store → CM 全量替换前同样比较。以 `filePath` 为 key 重建视图，打开新文件自然重置 CM history。
+- **撤销**：CM history（按操作分组、恢复选区）取代原 500ms 全文快照 HistoryManager（`useHistory`/`useTextFormat`/`historyManager` 已删除）。`undoDepth`/`redoDepth` 写入 store 驱动工具栏 disabled 态。
+- **智能输入**：`markdownKeymap`（回车延续列表/任务/引用、空项退出）、`indentWithTab`、`closeBrackets`。
+- **查找替换**：`@codemirror/search`（`search({ top: true })`），面板亮/暗样式补在 globals.css 末尾。
+- **图片粘贴/拖拽**：`domEventHandlers` paste/drop → `imageUtils.createImageMarkdownFromFile`（已保存文件复制到 `assets/` 用相对路径，未保存回退 base64）；drop 用 `posAtCoords` 定位插入点。
+- **预览防抖**：渲染 120ms（Editor.tsx）、大纲/字数 200ms（`useDebouncedValue` + `src/lib/textStats.ts` 公共算法，Sidebar 与状态栏共用）。
+- **状态栏**：`src/components/StatusBar/StatusBar.tsx`；光标行/列经 store 非持久化字段 `cursorLine/cursorCol` 上报。
+- **组件常驻挂载**：CodeMirrorEditor 在 preview/wysiwyg 模式下仅 `hidden`，保证撤销历史与工具栏事件跨模式可用。
+
+### 踩坑记录
+
+- **jsdom 跑 CM6 需要 polyfill**：`Range.prototype.getClientRects/getBoundingClientRect`、`scrollIntoView` 等，见 `src/test/setup.ts`。
+- **E2E 选择器**：textarea → `.cm-content`；读编辑器内容用 `innerText()` + `expect.poll`（CM 不是 form control，没有 value）。
+- **zoom 实现变化**：从 textarea 的 CSS `zoom` 改为字号缩放（14px × zoomLevel/100），内边距不再随缩放变化。
+- **遗留**：`e2e/drag-drop.spec.ts` 有 2 个用例依赖 Tauri 窗口级拖拽事件/原生文件对话框，纯浏览器 E2E 无法通过（改造前即失败，与 CM 无关）；预览区点击 checkbox 后 CM 光标移到文末（可接受）；OS 级图片拖入在 Tauri 运行时未实测。
+
+---
+
+## 2026-08-04 WYSIWYG 落地（Milkdown，UX 改进 P2）
+
+### 架构要点
+
+- **内核**：WYSIWYG 模式由 Milkdown v7（ProseMirror）实现，headless 用法（无 `@milkdown/react`，nodeview 全部纯 DOM），组件 `src/components/Editor/WysiwygEditor.tsx`，插件集合 `wysiwygPlugins.ts`。**`@milkdown/kit` 根导出为空，必须子路径导入**（`@milkdown/kit/core`、`/preset/gfm`、`/utils`、`/prose/*`）。
+- **同步模型**：markdown 源码是单一事实来源。编辑 → `listener.markdownUpdated` 序列化回 store（200ms 防抖、值相等跳过、仅 wysiwyg 激活时回写）；外部变更 → `replaceAll(content, flush=true)` 重建 EditorState（不产生 transaction，天然不触发回写——**初始化脏标记守卫依赖这一点**，有测试锁定：打开文件/切换模式不标 dirty）。编辑器以 `filePath` 为 key 重建实例。
+- **viewMode 分流**：CM 与 Milkdown 都常驻挂载（非激活 hidden）。两侧的事件 handler（`editor-format`/`editor-insert`/`editor-undo`/`editor-redo`）与 `canUndo/canRedo` 写入各自按 `viewMode` 门控——CM 侧门控不可少：wysiwyg 打字时 store→CM 同步会触发 CM listener，不门控会覆写 Milkdown 上报的撤销深度。
+- **markdown 往返无损**：不认识的语法降级保留（admonition→段落原文、plantuml→代码块），二次往返不动点有测试锁定；首次进入会一次性规范化（`-`→`*`、裸 URL→`<url>` 等，语义等价，WYSIWYG 固有行为）。
+- **自定义语法**：
+  - **Admonition**：`admonitionPlugin.ts`（`$remark` mdast 变换 + remark-stringify handler）+ schema + `admonitionView.ts`（复用 preview 的 `.admonition` CSS）。两个坑：① commonmark 的 remarkLineBreak 会融合软换行，变换必须排在它之后并炸裂融合段落；② admonition schema 注册顺序不能先于 paragraph（PM createAndFill 递归栈溢出）。
+  - **PlantUML**：`plantUmlCodeBlockView.ts`——`$view(codeBlockSchema.node)` 按 `language` attr 渲染「预览图 + 可编辑源码」，编码逻辑共用 `src/lib/plantuml.ts`（parser.ts 已改为调用）。
+  - **本地图片**：`imageView.ts`——只改 DOM 的 src，节点 attrs 保持原文（序列化无损），解析逻辑共用 `src/lib/imageSrc.ts`。相对路径三种形态（`./x` `../x` 与裸相对路径 `images/x.png`）都经 `resolveToAbsoluteImagePath` 基于 baseDir 解析；裸相对路径曾不解析导致图片 404（2026-08-04 修复，preview 的 `preprocessImages` 同构修复）。
+- **isTauri() 的正确写法**：Tauri v2 运行时总是注入 `window.__TAURI_INTERNALS__`（invoke 依赖它），而 `__TAURI__` 仅在 `withGlobalTauri: true` 时才存在（本项目未开启）。检测 Tauri 环境必须查 `__TAURI_INTERNALS__`——此前查 `__TAURI__` 导致 convertFileSrc 路径在生产环境从未生效（preview 靠 base64 兜底才没暴露）。
+  - **任务列表**：`taskListItemView.ts` 纯 DOM nodeview，补上 GFM preset 缺失的可点击 checkbox。
+- **格式化**：`wysiwygFormat.ts` 的 `applyWysiwygFormat` 覆盖 FormatType 全集（toggle 类走 preset 命令；link 无选区插占位并选中；tasklist 三态）；`insertWysiwygSnippet` 把 markdown 片段解析为 PM 节点插入（不退化成纯文本）。
+- **默认模式**：新安装默认 wysiwyg（P0 的强制迁移已删，persist 尊重用户上次选择）。E2E 依赖 source 模式的 spec 用 `e2e/sourceMode.ts` 的 `presetSourceMode(page)` 预置 localStorage。
+- **bundle**：Milkdown 使主 bundle 增至约 2.5MB（gzip 814KB），后续可对 WysiwygEditor 做动态 import。
+
+### 已知限制（P3+ 候选）
+
+- wysiwyg 下 Cmd+K / Cmd+1/2/3 快捷键未接（Mod-B/I 由 Milkdown 自带 keymap 支持）
+- 表格创建是 Milkdown 的 `|CxR| ` 语法，不是 Typora 的 `|a|b|`+回车；行列增删无 UI
+- admonition 无法在编辑器内新建（仅展示/编辑已有），标题 attr 不可编辑
+- 代码块在 wysiwyg 下无语法高亮；slash menu / 悬浮格式条未接
+
+---
+
+## 2026-08-04 自绘对话框系统
+
+原生 `confirm()`/`alert()` 在 Tauri WKWebView 中行为不可靠（用户报告：新建文件确认框点 Cancel 仍执行了清空，Chrome 中同逻辑验证正常）。已全部替换为自绘弹窗：
+
+- `src/stores/dialogStore.ts`：`ask(kind, message)` Promise 化挂起 + `answer(value)`
+- `src/lib/dialog.ts`：`confirmDialog(message): Promise<boolean>` / `alertDialog(message): Promise<void>`
+- `src/components/Dialog.tsx`：全局单例弹窗（App 挂载），风格对齐 TableDialog；Esc/overlay 取消、Enter 确认
+- 6 处调用点（Toolbar/useKeyboardShortcuts/Sidebar/FileTree/useFileDragDrop）全部改为 `await confirmDialog(...)`；生产代码已无原生 confirm/alert
+
+---
+
+## 2026-08-05 Logo 重设计（V + 光标）
+
+新 logo：紫色渐变（#6366F1→#8B5CF6→#D946EF）+ 白色 V 字母 + 琥珀色光标下划线。矢量源 `src-tauri/icons/icon.svg`，方案对比图与母版在 `docs/images/logo-concepts/`。
+
+**macOS 图标安全区**：Big Sur 起图标内容只能占画布的 ~80%（1024 画布中 824），全幅图标在 Dock 会比其他应用大一圈。重新生成图标时必须用带 80% 内边距的母版（`docs/images/logo-concepts/a-vivid-v-padded-1024.png`）执行 `pnpm tauri icon <母版>`。

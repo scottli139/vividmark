@@ -2,6 +2,7 @@ import { useCallback, useState, useEffect, useRef } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useTranslation } from 'react-i18next'
 import { openFileByPath } from '../lib/fileOps'
+import { alertDialog, confirmDialog } from '../lib/dialog'
 import { useEditorStore } from '../stores/editorStore'
 import { dragDropLogger } from '../lib/logger'
 
@@ -79,14 +80,14 @@ export function useFileDragDrop() {
 
       if (!isValidFile) {
         dragDropLogger.warn('Invalid file type:', { fileName, validExtensions })
-        alert(t('messages.invalidFileType'))
+        await alertDialog(t('messages.invalidFileType'))
         return
       }
 
       // 如果有未保存的更改，询问用户
       if (isDirty) {
         dragDropLogger.debug('Unsaved changes detected, showing confirm dialog')
-        if (!confirm(t('dialog.confirmDiscard'))) {
+        if (!(await confirmDialog(t('dialog.confirmDiscard')))) {
           dragDropLogger.info('User cancelled drop due to unsaved changes')
           return
         }
@@ -116,7 +117,7 @@ export function useFileDragDrop() {
           fileName,
           error: metrics.lastError,
         })
-        alert(t('messages.openFileFailed'))
+        await alertDialog(t('messages.openFileFailed'))
       }
 
       dragDropLogger.timeEnd('drop-processing')

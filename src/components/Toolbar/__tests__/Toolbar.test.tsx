@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { Toolbar } from '../Toolbar'
 import { useEditorStore } from '../../../stores/editorStore'
+import { useDialogStore } from '../../../stores/dialogStore'
 
 // Mock fileOps module
 vi.mock('../../../lib/fileOps', () => ({
@@ -82,34 +83,43 @@ describe('Toolbar', () => {
       expect(mockNewFile).toHaveBeenCalledTimes(1)
     })
 
-    it('should confirm before creating new file when document is dirty', () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-
+    it('should confirm before creating new file when document is dirty', async () => {
       useEditorStore.getState().setDirty(true)
       render(<Toolbar />)
 
       const newButton = screen.getByTitle('New File (Cmd+N)')
       fireEvent.click(newButton)
 
-      expect(confirmSpy).toHaveBeenCalledWith('Discard unsaved changes?')
-      expect(mockNewFile).toHaveBeenCalledTimes(1)
+      // 自绘弹窗出现（替代原生 confirm）
+      expect(useDialogStore.getState().current?.message).toBe('Discard unsaved changes?')
+      expect(useDialogStore.getState().current?.kind).toBe('confirm')
 
-      confirmSpy.mockRestore()
+      act(() => {
+        useDialogStore.getState().answer(true)
+      })
+
+      await waitFor(() => {
+        expect(mockNewFile).toHaveBeenCalledTimes(1)
+      })
     })
 
-    it('should not create new file if user cancels confirmation', () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-
+    it('should not create new file if user cancels confirmation', async () => {
       useEditorStore.getState().setDirty(true)
       render(<Toolbar />)
 
       const newButton = screen.getByTitle('New File (Cmd+N)')
       fireEvent.click(newButton)
 
-      expect(confirmSpy).toHaveBeenCalledWith('Discard unsaved changes?')
-      expect(mockNewFile).not.toHaveBeenCalled()
+      expect(useDialogStore.getState().current?.message).toBe('Discard unsaved changes?')
 
-      confirmSpy.mockRestore()
+      act(() => {
+        useDialogStore.getState().answer(false)
+      })
+
+      await waitFor(() => {
+        expect(useDialogStore.getState().current).toBeNull()
+      })
+      expect(mockNewFile).not.toHaveBeenCalled()
     })
   })
 

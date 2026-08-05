@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useFileDragDrop, getDragDropMetrics } from '../useFileDragDrop'
+import { useDialogStore } from '../../stores/dialogStore'
 
 // Mock Tauri API
 const mockUnlisten = vi.fn()
@@ -148,8 +149,6 @@ describe('useFileDragDrop', () => {
   })
 
   it('should reject invalid file types', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-
     renderHook(() => useFileDragDrop())
 
     await act(async () => {
@@ -167,10 +166,16 @@ describe('useFileDragDrop', () => {
       })
     })
 
-    expect(alertSpy).toHaveBeenCalledWith('Please drop a Markdown file (.md, .markdown, .txt)')
+    // 自绘弹窗显示无效文件类型（替代原生 alert）
+    expect(useDialogStore.getState().current?.kind).toBe('alert')
+    expect(useDialogStore.getState().current?.message).toBe(
+      'Please drop a Markdown file (.md, .markdown, .txt)'
+    )
     expect(mockOpenFileByPath).not.toHaveBeenCalled()
 
-    alertSpy.mockRestore()
+    act(() => {
+      useDialogStore.getState().answer(true)
+    })
   })
 
   it('should handle drop with multiple files (use first one)', async () => {
@@ -215,7 +220,6 @@ describe('useFileDragDrop', () => {
 
   it('should handle file open failure gracefully', async () => {
     mockOpenFileByPath.mockRejectedValue(new Error('File not found'))
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
 
     renderHook(() => useFileDragDrop())
 
@@ -234,11 +238,15 @@ describe('useFileDragDrop', () => {
       })
     })
 
+    // 自绘弹窗显示打开失败（替代原生 alert）
     await waitFor(() => {
-      expect(alertSpy).toHaveBeenCalledWith('Failed to open file')
+      expect(useDialogStore.getState().current?.message).toBe('Failed to open file')
     })
+    expect(useDialogStore.getState().current?.kind).toBe('alert')
 
-    alertSpy.mockRestore()
+    act(() => {
+      useDialogStore.getState().answer(true)
+    })
   })
 })
 

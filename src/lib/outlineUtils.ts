@@ -20,9 +20,21 @@ export function extractOutline(content: string): OutlineItem[] {
   const headings: OutlineItem[] = []
   let charIndex = 0
   let headingIndex = 0
+  // 围栏代码块状态（``` 或 ~~~），代码块内的 # 行不是标题
+  let inCodeBlock = false
+  let fenceChar = ''
 
   lines.forEach((line, lineIndex) => {
-    if (line.startsWith('#')) {
+    const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/)
+    if (fenceMatch) {
+      const marker = fenceMatch[1][0]
+      if (!inCodeBlock) {
+        inCodeBlock = true
+        fenceChar = marker
+      } else if (marker === fenceChar) {
+        inCodeBlock = false
+      }
+    } else if (!inCodeBlock && line.startsWith('#')) {
       const level = line.match(/^#+/)?.[0].length || 1
       const text = line.replace(/^#+\s*/, '')
       headings.push({
@@ -37,61 +49,6 @@ export function extractOutline(content: string): OutlineItem[] {
   })
 
   return headings
-}
-
-/**
- * 计算指定字符位置在 textarea 中的行高（用于滚动）
- * @param content 完整内容
- * @param charIndex 字符位置
- * @param lineHeight 每行高度（像素）
- * @returns 滚动位置（像素）
- */
-export function calculateScrollPosition(
-  content: string,
-  charIndex: number,
-  lineHeight: number = 24
-): number {
-  const lines = content.slice(0, charIndex).split('\n')
-  return (lines.length - 1) * lineHeight
-}
-
-/**
- * 查找最接近指定字符位置的行起始位置
- * @param content 完整内容
- * @param charIndex 字符位置
- * @returns 行起始字符位置
- */
-export function findLineStart(content: string, charIndex: number): number {
-  const lastNewline = content.lastIndexOf('\n', charIndex)
-  return lastNewline === -1 ? 0 : lastNewline + 1
-}
-
-/**
- * 将光标滚动到可视区域
- * @param textarea textarea 元素
- * @param charIndex 字符位置
- * @param lineHeight 行高
- */
-export function scrollToPosition(
-  textarea: HTMLTextAreaElement,
-  charIndex: number,
-  lineHeight: number = 24
-): void {
-  const content = textarea.value
-  const scrollPos = calculateScrollPosition(content, charIndex, lineHeight)
-
-  // 添加一些上边距，让目标位置不在最顶部
-  const padding = lineHeight * 3
-  const targetScrollTop = Math.max(0, scrollPos - padding)
-
-  textarea.scrollTo({
-    top: targetScrollTop,
-    behavior: 'smooth',
-  })
-
-  // 设置光标位置
-  textarea.setSelectionRange(charIndex, charIndex)
-  textarea.focus()
 }
 
 /**

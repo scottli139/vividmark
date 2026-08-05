@@ -7,11 +7,9 @@ import hljs from 'highlight.js'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { isLocalPath, isUrl } from '../imageUtils'
-
-// 检查是否在 Tauri 环境中
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && !!(window as unknown as Record<string, unknown>).__TAURI__
-}
+import { admonitionTypes, getAdmonitionDisplayTitle } from './admonitionTypes'
+import { getPlantUmlSvgUrl } from '../plantuml'
+import { isTauri, resolveToAbsoluteImagePath } from '../imageSrc'
 
 // 自定义图片渲染规则 - 处理本地文件路径
 function convertImageSrc(src: string): string {
@@ -34,19 +32,6 @@ function convertImageSrc(src: string): string {
 
   return src
 }
-
-// Admonition 类型配置
-const admonitionTypes = [
-  'tip',
-  'warning',
-  'info',
-  'note',
-  'danger',
-  'success',
-  'hint',
-  'important',
-  'caution',
-]
 
 // 创建 markdown-it 实例，集成代码高亮
 const md = new MarkdownIt({
@@ -81,9 +66,7 @@ const md = new MarkdownIt({
 // 渲染 PlantUML 为图片
 function renderPlantUML(content: string): string {
   try {
-    const encoded = encode(content.trim())
-    // 使用 PlantUML 在线服务
-    const url = `https://www.plantuml.com/plantuml/svg/${encoded}`
+    const url = getPlantUmlSvgUrl(content)
     return `<div class="plantuml-diagram"><img src="${url}" alt="PlantUML Diagram" loading="lazy" /></div>`
   } catch (error) {
     console.error('[PlantUML] Encoding failed:', error)
@@ -100,7 +83,7 @@ admonitionTypes.forEach((type) => {
 
       if (token.nesting === 1) {
         // 打开标签
-        const title = info || type.charAt(0).toUpperCase() + type.slice(1)
+        const title = getAdmonitionDisplayTitle(type, info)
         return `<div class="admonition ${type}">
   <div class="admonition-title">${title}</div>
   <div class="admonition-content">`
@@ -294,37 +277,6 @@ async function convertImageToBase64(imagePath: string): Promise<string> {
 }
 
 /**
- * 解析相对路径为绝对路径
- */
-function resolveRelativePath(relativePath: string, baseDir: string): string {
-  // 统一转换为 POSIX 风格路径（处理 Windows 路径）
-  const normalizedBase = baseDir.replace(/\\/g, '/')
-  const normalizedRelative = relativePath.replace(/\\/g, '/')
-
-  if (normalizedRelative.startsWith('./')) {
-    return `${normalizedBase}/${normalizedRelative.slice(2)}`
-  } else if (normalizedRelative.startsWith('../')) {
-    // 处理上级目录
-    const parts = normalizedBase.split('/').filter((p) => p.length > 0)
-    const relativeParts = normalizedRelative.split('/')
-    let upCount = 0
-    for (const part of relativeParts) {
-      if (part === '..') {
-        upCount++
-      } else {
-        break
-      }
-    }
-    const newBase = parts.slice(0, parts.length - upCount).join('/')
-    const remaining = relativeParts.slice(upCount).join('/')
-    // 保留 Windows 盘符（如果有）
-    const prefix = normalizedBase.startsWith('/') ? '/' : ''
-    return `${prefix}${newBase}/${remaining}`
-  }
-  return `${normalizedBase}/${normalizedRelative}`
-}
-
-/**
  * 预处理 Markdown 内容，将本地图片路径转换为 base64
  * 注意：这是一个异步操作，需要在使用前完成
  */
@@ -359,18 +311,11 @@ export async function preprocessImages(content: string, baseDir?: string): Promi
       continue
     }
 
-    let absolutePath = path
-
-    // 如果是相对路径且有 baseDir，转换为绝对路径
-    if (path.startsWith('./') || path.startsWith('../')) {
-      if (baseDir) {
-        absolutePath = resolveRelativePath(path, baseDir)
-        console.log('[parser] Resolved relative path:', path, '->', absolutePath)
-      } else {
-        // 没有 baseDir，跳过相对路径
-        console.warn('[parser] Skipping relative path without baseDir:', path)
-        continue
-      }
+    // 相对路径（./ ../ 与裸相对路径，如 images/x.png）基于 baseDir 解析为绝对路径；
+    // 无 baseDir 时保持原值（下方 isLocalPath 判 false 跳过）
+    const absolutePath = resolveToAbsoluteImagePath(path, baseDir)
+    if (absolutePath !== path) {
+      console.log('[parser] Resolved relative path:', path, '->', absolutePath)
     }
 
     // 如果是本地路径，转换为 base64

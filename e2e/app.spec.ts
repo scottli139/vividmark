@@ -1,20 +1,22 @@
 import { test, expect } from '@playwright/test'
+import { presetSourceMode } from './sourceMode'
 
 test.describe('VividMark Application', () => {
   test.beforeEach(async ({ page }) => {
+    await presetSourceMode(page)
     await page.goto('/')
-    // Wait for the app to load - use more specific selector
-    await expect(page.locator('.font-medium').filter({ hasText: 'Untitled.md' })).toBeVisible({
+    // Wait for the app to load - CodeMirror editor visible
+    await expect(page.locator('.cm-editor')).toBeVisible({
       timeout: 15000,
     })
   })
 
   test('should load the application', async ({ page }) => {
-    await expect(page.locator('.font-medium').filter({ hasText: 'Untitled.md' })).toBeVisible()
+    await expect(page.locator('text=Untitled.md').first()).toBeVisible()
   })
 
   test('should display toolbar with file name', async ({ page }) => {
-    await expect(page.locator('.font-medium').filter({ hasText: 'Untitled.md' })).toBeVisible()
+    await expect(page.locator('text=Untitled.md').first()).toBeVisible()
   })
 
   test('should toggle dark mode', async ({ page }) => {
@@ -40,9 +42,9 @@ test.describe('VividMark Application', () => {
   })
 
   test('should switch view modes', async ({ page }) => {
-    const editButton = page.locator('button:has-text("Edit")')
-    const splitButton = page.locator('button:has-text("Split")')
-    const previewButton = page.locator('button:has-text("Preview")')
+    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
+    const splitButton = page.locator('button').filter({ hasText: /^Split$/ })
+    const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
 
     // Click Split mode
     await splitButton.click()
@@ -50,10 +52,10 @@ test.describe('VividMark Application', () => {
     // Click Preview mode
     await previewButton.click()
 
-    // Click Edit mode
-    await editButton.click()
+    // Click Source mode
+    await sourceButton.click()
 
-    await expect(editButton).toBeVisible()
+    await expect(sourceButton).toBeVisible()
     await expect(splitButton).toBeVisible()
     await expect(previewButton).toBeVisible()
   })
@@ -73,14 +75,19 @@ test.describe('VividMark Application', () => {
   test('should have format toolbar buttons', async ({ page }) => {
     await expect(page.locator('button[title="Bold (Cmd+B)"]')).toBeVisible()
     await expect(page.locator('button[title="Italic (Cmd+I)"]')).toBeVisible()
-    await expect(page.locator('button[title="Strikethrough"]')).toBeVisible()
-    await expect(page.locator('button[title="Inline Code"]')).toBeVisible()
+
+    // 删除线/行内代码在「更多格式」菜单内
+    await page.click('button[title="More Formatting"]')
+    await expect(page.locator('button:has-text("Strikethrough")')).toBeVisible()
+    await expect(page.locator('button:has-text("Inline Code")')).toBeVisible()
   })
 
   test('should have heading format buttons', async ({ page }) => {
-    await expect(page.locator('button[title="Heading 1"]')).toBeVisible()
-    await expect(page.locator('button[title="Heading 2"]')).toBeVisible()
-    await expect(page.locator('button[title="Heading 3"]')).toBeVisible()
+    // 标题按钮在 Heading 下拉菜单内
+    await page.click('button[title="Heading"]')
+    await expect(page.locator('button:has-text("Heading 1")')).toBeVisible()
+    await expect(page.locator('button:has-text("Heading 2")')).toBeVisible()
+    await expect(page.locator('button:has-text("Heading 3")')).toBeVisible()
   })
 
   test('should have file operation buttons', async ({ page }) => {

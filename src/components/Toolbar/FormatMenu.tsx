@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { FormatType } from '../../hooks/useTextFormat'
+import type { FormatType } from '../../lib/markdownEditing'
 
 interface FormatMenuProps {
   onFormat: (format: FormatType) => void

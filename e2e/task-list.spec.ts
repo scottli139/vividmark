@@ -1,12 +1,30 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+import { presetSourceMode } from './sourceMode'
+
+// CodeMirror 6 编辑器（contenteditable）
+function editorLocator(page: Page) {
+  return page.locator('.cm-content')
+}
+
+// 读取编辑器全文（innerText 保留行间换行）
+async function editorText(page: Page): Promise<string> {
+  return (await editorLocator(page).innerText()).trimEnd()
+}
+
+// 等待编辑器内容变为期望值
+async function expectEditorText(page: Page, expected: string) {
+  await expect.poll(() => editorText(page)).toBe(expected)
+}
 
 test.describe('Task List (Checkbox) Feature', () => {
   test.beforeEach(async ({ page }) => {
+    await presetSourceMode(page)
     await page.goto('/')
-    // Wait for the app to load
-    await expect(page.locator('.font-medium').filter({ hasText: 'Untitled.md' })).toBeVisible({
+    // Wait for the app to load - CodeMirror editor visible
+    await expect(page.locator('.cm-editor')).toBeVisible({
       timeout: 15000,
     })
+    await expect(editorLocator(page)).toBeVisible({ timeout: 15000 })
   })
 
   test('should render task list in preview mode', async ({ page }) => {
@@ -14,9 +32,9 @@ test.describe('Task List (Checkbox) Feature', () => {
     const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
     await sourceButton.click()
 
-    // Find textarea and set content
-    const textarea = page.locator('textarea')
-    await textarea.fill(`- [ ] Unchecked task
+    // Find editor and set content
+    const editor = editorLocator(page)
+    await editor.fill(`- [ ] Unchecked task
 - [x] Checked task`)
 
     // Switch to preview mode
@@ -41,8 +59,8 @@ test.describe('Task List (Checkbox) Feature', () => {
     const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
     await sourceButton.click()
 
-    const textarea = page.locator('textarea')
-    await textarea.fill('- [ ] Task to check')
+    const editor = editorLocator(page)
+    await editor.fill('- [ ] Task to check')
 
     // Switch to preview mode
     const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
@@ -64,7 +82,7 @@ test.describe('Task List (Checkbox) Feature', () => {
 
     // Switch back to source mode to verify markdown was updated
     await sourceButton.click()
-    await expect(textarea).toHaveValue('- [x] Task to check')
+    await expectEditorText(page, '- [x] Task to check')
   })
 
   test('should toggle checkbox from checked to unchecked in preview mode', async ({ page }) => {
@@ -72,8 +90,8 @@ test.describe('Task List (Checkbox) Feature', () => {
     const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
     await sourceButton.click()
 
-    const textarea = page.locator('textarea')
-    await textarea.fill('- [x] Task to uncheck')
+    const editor = editorLocator(page)
+    await editor.fill('- [x] Task to uncheck')
 
     // Switch to preview mode
     const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
@@ -95,7 +113,7 @@ test.describe('Task List (Checkbox) Feature', () => {
 
     // Switch back to source mode to verify markdown was updated
     await sourceButton.click()
-    await expect(textarea).toHaveValue('- [ ] Task to uncheck')
+    await expectEditorText(page, '- [ ] Task to uncheck')
   })
 
   test('should toggle multiple checkboxes correctly', async ({ page }) => {
@@ -103,8 +121,8 @@ test.describe('Task List (Checkbox) Feature', () => {
     const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
     await sourceButton.click()
 
-    const textarea = page.locator('textarea')
-    await textarea.fill(`- [ ] Task 1
+    const editor = editorLocator(page)
+    await editor.fill(`- [ ] Task 1
 - [x] Task 2
 - [ ] Task 3`)
 
@@ -139,9 +157,12 @@ test.describe('Task List (Checkbox) Feature', () => {
 
     // Verify final markdown
     await sourceButton.click()
-    await expect(textarea).toHaveValue(`- [x] Task 1
+    await expectEditorText(
+      page,
+      `- [x] Task 1
 - [ ] Task 2
-- [x] Task 3`)
+- [x] Task 3`
+    )
   })
 
   test('should toggle checkboxes in split mode', async ({ page }) => {
@@ -149,8 +170,8 @@ test.describe('Task List (Checkbox) Feature', () => {
     const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
     await sourceButton.click()
 
-    const textarea = page.locator('textarea')
-    await textarea.fill(`- [ ] Task 1
+    const editor = editorLocator(page)
+    await editor.fill(`- [ ] Task 1
 - [x] Task 2`)
 
     // Switch to split mode
@@ -169,8 +190,11 @@ test.describe('Task List (Checkbox) Feature', () => {
     await expect(checkbox).toBeChecked()
 
     // Verify source is updated
-    await expect(textarea).toHaveValue(`- [x] Task 1
-- [x] Task 2`)
+    await expectEditorText(
+      page,
+      `- [x] Task 1
+- [x] Task 2`
+    )
   })
 
   test('should handle task list with markdown formatting', async ({ page }) => {
@@ -178,8 +202,8 @@ test.describe('Task List (Checkbox) Feature', () => {
     const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
     await sourceButton.click()
 
-    const textarea = page.locator('textarea')
-    await textarea.fill('- [ ] Task with **bold** text')
+    const editor = editorLocator(page)
+    await editor.fill('- [ ] Task with **bold** text')
 
     // Switch to preview mode
     const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })

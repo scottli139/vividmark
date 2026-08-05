@@ -27,9 +27,9 @@ test.describe('File Tree', () => {
     // Then switch back to outline
     await page.getByText('Outline').click()
 
-    // Outline content should be visible
-    const noHeadings = page.getByText('No headings')
-    await expect(noHeadings).toBeVisible()
+    // Outline content should be visible（默认欢迎文档含标题）
+    const outline = page.locator('li[title="Welcome to VividMark"]')
+    await expect(outline).toBeVisible()
   })
 
   test('should highlight active tab', async ({ page }) => {

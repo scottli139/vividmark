@@ -3,7 +3,6 @@ import { open, save } from '@tauri-apps/plugin-dialog'
 import i18n from '../i18n'
 import { useEditorStore } from '../stores/editorStore'
 import { fileOpsLogger } from './logger'
-import { preprocessImages } from './markdown/parser'
 
 // 获取当前语言的翻译
 function t(key: string): string {
@@ -117,14 +116,9 @@ export async function openFileByPath(path: string): Promise<boolean> {
     const fileInfo = await invoke<FileInfo>('read_file', { path })
     const store = useEditorStore.getState()
 
-    // 获取文件所在目录，用于解析相对路径图片
-    const fileDir = path.substring(0, path.lastIndexOf('/'))
-
-    // 预处理图片（将本地图片转换为 base64）
-    fileOpsLogger.debug('Preprocessing images...', { baseDir: fileDir })
-    const processedContent = await preprocessImages(fileInfo.content, fileDir)
-
-    store.setContent(processedContent)
+    // 注意：不要把 preprocessImages 的结果写入 store —— base64 会在保存时污染源文件。
+    // 图片预处理只发生在渲染管线（parseMarkdownAsync）中。
+    store.setContent(fileInfo.content)
     store.setFilePath(fileInfo.path)
     store.setFileName(fileInfo.name)
     store.setDirty(false)

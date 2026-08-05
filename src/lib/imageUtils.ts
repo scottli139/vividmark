@@ -5,7 +5,7 @@
  */
 
 import { open } from '@tauri-apps/plugin-dialog'
-import { readFile, copyFile, mkdir, exists } from '@tauri-apps/plugin-fs'
+import { readFile, writeFile, copyFile, mkdir, exists } from '@tauri-apps/plugin-fs'
 import { join, dirname, basename } from '@tauri-apps/api/path'
 import i18n from '../i18n'
 
@@ -270,4 +270,78 @@ export async function imageToBase64(imagePath: string): Promise<string | null> {
 export function extractImagePath(markdown: string): string | null {
   const match = markdown.match(/!\[.*?\]\((.*?)\)/)
   return match ? match[1] : null
+}
+
+/**
+ * 将剪贴板/拖拽得到的图片文件（File 对象）写入文档 assets 目录
+ *
+ * 与 copyImageToAssets 同一约定：文件名加时间戳、返回 ./assets/ 相对路径
+ *
+ * @param file 图片 File 对象（来自粘贴或拖拽）
+ * @param docPath 文档路径
+ * @returns 相对路径或 null
+ */
+export async function saveImageFileToAssets(file: File, docPath: string): Promise<string | null> {
+  try {
+    const docDir = await dirname(docPath)
+    const assetsDir = await join(docDir, 'assets')
+
+    // 创建 assets 目录（如果不存在）
+    const assetsExists = await exists(assetsDir)
+    if (!assetsExists) {
+      await mkdir(assetsDir, { recursive: true })
+    }
+
+    // 生成目标文件名（使用时间戳避免冲突）
+    const timestamp = Date.now()
+    const safeName = (file.name || 'image.png').replace(/[^a-zA-Z0-9.-]/g, '_')
+    const targetName = `${timestamp}_${safeName}`
+    const targetPath = await join(assetsDir, targetName)
+
+    // 写入文件内容
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    await writeFile(targetPath, bytes)
+
+    // 返回相对路径
+    return `./assets/${targetName}`
+  } catch (error) {
+    console.error('[imageUtils] Failed to save image file to assets:', error)
+    return null
+  }
+}
+
+/**
+ * 从粘贴/拖拽的图片 File 对象生成 Markdown 图片语法
+ *
+ * 策略与 createImageMarkdown 一致：
+ * 1. 文档已保存 → 写入 assets 目录，使用相对路径
+ * 2. 文档未保存或写入失败 → 回退 base64 data URL
+ *
+ * @param file 图片 File 对象
+ * @param docPath 当前文档路径（可选）
+ * @returns Markdown 图片语法字符串或 null
+ */
+export async function createImageMarkdownFromFile(
+  file: File,
+  docPath?: string | null
+): Promise<string | null> {
+  const altText = (file.name || 'image').replace(/\.[^/.]+$/, '') || 'image'
+
+  try {
+    if (docPath) {
+      const relPath = await saveImageFileToAssets(file, docPath)
+      if (relPath) {
+        return `![${altText}](${relPath})`
+      }
+    }
+
+    // 回退：base64 data URL
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const base64 = uint8ArrayToBase64(bytes)
+    const mimeType = file.type || 'image/png'
+    return `![${altText}](data:${mimeType};base64,${base64})`
+  } catch (error) {
+    console.error('[imageUtils] Failed to create image markdown from file:', error)
+    return null
+  }
 }

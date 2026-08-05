@@ -1,15 +1,33 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+import { presetSourceMode } from './sourceMode'
+
+// CodeMirror 6 编辑器（contenteditable）
+function editorLocator(page: Page) {
+  return page.locator('.cm-content')
+}
+
+// 读取编辑器全文（innerText 保留行间换行）
+async function editorText(page: Page): Promise<string> {
+  return (await editorLocator(page).innerText()).trimEnd()
+}
+
+// 通过工具栏 Insert 菜单打开插入表格对话框
+async function openTableDialog(page: Page) {
+  await page.click('button[title="Insert"]')
+  await page.click('button:has-text("Insert Table")')
+}
 
 test.describe('Table Editing', () => {
   test.beforeEach(async ({ page }) => {
+    await presetSourceMode(page)
     await page.goto('/')
     // Wait for the editor to be ready
-    await page.waitForSelector('textarea')
+    await page.waitForSelector('.cm-content')
   })
 
   test('should open table dialog from toolbar', async ({ page }) => {
     // Click the table button
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
 
     // Dialog should appear
     await expect(page.locator('text=Insert Table')).toBeVisible()
@@ -19,7 +37,7 @@ test.describe('Table Editing', () => {
 
   test('should insert a basic table', async ({ page }) => {
     // Click the table button
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
 
     // Dialog should appear
     await expect(page.locator('text=Insert Table')).toBeVisible()
@@ -31,8 +49,7 @@ test.describe('Table Editing', () => {
     await expect(page.locator('text=Insert Table')).not.toBeVisible()
 
     // Check that table markdown was inserted
-    const textarea = page.locator('textarea')
-    const content = await textarea.inputValue()
+    const content = await editorText(page)
 
     expect(content).toContain('Column 1 | Column 2 | Column 3')
     expect(content).toContain('--- | --- | ---')
@@ -41,7 +58,7 @@ test.describe('Table Editing', () => {
 
   test('should insert table with custom dimensions', async ({ page }) => {
     // Click the table button
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
 
     // Change dimensions
     const rowInput = page.locator('input[type="number"]').first()
@@ -54,8 +71,7 @@ test.describe('Table Editing', () => {
     await page.click('button:has-text("Insert")')
 
     // Check content
-    const textarea = page.locator('textarea')
-    const content = await textarea.inputValue()
+    const content = await editorText(page)
 
     // Should have 4 columns
     expect(content).toContain('Column 1 | Column 2 | Column 3 | Column 4')
@@ -67,7 +83,7 @@ test.describe('Table Editing', () => {
 
   test('should close dialog when clicking cancel', async ({ page }) => {
     // Click the table button
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
 
     // Dialog should appear
     await expect(page.locator('text=Insert Table')).toBeVisible()
@@ -78,15 +94,14 @@ test.describe('Table Editing', () => {
     // Dialog should close
     await expect(page.locator('text=Insert Table')).not.toBeVisible()
 
-    // Content should be empty (no table inserted)
-    const textarea = page.locator('textarea')
-    const content = await textarea.inputValue()
-    expect(content).toBe('')
+    // Content should not contain any inserted table
+    const content = await editorText(page)
+    expect(content).not.toContain('Column 1')
   })
 
   test('should close dialog when clicking overlay', async ({ page }) => {
     // Click the table button
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
 
     // Dialog should appear
     await expect(page.locator('text=Insert Table')).toBeVisible()
@@ -100,7 +115,7 @@ test.describe('Table Editing', () => {
 
   test('should render table in preview mode', async ({ page }) => {
     // Click the table button and insert
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
     await page.click('button:has-text("Insert")')
 
     // Switch to preview mode
@@ -116,7 +131,7 @@ test.describe('Table Editing', () => {
 
   test('should render table in split mode', async ({ page }) => {
     // Click the table button and insert
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
     await page.click('button:has-text("Insert")')
 
     // Switch to split mode
@@ -129,8 +144,8 @@ test.describe('Table Editing', () => {
 
   test('should handle table with alignment', async ({ page }) => {
     // Type a table with alignment markers
-    const textarea = page.locator('textarea')
-    await textarea.fill(`| Left | Center | Right |
+    const editor = editorLocator(page)
+    await editor.fill(`| Left | Center | Right |
 |:---|:---:|---:|
 | A | B | C |
 | 1 | 2 | 3 |`)
@@ -152,12 +167,12 @@ test.describe('Table Editing', () => {
 
   test('should edit table in source mode', async ({ page }) => {
     // Insert a table
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
     await page.click('button:has-text("Insert")')
 
     // Edit the table content
-    const textarea = page.locator('textarea')
-    await textarea.fill(`| Name | Age | City |
+    const editor = editorLocator(page)
+    await editor.fill(`| Name | Age | City |
 |---|---|---|
 | Alice | 25 | NYC |
 | Bob | 30 | LA |`)
@@ -174,7 +189,7 @@ test.describe('Table Editing', () => {
 
   test('should use increment/decrement buttons in dialog', async ({ page }) => {
     // Click the table button
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
 
     // Get initial value
     const rowInput = page.locator('input[type="number"]').first()
@@ -196,7 +211,7 @@ test.describe('Table Editing', () => {
 
   test('should not allow rows below 1', async ({ page }) => {
     // Click the table button
-    await page.click('[title="Insert Table"]')
+    await openTableDialog(page)
 
     // Try to decrease below 1
     const decreaseBtn = page.locator('button[aria-label="Decrease rows"]')

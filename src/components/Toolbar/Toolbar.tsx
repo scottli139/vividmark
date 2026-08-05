@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEditorStore } from '../../stores/editorStore'
 import { openFile, saveFile, newFile } from '../../lib/fileOps'
+import { confirmDialog } from '../../lib/dialog'
 import { selectLocalImage, createImageMarkdown } from '../../lib/imageUtils'
 import { generateTable } from '../../lib/tableUtils'
 import { TableDialog } from '../TableDialog'
 import { FormatMenu } from './FormatMenu'
 import { HeadingDropdown } from './HeadingDropdown'
 import { InsertMenu } from './InsertMenu'
-import type { FormatType } from '../../hooks/useTextFormat'
+import type { FormatType } from '../../lib/markdownEditing'
 import { availableLanguages, type Language } from '../../i18n'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
@@ -116,7 +117,7 @@ export function Toolbar() {
       try {
         const window = getCurrentWindow()
         const dirtyMark = isDirty ? ' ●' : ''
-        const baseTitle = fileName !== t('app.untitled') ? fileName : '未命名'
+        const baseTitle = fileName === 'Untitled.md' ? t('app.untitled') : fileName
         await window.setTitle(`${baseTitle}${dirtyMark} - VividMark`)
       } catch {
         // 在浏览器环境中会失败，忽略错误
@@ -142,9 +143,9 @@ export function Toolbar() {
     await openFile()
   }, [])
 
-  const handleNew = useCallback(() => {
+  const handleNew = useCallback(async () => {
     if (isDirty) {
-      if (confirm(t('dialog.confirmDiscard'))) {
+      if (await confirmDialog(t('dialog.confirmDiscard'))) {
         newFile()
       }
     } else {

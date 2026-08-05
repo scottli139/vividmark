@@ -1,0 +1,336 @@
+import { useEffect, useRef } from 'react'
+import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state'
+import { EditorView, keymap } from '@codemirror/view'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+  redo,
+  redoDepth,
+  undo,
+  undoDepth,
+} from '@codemirror/commands'
+import { markdown, markdownKeymap } from '@codemirror/lang-markdown'
+import { languages } from '@codemirror/language-data'
+import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { search, searchKeymap } from '@codemirror/search'
+import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { useEditorStore } from '../../stores/editorStore'
+import { formatTransaction, insertTextAtCursor, type FormatType } from '../../lib/markdownEditing'
+import { createImageMarkdownFromFile } from '../../lib/imageUtils'
+
+/** 基础字号（对应原 textarea 的 text-sm），随 zoomLevel 缩放 */
+const BASE_FONT_SIZE = 14
+/** 大纲跳转时目标位置距滚动容器顶部的边距（px） */
+const SCROLL_TOP_MARGIN = 72
+
+/** 布局/配色主题：亮暗共用，背景与文本色对齐 --editor-bg / --editor-text */
+function buildThemeExtensions(isDark: boolean): Extension {
+  const layoutTheme = EditorView.theme(
+    {
+      '&': {
+        height: '100%',
+        backgroundColor: 'var(--editor-bg)',
+        color: 'var(--editor-text)',
+      },
+      '.cm-scroller': {
+        overflow: 'auto',
+        fontFamily:
+          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      },
+      '.cm-content': {
+        padding: '2rem',
+        caretColor: 'var(--editor-text)',
+      },
+      '&.cm-focused': {
+        outline: 'none',
+      },
+      '.cm-cursor': {
+        borderLeftColor: 'var(--editor-text)',
+      },
+      '.cm-panels': {
+        backgroundColor: 'var(--toolbar-bg)',
+        color: 'var(--editor-text)',
+      },
+    },
+    isDark ? { dark: true } : {}
+  )
+  // 暗色：oneDark 在前，布局主题在后以覆盖其编辑器背景
+  if (isDark) {
+    return [oneDark, layoutTheme]
+  }
+  return [layoutTheme, syntaxHighlighting(defaultHighlightStyle, { fallback: true })]
+}
+
+/** 字号主题：zoomLevel 50–200 → 7–28px */
+function buildFontSizeTheme(zoomLevel: number): Extension {
+  return EditorView.theme({
+    '.cm-content': { fontSize: `${(BASE_FONT_SIZE * zoomLevel) / 100}px` },
+  })
+}
+
+/** 行内/块级格式化（工具栏 editor-format 事件与快捷键共用） */
+function runFormat(view: EditorView, format: FormatType): boolean {
+  view.dispatch(formatTransaction(view.state, format))
+  return true
+}
+
+/** 格式快捷键：tooltip 宣称的 Mod-B/I/K/1/2/3 */
+const formatKeymap = Prec.highest(
+  keymap.of([
+    { key: 'Mod-b', run: (view) => runFormat(view, 'bold') },
+    { key: 'Mod-i', run: (view) => runFormat(view, 'italic') },
+    { key: 'Mod-k', run: (view) => runFormat(view, 'link') },
+    { key: 'Mod-1', run: (view) => runFormat(view, 'h1') },
+    { key: 'Mod-2', run: (view) => runFormat(view, 'h2') },
+    { key: 'Mod-3', run: (view) => runFormat(view, 'h3') },
+  ])
+)
+
+/** CM 编辑 → store 同步；撤销深度与光标位置上报 */
+const syncUpdateListener = EditorView.updateListener.of((update) => {
+  const store = useEditorStore.getState()
+
+  if (update.docChanged) {
+    const value = update.state.doc.toString()
+    // 与 store 相同则跳过（避免自己写入又回灌的回环）
+    if (value !== store.content) {
+      store.setContent(value)
+    }
+  }
+
+  if (update.docChanged || update.selectionSet) {
+    const head = update.state.selection.main.head
+    const line = update.state.doc.lineAt(head)
+    const col = head - line.from + 1
+    if (line.number !== store.cursorLine || col !== store.cursorCol) {
+      store.setCursorPosition(line.number, col)
+    }
+  }
+
+  // canUndo/canRedo 按 viewMode 分流：wysiwyg 激活时由 Milkdown 侧
+  // （wysiwygHistoryPlugin）上报，隐藏中的 CM 不得覆写
+  if (store.viewMode !== 'source' && store.viewMode !== 'split') return
+  const nextCanUndo = undoDepth(update.state) > 0
+  const nextCanRedo = redoDepth(update.state) > 0
+  if (nextCanUndo !== store.canUndo) store.setCanUndo(nextCanUndo)
+  if (nextCanRedo !== store.canRedo) store.setCanRedo(nextCanRedo)
+})
+
+/** 粘贴/拖拽的图片写入 assets（或回退 base64）后插入 Markdown 图片语法 */
+async function insertImageFiles(view: EditorView, files: File[]): Promise<void> {
+  const docPath = useEditorStore.getState().filePath
+  for (const file of files) {
+    const markdown = await createImageMarkdownFromFile(file, docPath)
+    if (markdown) {
+      view.dispatch(insertTextAtCursor(view.state, markdown))
+    }
+  }
+  view.focus()
+}
+
+function pickImageFiles(fileList: FileList | null | undefined): File[] {
+  return Array.from(fileList ?? []).filter((f) => f.type.startsWith('image/'))
+}
+
+/** 图片粘贴/拖拽；无图片时放行默认行为 */
+const imageEventHandlers = EditorView.domEventHandlers({
+  paste(event, view) {
+    const files = pickImageFiles(event.clipboardData?.files)
+    if (files.length === 0) return
+    event.preventDefault()
+    void insertImageFiles(view, files)
+  },
+  drop(event, view) {
+    const files = pickImageFiles(event.dataTransfer?.files)
+    if (files.length === 0) return
+    event.preventDefault()
+    // 光标移动到拖放位置
+    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+    if (pos !== null) {
+      view.dispatch({ selection: { anchor: pos } })
+    }
+    void insertImageFiles(view, files)
+  },
+})
+
+/** 大纲跳转：选中目标字符位置并平滑滚动（带上边距） */
+function scrollToCharIndex(view: EditorView, charIndex: number): void {
+  const pos = Math.max(0, Math.min(charIndex, view.state.doc.length))
+  view.dispatch({ selection: { anchor: pos } })
+  requestAnimationFrame(() => {
+    const coords = view.coordsAtPos(pos)
+    if (!coords) return
+    const scroller = view.scrollDOM
+    const target = scroller.scrollTop + coords.top - scroller.getBoundingClientRect().top
+    scroller.scrollTo({ top: Math.max(0, target - SCROLL_TOP_MARGIN), behavior: 'smooth' })
+  })
+  view.focus()
+}
+
+interface CodeMirrorEditorProps {
+  /** Split 模式滚动同步（Source → Preview），参数为 CM 滚动容器 */
+  onScroll?: (scroller: HTMLElement) => void
+  /** 向父组件暴露 EditorView（滚动同步需要访问 scrollDOM） */
+  viewRef?: React.RefObject<EditorView | null>
+}
+
+/**
+ * CodeMirror 6 Markdown 编辑器
+ *
+ * 替代原裸 textarea（Source/Split 模式）。组件常驻挂载（预览模式下隐藏），
+ * 以保留撤销历史与事件处理能力；filePath 变化时重建视图以清空历史。
+ */
+export function CodeMirrorEditor({ onScroll, viewRef }: CodeMirrorEditorProps) {
+  const filePath = useEditorStore((state) => state.filePath)
+  // 以 filePath 为 key：打开新文件时重建编辑器，自然清空 CM 撤销历史
+  return <CodeMirrorEditorView key={filePath ?? 'untitled'} onScroll={onScroll} viewRef={viewRef} />
+}
+
+function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const editorViewRef = useRef<EditorView | null>(null)
+  const compartmentsRef = useRef({ theme: new Compartment(), fontSize: new Compartment() })
+
+  const isDarkMode = useEditorStore((state) => state.isDarkMode)
+  const zoomLevel = useEditorStore((state) => state.zoomLevel)
+  const content = useEditorStore((state) => state.content)
+
+  const onScrollRef = useRef(onScroll)
+  useEffect(() => {
+    onScrollRef.current = onScroll
+  }, [onScroll])
+
+  // 创建 EditorView（仅挂载一次；StrictMode 下经 cleanup 重建）
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const store = useEditorStore.getState()
+    const view = new EditorView({
+      parent: container,
+      state: EditorState.create({
+        doc: store.content,
+        extensions: [
+          formatKeymap,
+          history(),
+          markdown({ codeLanguages: languages }),
+          closeBrackets(),
+          search({ top: true }),
+          EditorView.lineWrapping,
+          compartmentsRef.current.theme.of(buildThemeExtensions(store.isDarkMode)),
+          compartmentsRef.current.fontSize.of(buildFontSizeTheme(store.zoomLevel)),
+          syncUpdateListener,
+          imageEventHandlers,
+          keymap.of([
+            ...closeBracketsKeymap,
+            ...markdownKeymap,
+            ...searchKeymap,
+            ...historyKeymap,
+            ...defaultKeymap,
+            indentWithTab,
+          ]),
+        ],
+      }),
+    })
+    editorViewRef.current = view
+    if (viewRef) viewRef.current = view
+    // 新视图历史为空，重置撤销/重做与光标状态
+    store.setCanUndo(false)
+    store.setCanRedo(false)
+    store.setCursorPosition(1, 1)
+
+    // Split 模式滚动同步
+    const scroller = view.scrollDOM
+    const handleScroll = () => onScrollRef.current?.(scroller)
+    scroller.addEventListener('scroll', handleScroll)
+
+    // window 事件总线（工具栏按钮、大纲跳转）
+    // viewMode 分流：仅 source/split 激活时响应（wysiwyg 由 WysiwygEditor 处理）
+    const isActive = () => {
+      const mode = useEditorStore.getState().viewMode
+      return mode === 'source' || mode === 'split'
+    }
+    const focusIfEditing = () => {
+      if (isActive()) view.focus()
+    }
+    const handleFormatEvent = (e: Event) => {
+      if (!isActive()) return
+      const { format } = (e as CustomEvent<{ format: FormatType }>).detail
+      runFormat(view, format)
+      focusIfEditing()
+    }
+    const handleInsertEvent = (e: Event) => {
+      if (!isActive()) return
+      const { text } = (e as CustomEvent<{ text: string }>).detail
+      view.dispatch(insertTextAtCursor(view.state, text))
+      focusIfEditing()
+    }
+    const handleUndoEvent = () => {
+      if (!isActive()) return
+      undo(view)
+      focusIfEditing()
+    }
+    const handleRedoEvent = () => {
+      if (!isActive()) return
+      redo(view)
+      focusIfEditing()
+    }
+    const handleScrollToHeadingEvent = (e: Event) => {
+      const mode = useEditorStore.getState().viewMode
+      if (mode !== 'source' && mode !== 'split') return
+      const { charIndex } = (e as CustomEvent<{ charIndex: number }>).detail
+      scrollToCharIndex(view, charIndex)
+    }
+
+    window.addEventListener('editor-format', handleFormatEvent)
+    window.addEventListener('editor-insert', handleInsertEvent)
+    window.addEventListener('editor-undo', handleUndoEvent)
+    window.addEventListener('editor-redo', handleRedoEvent)
+    window.addEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
+
+    return () => {
+      scroller.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('editor-format', handleFormatEvent)
+      window.removeEventListener('editor-insert', handleInsertEvent)
+      window.removeEventListener('editor-undo', handleUndoEvent)
+      window.removeEventListener('editor-redo', handleRedoEvent)
+      window.removeEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
+      view.destroy()
+      editorViewRef.current = null
+      if (viewRef) viewRef.current = null
+    }
+  }, [viewRef])
+
+  // 亮/暗主题切换
+  useEffect(() => {
+    const view = editorViewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: compartmentsRef.current.theme.reconfigure(buildThemeExtensions(isDarkMode)),
+    })
+  }, [isDarkMode])
+
+  // 字号随 zoomLevel 缩放
+  useEffect(() => {
+    const view = editorViewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: compartmentsRef.current.fontSize.reconfigure(buildFontSizeTheme(zoomLevel)),
+    })
+  }, [zoomLevel])
+
+  // store 内容 → CM（外部变更：打开文件、预览区 checkbox 切换等）
+  useEffect(() => {
+    const view = editorViewRef.current
+    if (!view) return
+    const current = view.state.doc.toString()
+    if (content !== current) {
+      view.dispatch({ changes: { from: 0, to: current.length, insert: content } })
+    }
+  }, [content])
+
+  return <div ref={containerRef} className="flex-1 min-h-0 overflow-hidden" />
+}

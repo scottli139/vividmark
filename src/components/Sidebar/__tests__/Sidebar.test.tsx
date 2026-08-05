@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { Sidebar } from '../Sidebar'
 import { useEditorStore } from '../../../stores/editorStore'
+import { useDialogStore } from '../../../stores/dialogStore'
 
 // Mock fileOps module
 vi.mock('../../../lib/fileOps', () => ({
@@ -39,7 +40,6 @@ vi.mock('../../../lib/outlineUtils', () => ({
 
     return headings
   }),
-  scrollToPosition: vi.fn(),
   scrollPreviewToHeading: vi.fn(),
 }))
 
@@ -115,6 +115,24 @@ describe('Sidebar', () => {
     })
   })
 
+  describe('outline debounce', () => {
+    it('should update outline after debounce when content changes', async () => {
+      render(<Sidebar />)
+
+      expect(screen.getByText('Heading 1')).toBeInTheDocument()
+
+      act(() => {
+        useEditorStore.getState().setContent('# New Heading\n\nSome text')
+      })
+
+      // 大纲使用 200ms 防抖的内容，等待更新
+      await waitFor(() => {
+        expect(screen.getByText('New Heading')).toBeInTheDocument()
+      })
+      expect(screen.queryByText('Heading 1')).not.toBeInTheDocument()
+    })
+  })
+
   describe('recent files', () => {
     it('should show "No recent files" when list is empty', () => {
       render(<Sidebar />)
@@ -161,8 +179,7 @@ describe('Sidebar', () => {
       })
     })
 
-    it('should confirm before opening recent file when document is dirty', () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    it('should confirm before opening recent file when document is dirty', async () => {
       mockOpenFileByPath.mockResolvedValue(true)
 
       useEditorStore.getState().setDirty(true)
@@ -173,14 +190,19 @@ describe('Sidebar', () => {
       const fileItem = screen.getByText('file.md')
       fireEvent.click(fileItem)
 
-      expect(confirmSpy).toHaveBeenCalledWith('Discard unsaved changes?')
+      // 自绘弹窗出现（替代原生 confirm）
+      expect(useDialogStore.getState().current?.message).toBe('Discard unsaved changes?')
 
-      confirmSpy.mockRestore()
+      act(() => {
+        useDialogStore.getState().answer(true)
+      })
+
+      await waitFor(() => {
+        expect(mockOpenFileByPath).toHaveBeenCalledWith('/path/to/file.md')
+      })
     })
 
-    it('should not open recent file if user cancels confirmation', () => {
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false)
-
+    it('should not open recent file if user cancels confirmation', async () => {
       useEditorStore.getState().setDirty(true)
       useEditorStore.getState().addRecentFile('/path/to/file.md', 'file.md')
 
@@ -189,34 +211,16 @@ describe('Sidebar', () => {
       const fileItem = screen.getByText('file.md')
       fireEvent.click(fileItem)
 
-      expect(confirmSpy).toHaveBeenCalled()
+      expect(useDialogStore.getState().current).not.toBeNull()
+
+      act(() => {
+        useDialogStore.getState().answer(false)
+      })
+
+      await waitFor(() => {
+        expect(useDialogStore.getState().current).toBeNull()
+      })
       expect(mockOpenFileByPath).not.toHaveBeenCalled()
-
-      confirmSpy.mockRestore()
-    })
-  })
-
-  describe('statistics', () => {
-    it('should display character count (no spaces)', () => {
-      render(<Sidebar />)
-
-      expect(screen.getByText(/Chars:/)).toBeInTheDocument()
-    })
-
-    it('should display total length count', () => {
-      render(<Sidebar />)
-
-      expect(screen.getByText(/Words:/)).toBeInTheDocument()
-    })
-
-    it('should update statistics when content changes', () => {
-      useEditorStore.getState().setContent('One two three four five')
-
-      render(<Sidebar />)
-
-      // New algorithm counts alphanumeric chars (excluding spaces/punctuation)
-      // 'Onetwothreefourfive' = 19 chars
-      expect(screen.getByText('Chars: 19')).toBeInTheDocument()
     })
   })
 

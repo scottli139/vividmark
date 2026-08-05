@@ -19,6 +19,9 @@ vi.mock('react-i18next', () => ({
     t: (key: string, options?: Record<string, string | number>) => {
       const shortcut = options?.shortcut || ''
       const number = options?.number || ''
+      const count = options?.count ?? ''
+      const line = options?.line ?? ''
+      const col = options?.col ?? ''
       // Handle interpolation for colHeader
       if (key === 'dialog.colHeader') {
         return `Col ${number}`
@@ -64,6 +67,8 @@ vi.mock('react-i18next', () => ({
         'dialog.confirmDiscard': 'Discard unsaved changes?',
         'dialog.insertTable': 'Insert Table',
         'dialog.cancel': 'Cancel',
+        'dialog.confirm': 'Confirm',
+        'dialog.close': 'Close',
         'dialog.insert': 'Insert',
         'dialog.rows': 'Rows (excluding header)',
         'dialog.columns': 'Columns',
@@ -78,6 +83,10 @@ vi.mock('react-i18next', () => ({
         'sidebar.noHeadings': 'No headings',
         'sidebar.words': 'Words:',
         'sidebar.chars': 'Chars:',
+        'statusBar.words': `Words: ${count}`,
+        'statusBar.chars': `Chars: ${count}`,
+        'statusBar.cursor': `Ln ${line}, Col ${col}`,
+        'statusBar.zoomReset': 'Reset zoom',
         'messages.invalidFileType': 'Please drop a Markdown file (.md, .markdown, .txt)',
         'messages.openFileFailed': 'Failed to open file',
         'messages.unknownFile': 'Unknown file',
@@ -143,3 +152,51 @@ window.IntersectionObserver = IntersectionObserverMock as unknown as typeof Inte
 beforeEach(() => {
   vi.clearAllMocks()
 })
+
+// ==================== CodeMirror 6 jsdom polyfills ====================
+// jsdom 未实现布局相关 API，CM6 挂载时需要这些 polyfill
+
+// Range.prototype.getClientRects / getBoundingClientRect
+if (typeof Range !== 'undefined') {
+  if (!Range.prototype.getClientRects) {
+    Range.prototype.getClientRects = function () {
+      return {
+        length: 0,
+        item: () => null,
+        [Symbol.iterator]: [][Symbol.iterator],
+      } as unknown as DOMRectList
+    }
+  }
+  if (!Range.prototype.getBoundingClientRect) {
+    Range.prototype.getBoundingClientRect = function () {
+      return {
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: 0,
+        height: 0,
+        toJSON: () => ({}),
+      } as DOMRect
+    }
+  }
+}
+
+// Element.prototype.scrollIntoView（jsdom 未实现）
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {}
+}
+
+// Element.prototype.scrollTo（jsdom 未实现）
+if (typeof Element !== 'undefined' && !Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = () => {}
+}
+
+// requestAnimationFrame（vitest jsdom 通常具备，缺失时兜底）
+if (typeof window !== 'undefined' && !window.requestAnimationFrame) {
+  window.requestAnimationFrame = (callback: FrameRequestCallback) =>
+    setTimeout(() => callback(Date.now()), 0) as unknown as number
+  window.cancelAnimationFrame = (id: number) => clearTimeout(id)
+}

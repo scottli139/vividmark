@@ -95,6 +95,51 @@
 - [ ] 偏好设置面板
 - [ ] 多语言支持
 
+### Phase 13: UX 改进（Typora 对标）⏳ (进行中)
+
+> 差距分析与方案细节见 `docs/ux-improvement-plan.md`
+
+#### P0 — 止血
+
+- [x] 默认视图改为 source（WYSIWYG 完成前不落占位页）；zh-CN wysiwyg 标签"编辑"→"所见即所得"
+- [x] 修复 base64 回写 bug（打开文件时预处理内容写入 store，保存会污染 .md）
+- [x] 修复 Chars/Words 标签对调与字数统计算法
+- [x] 补齐未定义 CSS 变量（--text-primary 等）；窗口标题"未命名"走 i18n
+- [x] 大纲解析跳过围栏代码块
+
+#### P1 — 编辑器地基（CodeMirror 6）
+
+- [x] Source/Split 模式 textarea 替换为 CodeMirror 6（markdown 高亮 + 亮暗主题）
+- [x] 快捷键：Cmd+B/I/K、Cmd+1~3 标题、列表/引用切换（tooltip 虚标同步根除）
+- [x] 智能输入：回车延续列表/任务/引用、空项退出、Tab 缩进、括号配对
+- [x] 撤销/重做改用 CM6 history（操作粒度 + 恢复选区），替换全文快照 HistoryManager
+- [x] 查找替换面板（Cmd+F，@codemirror/search）
+- [x] 图片粘贴/拖拽插入（复用 imageUtils 复制到 assets）
+- [x] 预览渲染防抖 120ms，大纲/字数 200ms 防抖
+- [x] 状态栏：字数、光标行:列、缩放、视图模式
+
+#### P2 — 真 WYSIWYG（Milkdown/ProseMirror 路线）✅
+
+- [x] Milkdown spike：验证 admonition/任务列表/图片管线插件适配可行性
+- [x] WYSIWYG 编辑器落地 + `Cmd+/` 切换 Source（替代自研 contenteditable 路线）
+- [x] 自定义语法：admonition 容器节点 / PlantUML 代码块预览 / 本地图片解析 nodeview
+- [x] 集成：工具栏事件 viewMode 分流、撤销重做、大纲跳转、初始化脏标记守卫
+- [x] 默认视图提为 WYSIWYG（新安装；持久化的用户选择不变）
+
+#### P3 — 桌面质感与高级体验
+
+- [ ] macOS 融合标题栏；原生菜单 + 右键菜单；多标签页 + 会话恢复
+- [ ] 主题系统（CSS 主题 + 跟随系统暗色）；专注模式 / 打字机模式
+- [x] 统一自绘对话框（替换原生 confirm/alert，修复 WKWebView 下 Cancel 失效吞内容）
+- [ ] 大纲位置高亮跟随；文件树搜索与文件管理；设置面板
+- [ ] KaTeX / Mermaid / PlantUML 离线化；HTML/Word 导出
+
+#### 附加修复与品牌（2026-08-04/05）✅
+
+- [x] 修复：裸相对路径图片（images/x.png）不显示；isTauri() 改查 `__TAURI_INTERNALS__`（convertFileSrc 此前在生产从未生效）
+- [x] 修复：WysiwygEditor 懒创建 + 创建失败自愈与错误提示（HMR 陈旧状态导致无法编辑）
+- [x] Logo 重设计（V + 光标）+ macOS 图标 80% 安全区（修复 Dock 图标过大）；安装版应用已更新至 v0.1.4 新构建
+
 ---
 
 ## 工程化改进 (后续 Session)

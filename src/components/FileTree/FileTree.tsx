@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { FileTreeItem } from '../../lib/fileTreeUtils'
 import { readDirectory, toggleFolder, filterMarkdownFiles } from '../../lib/fileTreeUtils'
 import { openFileByPath } from '../../lib/fileOps'
+import { confirmDialog } from '../../lib/dialog'
 import { useEditorStore } from '../../stores/editorStore'
 import { FileTreeItem as FileTreeItemComponent } from './FileTreeItem'
 
@@ -87,7 +88,7 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
 
       // 检查是否有未保存的更改
       if (isDirty) {
-        if (!confirm(t('dialog.confirmDiscard'))) {
+        if (!(await confirmDialog(t('dialog.confirmDiscard')))) {
           return
         }
       }

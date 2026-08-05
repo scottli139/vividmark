@@ -8,11 +8,12 @@ Essential information for AI coding agents working on the VividMark project. Kee
 
 Key features:
 
-- Four view modes: WYSIWYG (default) / Source / Split / Preview
+- Four view modes: WYSIWYG (default, Milkdown/ProseMirror) / Source / Split / Preview
+- CodeMirror 6 source editor: Markdown highlighting, smart list continuation, find & replace
 - Real-time Markdown preview (markdown-it + highlight.js)
 - Markdown extensions: admonitions, PlantUML, task lists, tables
 - File operations with native dialogs, auto-save (2s idle), drag & drop, recent files
-- Sidebar with outline navigation and resizable file tree
+- Sidebar with outline navigation and resizable file tree; status bar (word count, cursor, zoom)
 - i18n (en / zh-CN), dark mode, 50–200% zoom, PDF export
 
 ## Documentation Map
@@ -22,33 +23,36 @@ Key features:
 | `PLAN.md`                                                          | 开发计划与任务进度（唯一的任务看板，不在本文件重复）   |
 | `docs/implementation-notes.md`                                     | 实现细节知识库：已知问题、架构要点、发布流程、Git 规范 |
 | `docs/REQUIREMENTS.md`                                             | 需求文档                                               |
-| `docs/wysiwyg-research.md` + `docs/wysiwyg-implementation-plan.md` | WYSIWYG 模式调研与实现计划                             |
+| `docs/ux-improvement-plan.md`                                      | Typora 对标体验差距分析与 P0–P3 改进方案               |
+| `docs/wysiwyg-research.md` + `docs/wysiwyg-implementation-plan.md` | WYSIWYG 模式调研与实现计划（自研路线，已被 P2 取代）   |
 | `docs/typst-offline-plan.md`                                       | Typst 离线支持计划（⏸️ 暂停中）                        |
 
 ## Technology Stack
 
-| Category    | Technology                      |
-| ----------- | ------------------------------- |
-| Frontend    | React 19 + TypeScript + Vite 7  |
-| Desktop     | Tauri 2.0 (Rust)                |
-| Styling     | Tailwind CSS 4                  |
-| State       | Zustand 5 (persist 用户偏好)    |
-| i18n        | i18next + react-i18next         |
-| Markdown    | markdown-it + highlight.js      |
-| Unit Tests  | Vitest + React Testing Library  |
-| E2E Tests   | Playwright                      |
-| Lint/Format | ESLint (flat config) + Prettier |
+| Category    | Technology                          |
+| ----------- | ----------------------------------- |
+| Frontend    | React 19 + TypeScript + Vite 7      |
+| Desktop     | Tauri 2.0 (Rust)                    |
+| Editor      | CodeMirror 6（源码）+ Milkdown 7（所见即所得，ProseMirror） |
+| Styling     | Tailwind CSS 4                      |
+| State       | Zustand 5 (persist 用户偏好)        |
+| i18n        | i18next + react-i18next             |
+| Markdown    | markdown-it + highlight.js          |
+| Unit Tests  | Vitest + React Testing Library      |
+| E2E Tests   | Playwright                          |
+| Lint/Format | ESLint (flat config) + Prettier     |
 
 ## Project Structure
 
 ```
 vividmark/
 ├── src/                      # React frontend
-│   ├── components/           # Editor/ Sidebar/ Toolbar/ FileTree/
+│   ├── components/           # Editor/ Sidebar/ Toolbar/ FileTree/ StatusBar/
 │   ├── hooks/                # useAutoSave, useFileDragDrop, useKeyboardShortcuts,
-│   │                         # useTextFormat, useHistory, useResizable
+│   │                         # useResizable, useDebouncedValue
 │   ├── stores/editorStore.ts # Zustand main store
-│   ├── lib/                  # markdown/ fileOps logger historyManager imageUtils ...
+│   ├── lib/                  # markdown/ markdownEditing textStats plantuml imageSrc
+│   │                         # fileOps logger imageUtils ...
 │   ├── i18n/                 # i18next config + locales/{en,zh-CN}.json
 │   ├── styles/globals.css    # Tailwind + theme CSS variables
 │   ├── test/                 # Vitest setup + Tauri mocks
@@ -57,7 +61,7 @@ vividmark/
 │   ├── src/lib.rs            # Tauri commands + plugins
 │   ├── capabilities/         # Permissions
 │   └── tauri.conf.json
-├── e2e/                      # Playwright specs
+├── e2e/                      # Playwright specs（sourceMode.ts 预置源码模式）
 └── docs/                     # Plans, requirements, GitHub Pages site
 ```
 
@@ -110,7 +114,7 @@ beforeEach(() => {
 Main store: `src/stores/editorStore.ts`.
 
 - **Persisted**: `recentFiles`, `isDarkMode`, `language`, `viewMode`, `zoomLevel`
-- **Non-persisted**: `content`, `filePath`/`fileName`, `isDirty`, `showSidebar`
+- **Non-persisted**: `content`, `filePath`/`fileName`, `isDirty`, `showSidebar`, `cursorLine`/`cursorCol`
 
 ## Internationalization (i18n)
 
@@ -137,20 +141,28 @@ Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `genera
 
 ## Keyboard Shortcuts
 
-| Shortcut                         | Action                      | Implementation            |
-| -------------------------------- | --------------------------- | ------------------------- |
-| `Cmd/Ctrl + O / S / Shift+S / N` | Open / Save / Save As / New | `useKeyboardShortcuts.ts` |
-| `Cmd/Ctrl + =/+ / - / 0`         | Zoom in / out / reset       | `Editor.tsx`              |
-| `Cmd/Ctrl + P`                   | Export PDF                  | `Toolbar.tsx`             |
-| `Escape`                         | Exit edit mode              | `Editor.tsx`              |
+| Shortcut                         | Action                      | Implementation                    |
+| -------------------------------- | --------------------------- | --------------------------------- |
+| `Cmd/Ctrl + O / S / Shift+S / N` | Open / Save / Save As / New | `useKeyboardShortcuts.ts`         |
+| `Cmd/Ctrl + /`                   | WYSIWYG ⇄ Source 切换       | `useKeyboardShortcuts.ts`         |
+| `Cmd/Ctrl + B / I / K`           | Bold / Italic / Link        | `CodeMirrorEditor.tsx` keymap     |
+| `Cmd/Ctrl + 1 / 2 / 3`           | Heading 1 / 2 / 3           | `CodeMirrorEditor.tsx` keymap     |
+| `Cmd/Ctrl + Z / Shift+Z`         | Undo / Redo                 | CM / Milkdown history             |
+| `Cmd/Ctrl + F`                   | Find & replace              | `@codemirror/search`              |
+| `Cmd/Ctrl + =/+ / - / 0`         | Zoom in / out / reset       | `Editor.tsx`                      |
+| `Cmd/Ctrl + P`                   | Export PDF                  | `Toolbar.tsx`                     |
+| `Escape`                         | Exit edit mode              | `Editor.tsx`                      |
 
 ## Architecture Notes & Gotchas
 
 Read these before touching editor code — details in `docs/implementation-notes.md`:
 
+- **Dual editor cores**: WYSIWYG = Milkdown/ProseMirror（`WysiwygEditor.tsx`），Source/Split = CodeMirror 6（`CodeMirrorEditor.tsx`），都常驻挂载（非激活 hidden）。Markdown 源码是唯一事实来源；两侧事件 handler 与 `canUndo/canRedo` 写入都按 `viewMode` 门控
+- **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表 checkbox）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定
+- **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
-- **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops
-- **Cross-component events**: `CustomEvent` bus on `window` — e.g. `editor-scroll-to-heading` (outline nav), `editor-request-html` (PDF export)
+- **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`
+- **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（工具栏 → 编辑器），`editor-scroll-to-heading` (outline nav), `editor-request-html` (PDF export)
 - **Task list checkboxes**: with `dangerouslySetInnerHTML`, never read `checkbox.checked` — use the `data-task-status` attribute and re-sync DOM state in a `useEffect` after each render
 - **Windows paths**: normalize `\` → `/` before any path math (`imageUtils.getRelativePath`, `parser.resolveRelativePath`, Editor `baseDir`)
 - **External links**: intercept clicks in preview, `e.preventDefault()`, open via `@tauri-apps/plugin-shell` (requires `shell:default` capability)
@@ -161,6 +173,7 @@ Read these before touching editor code — details in `docs/implementation-notes
 
 - **代码块中英文对齐**: WebView 无法保证全角:半角 = 2:1，ASCII 图混排中英文无法对齐。多种等宽字体方案均无效，建议用 Mermaid/PlantUML 替代（分析见 implementation-notes）
 - **PDF 默认文件名**: macOS 打印对话框固定使用 bundle 名 `vividmark.pdf`，需用户手动修改
+- **WYSIWYG 已知限制**: wysiwyg 下 Cmd+K / Cmd+1/2/3 未接；表格创建用 `|CxR| ` 语法；admonition 不能在编辑器内新建；代码块无语法高亮（详见 implementation-notes）
 
 ## CI/CD & Release
 

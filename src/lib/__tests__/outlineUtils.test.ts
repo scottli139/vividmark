@@ -1,10 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import {
-  extractOutline,
-  calculateScrollPosition,
-  findLineStart,
-  scrollPreviewToHeading,
-} from '../outlineUtils'
+import { extractOutline, scrollPreviewToHeading } from '../outlineUtils'
 
 describe('outlineUtils', () => {
   describe('extractOutline', () => {
@@ -104,63 +99,6 @@ Line 3`
       expect(outline).toHaveLength(2)
       expect(outline[0].text).toBe('Heading 1')
       expect(outline[1].text).toBe('Heading 2')
-    })
-  })
-
-  describe('calculateScrollPosition', () => {
-    it('should calculate correct scroll position', () => {
-      const content = `Line 1
-Line 2
-Line 3`
-      const charIndex = 14 // Start of "Line 3"
-
-      const scrollPos = calculateScrollPosition(content, charIndex, 24)
-
-      expect(scrollPos).toBe(48) // 2 lines * 24px
-    })
-
-    it('should return 0 for start of content', () => {
-      const content = `Line 1
-Line 2`
-      const scrollPos = calculateScrollPosition(content, 0, 24)
-
-      expect(scrollPos).toBe(0)
-    })
-
-    it('should handle single line content', () => {
-      const content = 'Single line'
-      const scrollPos = calculateScrollPosition(content, 5, 24)
-
-      expect(scrollPos).toBe(0)
-    })
-  })
-
-  describe('findLineStart', () => {
-    it('should find start of current line', () => {
-      const content = `Line 1
-Line 2
-Line 3`
-      const charIndex = 14 // In "Line 3"
-
-      const lineStart = findLineStart(content, charIndex)
-
-      expect(lineStart).toBe(14) // Start of "Line 3"
-      expect(content.slice(lineStart, lineStart + 6)).toBe('Line 3')
-    })
-
-    it('should return 0 for first line', () => {
-      const content = `Line 1
-Line 2`
-      const lineStart = findLineStart(content, 3)
-
-      expect(lineStart).toBe(0)
-    })
-
-    it('should handle end of content', () => {
-      const content = 'Line 1\nLine 2'
-      const lineStart = findLineStart(content, content.length)
-
-      expect(content.slice(lineStart)).toBe('Line 2')
     })
   })
 

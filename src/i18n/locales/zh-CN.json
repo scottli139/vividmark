@@ -33,7 +33,7 @@
       "exportPdf": "导出 PDF ({{shortcut}})"
     },
     "viewMode": {
-      "wysiwyg": "编辑",
+      "wysiwyg": "所见即所得",
       "source": "源码",
       "split": "分屏",
       "preview": "预览"
@@ -51,6 +51,12 @@
     "words": "字数：",
     "chars": "字符：",
     "stats": "统计"
+  },
+  "statusBar": {
+    "words": "字数：{{count}}",
+    "chars": "字符：{{count}}",
+    "cursor": "行 {{line}}，列 {{col}}",
+    "zoomReset": "重置缩放"
   },
   "fileTree": {
     "openFolder": "打开文件夹",
@@ -71,6 +77,8 @@
     "increaseColumns": "增加列数",
     "preview": "预览",
     "cancel": "取消",
+    "confirm": "确认",
+    "close": "关闭",
     "insert": "插入",
     "colHeader": "列 {{number}}",
     "confirm": "确认",
@@ -113,7 +121,8 @@
     "redo": "重做",
     "bold": "粗体",
     "italic": "斜体",
-    "link": "插入链接"
+    "link": "插入链接",
+    "toggleWysiwyg": "切换所见即所得/源码模式"
   },
   "file": {
     "filters": {

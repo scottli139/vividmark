@@ -52,6 +52,12 @@
     "chars": "Chars:",
     "stats": "Statistics"
   },
+  "statusBar": {
+    "words": "Words: {{count}}",
+    "chars": "Chars: {{count}}",
+    "cursor": "Ln {{line}}, Col {{col}}",
+    "zoomReset": "Reset zoom"
+  },
   "fileTree": {
     "openFolder": "Open Folder",
     "closeFolder": "Close Folder",
@@ -71,6 +77,8 @@
     "increaseColumns": "Increase columns",
     "preview": "Preview",
     "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
     "insert": "Insert",
     "colHeader": "Col {{number}}",
     "confirm": "Confirm",
@@ -113,7 +121,8 @@
     "redo": "Redo",
     "bold": "Bold",
     "italic": "Italic",
-    "link": "Insert link"
+    "link": "Insert link",
+    "toggleWysiwyg": "Toggle WYSIWYG/Source mode"
   },
   "file": {
     "filters": {

@@ -1,10 +1,12 @@
 import { useTranslation } from 'react-i18next'
 import { useEditorStore, type RecentFile } from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
+import { confirmDialog } from '../../lib/dialog'
 import { extractOutline, type OutlineItem } from '../../lib/outlineUtils'
 import { useMemo, useCallback, useState } from 'react'
 import { FileTree } from '../FileTree'
 import { useResizable } from '../../hooks/useResizable'
+import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
 type SidebarTab = 'outline' | 'fileTree'
 
@@ -22,21 +24,16 @@ export function Sidebar() {
     maxWidth: 400,
   })
 
-  // 提取大纲（使用工具函数）
-  const headings = useMemo(() => extractOutline(content), [content])
+  // 大纲使用 200ms 防抖后的内容，避免每次按键全量重算
+  const debouncedContent = useDebouncedValue(content, 200)
 
-  // 统计字数（支持中英文）
-  const wordCount = useMemo(() => {
-    return content
-      .replace(/\s/g, '')
-      .split('')
-      .filter((c) => /\w|\p{Unified_Ideograph}/u.test(c)).length
-  }, [content])
+  // 提取大纲（使用工具函数）
+  const headings = useMemo(() => extractOutline(debouncedContent), [debouncedContent])
 
   const handleRecentFileClick = useCallback(
     async (file: RecentFile) => {
       if (isDirty) {
-        if (!confirm(t('dialog.confirmDiscard'))) {
+        if (!(await confirmDialog(t('dialog.confirmDiscard')))) {
           return
         }
       }
@@ -180,16 +177,6 @@ export function Sidebar() {
           // 文件树视图
           <FileTree />
         )}
-      </div>
-
-      {/* 底部统计 */}
-      <div className="p-3 border-t border-[var(--editor-border)] text-xs text-gray-500">
-        <div>
-          {t('sidebar.chars')} {wordCount}
-        </div>
-        <div>
-          {t('sidebar.words')} {content.length}
-        </div>
       </div>
 
       {/* 拖拽调整宽度的 handle */}

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="fg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FB923C"/>
+      <stop offset="1" stop-color="#EC4899"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" rx="225" fill="#0F172A"/>
+  <!-- 引用尖括号 >（markdown blockquote） -->
+  <path d="M326 296 L566 512 L326 728" stroke="url(#fg)" stroke-width="96" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- 终端光标 _ -->
+  <rect x="592" y="668" width="160" height="66" rx="33" fill="url(#fg)"/>
+</svg>

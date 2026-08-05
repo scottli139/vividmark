@@ -4,9 +4,11 @@ import { useEditorStore } from './stores/editorStore'
 import { Editor } from './components/Editor/Editor'
 import { Toolbar } from './components/Toolbar/Toolbar'
 import { Sidebar } from './components/Sidebar/Sidebar'
+import { StatusBar } from './components/StatusBar/StatusBar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import { useAutoSave } from './hooks/useAutoSave'
+import { Dialog } from './components/Dialog'
 import './styles/globals.css'
 
 function App() {
@@ -65,6 +67,8 @@ function App() {
           </div>
         )}
       </div>
+      <StatusBar />
+      <Dialog />
     </div>
   )
 }

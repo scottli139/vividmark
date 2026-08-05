@@ -30,6 +30,10 @@ export interface EditorState {
   canUndo: boolean
   canRedo: boolean
 
+  // 光标位置（1-based，供状态栏显示，不持久化）
+  cursorLine: number
+  cursorCol: number
+
   // 文件树状态
   openedFolder: string | null
 
@@ -46,6 +50,7 @@ export interface EditorState {
   setActiveBlockId: (id: string | null) => void
   setCanUndo: (canUndo: boolean) => void
   setCanRedo: (canRedo: boolean) => void
+  setCursorPosition: (line: number, col: number) => void
   setLanguage: (lang: Language) => void
   setOpenedFolder: (path: string | null) => void
   resetDocument: (content?: string) => void
@@ -132,6 +137,8 @@ export const useEditorStore = create<EditorState>()(
       activeBlockId: null,
       canUndo: false,
       canRedo: false,
+      cursorLine: 1,
+      cursorCol: 1,
       openedFolder: null,
       zoomLevel: 100,
 
@@ -163,6 +170,7 @@ export const useEditorStore = create<EditorState>()(
       setActiveBlockId: (id) => set({ activeBlockId: id }),
       setCanUndo: (canUndo) => set({ canUndo }),
       setCanRedo: (canRedo) => set({ canRedo }),
+      setCursorPosition: (line, col) => set({ cursorLine: line, cursorCol: col }),
       setLanguage: (lang: Language) => set({ language: lang }),
       setOpenedFolder: (path) => set({ openedFolder: path }),
       resetDocument: (content?: string) =>
@@ -174,6 +182,8 @@ export const useEditorStore = create<EditorState>()(
           activeBlockId: null,
           canUndo: false,
           canRedo: false,
+          cursorLine: 1,
+          cursorCol: 1,
         }),
       setZoomLevel: (level) => set({ zoomLevel: Math.max(50, Math.min(200, level)) }),
       zoomIn: () => set((state) => ({ zoomLevel: Math.min(200, state.zoomLevel + 10) })),

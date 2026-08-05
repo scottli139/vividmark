@@ -199,6 +199,11 @@ code {
   --sidebar-bg: #f8f8f8;
   --toolbar-bg: #fafafa;
   --accent-color: #0066cc;
+  /* 语义化别名（组件中引用的变量） */
+  --text-primary: var(--editor-text);
+  --text-secondary: #6b7280;
+  --color-text: var(--editor-text);
+  --color-text-secondary: #6b7280;
 }
 
 .dark {
@@ -208,6 +213,11 @@ code {
   --sidebar-bg: #141414;
   --toolbar-bg: #1f1f1f;
   --accent-color: #4da6ff;
+  /* 语义化别名（组件中引用的变量） */
+  --text-primary: var(--editor-text);
+  --text-secondary: #9ca3af;
+  --color-text: var(--editor-text);
+  --color-text-secondary: #9ca3af;
 }
 
 * {
@@ -726,4 +736,110 @@ body {
   background-color: #ffebe9;
   border: 1px solid #ffc2c2;
   color: #cf222e;
+}
+
+/* ==================== Milkdown WYSIWYG 编辑器 ==================== */
+/* 容器复用 .markdown-body 排版；这里只补 ProseMirror 可编辑区的基础行为 */
+
+.wysiwyg-editor .ProseMirror {
+  outline: none;
+  min-height: 100%;
+  caret-color: var(--editor-text);
+}
+
+/* ProseMirror 节点选区（表格列选、图片选中等）用主题色描边 */
+.wysiwyg-editor .ProseMirror-selectednode {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* 编辑态的 task checkbox 尺寸/边距与预览一致，去掉 outline 以免与焦点环冲突 */
+.wysiwyg-editor .task-checkbox {
+  cursor: pointer;
+}
+
+/* WYSIWYG 内嵌图片：与预览一致的卡片样式 + 加载失败占位 */
+.wysiwyg-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.5em 0;
+}
+
+.wysiwyg-image .wysiwyg-image-error {
+  display: none;
+}
+
+.wysiwyg-image.wysiwyg-image-load-error img {
+  display: none;
+}
+
+.wysiwyg-image.wysiwyg-image-load-error .wysiwyg-image-error {
+  display: inline-block;
+  padding: 8px 16px;
+  border: 1px dashed var(--editor-border);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background-color: var(--sidebar-bg);
+  font-size: 0.9em;
+}
+
+/* WYSIWYG 的 PlantUML 代码块：预览图 + 源码上下排布 */
+.wysiwyg-editor .plantuml-block .plantuml-diagram {
+  margin-bottom: 0;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.wysiwyg-editor .plantuml-block pre {
+  margin-top: 0;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+.wysiwyg-editor .plantuml-block .plantuml-load-error {
+  display: block;
+  min-height: 48px;
+  color: var(--text-secondary);
+}
+
+/* admonition 内容区在编辑器内需要最小高度以便点击落入空容器 */
+.wysiwyg-editor .admonition-content {
+  min-height: 1.2em;
+}
+
+/* ==================== CodeMirror 搜索面板（亮/暗主题可读性） ==================== */
+.cm-panel.cm-search {
+  padding: 4px 8px;
+}
+
+.cm-panel.cm-search input,
+.cm-panel.cm-search button {
+  background-color: var(--editor-bg);
+  color: var(--editor-text);
+  border: 1px solid var(--editor-border);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.cm-panel.cm-search input {
+  padding: 2px 6px;
+}
+
+.cm-panel.cm-search button {
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.cm-panel.cm-search input[type='checkbox'] {
+  accent-color: var(--accent-color);
+}
+
+.cm-searchMatch {
+  background-color: rgba(77, 166, 255, 0.25);
+  outline: 1px solid rgba(77, 166, 255, 0.4);
+}
+
+.cm-searchMatch-selected {
+  background-color: rgba(77, 166, 255, 0.45);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { openFile, saveFile, saveFileAs, newFile } from '../lib/fileOps'
+import { confirmDialog } from '../lib/dialog'
 import { useEditorStore } from '../stores/editorStore'
 
 interface ShortcutHandler {
@@ -20,20 +21,27 @@ interface ShortcutHandler {
  * - Cmd/Ctrl + S: 保存文件
  * - Cmd/Ctrl + Shift + S: 另存为
  * - Cmd/Ctrl + N: 新建文件
+ * - Cmd/Ctrl + /: 切换 Source ↔ WYSIWYG 模式（Typora 同款）
  */
 export function useKeyboardShortcuts() {
   const { t } = useTranslation()
   const { isDirty } = useEditorStore()
 
-  const handleNewFile = useCallback(() => {
+  const handleNewFile = useCallback(async () => {
     if (isDirty) {
-      if (confirm(t('dialog.confirmDiscard'))) {
+      if (await confirmDialog(t('dialog.confirmDiscard'))) {
         newFile()
       }
     } else {
       newFile()
     }
   }, [isDirty, t])
+
+  // WYSIWYG ⇄ Source 互切；preview/split 模式下切到 wysiwyg
+  const handleToggleWysiwyg = useCallback(() => {
+    const store = useEditorStore.getState()
+    store.setViewMode(store.viewMode === 'wysiwyg' ? 'source' : 'wysiwyg')
+  }, [])
 
   // 使用 useMemo 避免每次渲染重新创建数组
   const shortcuts: ShortcutHandler[] = useMemo(
@@ -63,8 +71,14 @@ export function useKeyboardShortcuts() {
         handler: handleNewFile,
         description: t('shortcuts.newFile'),
       },
+      {
+        key: '/',
+        metaKey: true,
+        handler: handleToggleWysiwyg,
+        description: t('shortcuts.toggleWysiwyg'),
+      },
     ],
-    [handleNewFile, t]
+    [handleNewFile, handleToggleWysiwyg, t]
   )
 
   useEffect(() => {

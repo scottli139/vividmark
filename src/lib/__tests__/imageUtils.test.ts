@@ -1,5 +1,12 @@
-import { describe, it, expect, vi } from 'vitest'
-import { isLocalPath, isUrl, extractImagePath } from '../imageUtils'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import {
+  isLocalPath,
+  isUrl,
+  extractImagePath,
+  saveImageFileToAssets,
+  createImageMarkdownFromFile,
+} from '../imageUtils'
+import { writeFile, mkdir, exists } from '@tauri-apps/plugin-fs'
 
 // Mock Tauri API
 vi.mock('@tauri-apps/plugin-dialog', () => ({
@@ -8,6 +15,7 @@ vi.mock('@tauri-apps/plugin-dialog', () => ({
 
 vi.mock('@tauri-apps/plugin-fs', () => ({
   readFile: vi.fn(),
+  writeFile: vi.fn(),
   copyFile: vi.fn(),
   mkdir: vi.fn(),
   exists: vi.fn(),
@@ -18,6 +26,10 @@ vi.mock('@tauri-apps/api/path', () => ({
   dirname: vi.fn((path: string) => path.substring(0, path.lastIndexOf('/'))),
   basename: vi.fn((path: string) => path.split('/').pop() || ''),
 }))
+
+const mockWriteFile = vi.mocked(writeFile)
+const mockMkdir = vi.mocked(mkdir)
+const mockExists = vi.mocked(exists)
 
 describe('isLocalPath', () => {
   it('should return true for Unix absolute paths', () => {
@@ -134,5 +146,99 @@ describe('extractImagePath', () => {
   it('should handle paths with special characters', () => {
     const result = extractImagePath('![image](./assets/my-file_v2.png)')
     expect(result).toBe('./assets/my-file_v2.png')
+  })
+})
+
+describe('saveImageFileToAssets', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockExists.mockResolvedValue(true)
+    mockWriteFile.mockResolvedValue(undefined)
+  })
+
+  it('should write image bytes to assets dir and return relative path', async () => {
+    const file = new File(['fake-png-bytes'], 'photo.png', { type: 'image/png' })
+
+    const result = await saveImageFileToAssets(file, '/docs/note.md')
+
+    expect(mockWriteFile).toHaveBeenCalledTimes(1)
+    const [targetPath, bytes] = mockWriteFile.mock.calls[0]
+    expect(targetPath).toMatch(/^\/docs\/assets\/\d+_photo\.png$/)
+    expect(bytes).toBeInstanceOf(Uint8Array)
+    expect(result).toMatch(/^\.\/assets\/\d+_photo\.png$/)
+  })
+
+  it('should create assets dir when missing', async () => {
+    mockExists.mockResolvedValue(false)
+    mockMkdir.mockResolvedValue(undefined)
+    const file = new File(['x'], 'pic.jpg', { type: 'image/jpeg' })
+
+    const result = await saveImageFileToAssets(file, '/docs/note.md')
+
+    expect(mockMkdir).toHaveBeenCalledWith('/docs/assets', { recursive: true })
+    expect(result).toMatch(/^\.\/assets\/\d+_pic\.jpg$/)
+  })
+
+  it('should sanitize unsafe characters in file name', async () => {
+    const file = new File(['x'], 'my photo (1).png', { type: 'image/png' })
+
+    const result = await saveImageFileToAssets(file, '/docs/note.md')
+
+    expect(result).toMatch(/^\.\/assets\/\d+_my_photo__1_\.png$/)
+  })
+
+  it('should return null when write fails', async () => {
+    mockWriteFile.mockRejectedValue(new Error('disk full'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const file = new File(['x'], 'photo.png', { type: 'image/png' })
+
+    const result = await saveImageFileToAssets(file, '/docs/note.md')
+
+    expect(result).toBeNull()
+    consoleSpy.mockRestore()
+  })
+})
+
+describe('createImageMarkdownFromFile', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockExists.mockResolvedValue(true)
+    mockWriteFile.mockResolvedValue(undefined)
+  })
+
+  it('should use assets relative path when document is saved', async () => {
+    const file = new File(['fake'], 'screenshot.png', { type: 'image/png' })
+
+    const result = await createImageMarkdownFromFile(file, '/docs/note.md')
+
+    expect(result).toMatch(/^!\[screenshot\]\(\.\/assets\/\d+_screenshot\.png\)$/)
+  })
+
+  it('should fall back to base64 data URL when document is unsaved', async () => {
+    const file = new File(['fake'], 'screenshot.png', { type: 'image/png' })
+
+    const result = await createImageMarkdownFromFile(file, null)
+
+    expect(mockWriteFile).not.toHaveBeenCalled()
+    expect(result).toMatch(/^!\[screenshot\]\(data:image\/png;base64,.+\)$/)
+  })
+
+  it('should fall back to base64 when assets write fails', async () => {
+    mockWriteFile.mockRejectedValue(new Error('fail'))
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const file = new File(['fake'], 'photo.png', { type: 'image/png' })
+
+    const result = await createImageMarkdownFromFile(file, '/docs/note.md')
+
+    expect(result).toMatch(/^!\[photo\]\(data:image\/png;base64,.+\)$/)
+    consoleSpy.mockRestore()
+  })
+
+  it('should strip extension for alt text', async () => {
+    const file = new File(['fake'], 'my.image.jpeg', { type: 'image/jpeg' })
+
+    const result = await createImageMarkdownFromFile(file, '/docs/note.md')
+
+    expect(result).toMatch(/^!\[my\.image\]/)
   })
 })

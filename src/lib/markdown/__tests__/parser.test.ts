@@ -326,6 +326,19 @@ describe('preprocessImages', () => {
     const result = await preprocessImages(content)
     expect(result).toBe(content)
   })
+
+  it('should convert bare relative paths (images/x.png) against baseDir', async () => {
+    const { readFile } = await import('@tauri-apps/plugin-fs')
+    const mockReadFile = vi.mocked(readFile)
+    mockReadFile.mockResolvedValue(new Uint8Array([137, 80, 78, 71]))
+
+    const content = '![wiring](images/dht11_wiring.png)'
+    const result = await preprocessImages(content, '/docs')
+
+    expect(mockReadFile).toHaveBeenCalledWith('/docs/images/dht11_wiring.png')
+    expect(result).toContain('data:image/png;base64,')
+    expect(result).not.toContain('images/dht11_wiring.png')
+  })
 })
 
 describe('parseMarkdown - Admonitions', () => {

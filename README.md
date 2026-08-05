@@ -18,10 +18,12 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 ## Features
 
 ### Core Editor
-- **Three view modes** - Source (edit), Preview (read-only), Split (side-by-side with sync scrolling)
+- **Four view modes** - WYSIWYG (seamless live editing, default), Source, Preview (read-only), Split (side-by-side with sync scrolling)
+- **CodeMirror 6 editing** - Markdown syntax highlighting, smart list continuation, auto-closing brackets, Tab indentation
 - **Real-time Markdown preview** - See your formatted content instantly
+- **Find & replace** - Built-in search panel with Cmd/Ctrl + F
+- **Status bar** - Word count, cursor position, and zoom level at a glance
 - **Code syntax highlighting** - Powered by highlight.js
-- **Smooth transitions** - Optimized editing experience
 
 ### File Operations
 - **Open/Save/Save As** - Full file management support with native dialogs
@@ -32,9 +34,9 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Undo/Redo** - Full history support with Cmd/Ctrl + Z / Shift+Z
 
 ### Formatting Tools
-- **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links
+- **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links (Cmd/Ctrl + B / I / K)
 - **Block formatting** - Headings (H1-H6), Quote, List, Code block
-- **Image insertion** - Insert local images with automatic asset management
+- **Image insertion** - Toolbar, paste, or drag & drop with automatic asset management
 - **Table editing** - Visual table creation with customizable rows and columns
 
 ### MkDocs-Ready: Extended Markdown Support
@@ -133,6 +135,15 @@ pnpm tauri build
 | `Cmd/Ctrl + S` | Save file |
 | `Cmd/Ctrl + Shift + S` | Save as |
 | `Cmd/Ctrl + N` | New file |
+| `Cmd/Ctrl + B` | Bold |
+| `Cmd/Ctrl + I` | Italic |
+| `Cmd/Ctrl + K` | Insert link |
+| `Cmd/Ctrl + 1 / 2 / 3` | Heading 1 / 2 / 3 |
+| `Cmd/Ctrl + F` | Find & replace |
+| `Cmd/Ctrl + Z` | Undo |
+| `Cmd/Ctrl + Shift + Z` | Redo |
+| `Cmd/Ctrl + /` | Toggle WYSIWYG / Source |
+| `Cmd/Ctrl + = / - / 0` | Zoom in / out / reset |
 | `Escape` | Exit edit mode |
 
 ## Project Structure
