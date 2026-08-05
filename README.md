@@ -31,6 +31,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Drag & drop** - Drop Markdown files to open instantly
 - **Auto-save** - Automatic saving after 2 seconds of inactivity
 - **Recent files** - Quick access to recently opened files
+- **Native menus** - System menu bar with localized labels, dynamic Open Recent, and OS-level shortcuts
 - **Undo/Redo** - Full history support with Cmd/Ctrl + Z / Shift+Z
 
 ### Formatting Tools

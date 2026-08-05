@@ -8,6 +8,7 @@ import { StatusBar } from './components/StatusBar/StatusBar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import { useAutoSave } from './hooks/useAutoSave'
+import { initNativeMenu } from './lib/nativeMenu'
 import { Dialog } from './components/Dialog'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
 import { isMacOSDesktop } from './lib/platform'
@@ -47,6 +48,15 @@ function App() {
 
   // 注册全局快捷键
   useKeyboardShortcuts()
+
+  // 系统原生菜单（仅 Tauri 桌面端；浏览器 dev 环境为 no-op）
+  useEffect(() => {
+    let cleanup: (() => void) | undefined
+    void initNativeMenu().then((fn) => {
+      cleanup = fn
+    })
+    return () => cleanup?.()
+  }, [])
 
   // 文件拖放支持
   const { isDragging } = useFileDragDrop()

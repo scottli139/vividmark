@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
-use tauri::{Manager, WebviewWindow};
+use tauri::{Emitter, Manager, WebviewWindow};
+
+mod menu;
 
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -597,6 +599,87 @@ async fn export_pdf(
     }
 }
 
+// ===== 原生菜单命令 =====
+
+/// 递归查找菜单项（tauri 的 Menu::get 只查顶层直接子项，子菜单内的项必须递归）
+fn find_menu_item<R: tauri::Runtime>(
+    items: Vec<tauri::menu::MenuItemKind<R>>,
+    id: &str,
+) -> Option<tauri::menu::MenuItemKind<R>> {
+    for item in items {
+        if item.id().0 == id {
+            return Some(item);
+        }
+        if let tauri::menu::MenuItemKind::Submenu(sub) = &item {
+            if let Ok(children) = sub.items() {
+                if let Some(found) = find_menu_item(children, id) {
+                    return Some(found);
+                }
+            }
+        }
+    }
+    None
+}
+
+/// 语言切换 / 最近文件变化时整树重建菜单
+#[tauri::command]
+fn rebuild_menu(
+    app: tauri::AppHandle,
+    lang: String,
+    recent_files: Vec<menu::RecentFilePayload>,
+) -> Result<(), String> {
+    let native_menu =
+        menu::build_menu(&app, &lang, &recent_files).map_err(|e| e.to_string())?;
+    app.set_menu(native_menu).map_err(|e| e.to_string())?;
+    log::info!(
+        "[menu] Menu rebuilt (lang={}, recent={})",
+        lang,
+        recent_files.len()
+    );
+    Ok(())
+}
+
+/// 同步菜单项可用态（如 undo/redo）
+#[tauri::command]
+fn set_menu_item_enabled(app: tauri::AppHandle, id: String, enabled: bool) -> Result<(), String> {
+    if let Some(native_menu) = app.menu() {
+        let item = native_menu
+            .items()
+            .ok()
+            .and_then(|items| find_menu_item(items, &id));
+        match item {
+            Some(tauri::menu::MenuItemKind::MenuItem(mi)) => {
+                mi.set_enabled(enabled).map_err(|e| e.to_string())?;
+            }
+            Some(tauri::menu::MenuItemKind::Check(ci)) => {
+                ci.set_enabled(enabled).map_err(|e| e.to_string())?;
+            }
+            Some(_) => {}
+            None => log::debug!("[menu] set_menu_item_enabled: id not found: {}", id),
+        }
+    }
+    Ok(())
+}
+
+/// 同步菜单项勾选态（如视图模式 / 主题）
+#[tauri::command]
+fn set_menu_item_checked(app: tauri::AppHandle, id: String, checked: bool) -> Result<(), String> {
+    if let Some(native_menu) = app.menu() {
+        let item = native_menu
+            .items()
+            .ok()
+            .and_then(|items| find_menu_item(items, &id));
+        match item {
+            Some(tauri::menu::MenuItemKind::Check(ci)) => {
+                ci.set_checked(checked).map_err(|e| e.to_string())?;
+            }
+            Some(_) => {}
+            None => log::debug!("[menu] set_menu_item_checked: id not found: {}", id),
+        }
+    }
+    Ok(())
+}
+
 /// 使用 WebView 原生打印功能导出 PDF（应用内打印对话框）
 #[tauri::command]
 async fn print_pdf(window: WebviewWindow, file_name: String) -> Result<ExportPdfResult, String> {
@@ -864,6 +947,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        // 菜单点击统一转发给前端（predefined 项系统已自行处理，前端忽略未知 id）
+        .on_menu_event(|app, event| {
+            let id = event.id().0.clone();
+            if let Err(e) = app.emit("native-menu-event", id.as_str()) {
+                log::warn!("[menu] Failed to emit menu event {}: {}", id, e);
+            }
+        })
         .setup(|app| {
             // Configure logging for both debug and release builds
             let log_builder = tauri_plugin_log::Builder::default()
@@ -898,9 +988,15 @@ pub fn run() {
             }
 
             log::info!("[VividMark] Application started successfully");
+
+            // 安装系统原生菜单（初始英文 + 空最近文件；前端启动后按持久化状态重建）
+            let native_menu = menu::build_menu(app.handle(), "en", &[])?;
+            app.set_menu(native_menu)?;
+            log::info!("[menu] Native menu installed");
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, create_file, create_folder, rename_path, delete_path, export_pdf, print_pdf])
+        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, create_file, create_folder, rename_path, delete_path, export_pdf, print_pdf, rebuild_menu, set_menu_item_enabled, set_menu_item_checked])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

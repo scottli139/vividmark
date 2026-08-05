@@ -14,7 +14,7 @@ import {
 import { markdown, markdownKeymap } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language'
-import { search, searchKeymap } from '@codemirror/search'
+import { search, searchKeymap, openSearchPanel } from '@codemirror/search'
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { useEditorStore } from '../../stores/editorStore'
@@ -284,12 +284,19 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
       const { charIndex } = (e as CustomEvent<{ charIndex: number }>).detail
       scrollToCharIndex(view, charIndex)
     }
+    // 原生菜单 Find（WYSIWYG 下无查找面板，事件不响应 —— 已知限制）
+    const handleFindEvent = () => {
+      if (!isActive()) return
+      openSearchPanel(view)
+      focusIfEditing()
+    }
 
     window.addEventListener('editor-format', handleFormatEvent)
     window.addEventListener('editor-insert', handleInsertEvent)
     window.addEventListener('editor-undo', handleUndoEvent)
     window.addEventListener('editor-redo', handleRedoEvent)
     window.addEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
+    window.addEventListener('editor-find', handleFindEvent)
 
     return () => {
       scroller.removeEventListener('scroll', handleScroll)
@@ -298,6 +305,7 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
       window.removeEventListener('editor-undo', handleUndoEvent)
       window.removeEventListener('editor-redo', handleRedoEvent)
       window.removeEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
+      window.removeEventListener('editor-find', handleFindEvent)
       view.destroy()
       editorViewRef.current = null
       if (viewRef) viewRef.current = null

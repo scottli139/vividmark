@@ -130,7 +130,8 @@
 
 - [x] macOS 融合标题栏 ✅（Overlay + hiddenTitle + 自绘居中标题）
 - [x] 右键菜单 ✅（自绘 ContextMenu 实现，文件树已接入，不依赖原生菜单）
-- [ ] 原生菜单；多标签页 + 会话恢复
+- [x] 原生菜单 ✅（macOS App/File/Edit/View/Window 菜单栏，Windows/Linux 适配布局；2026-08-05）
+- [ ] 多标签页 + 会话恢复
 - [x] 主题系统（部分）✅ - 亮/暗/跟随系统三态 + 控件颜色收编 CSS 变量（CSS 主题包/自定义主题未做）
 - [ ] 专注模式 / 打字机模式
 - [x] 统一自绘对话框（替换原生 confirm/alert，修复 WKWebView 下 Cancel 失效吞内容）
@@ -151,7 +152,7 @@
 
 - [x] 信息架构精简 ✅：低频操作（导出 PDF、语言、缩放）已移入自绘 MoreMenu（缩放/导出/语言/设置）与设置面板，常驻控件大幅收敛
 - [x] 语言选择器原生 `<select>` 已移除 ✅：语言切换并入 MoreMenu（自绘 Dropdown，带勾选态）
-- [ ] 关联任务：**原生菜单**（承载迁出的低频操作，P3）、**macOS 融合标题栏**（工具栏与标题栏一体化布局，P3）、**主题系统**（控件样式收编到主题变量，P3）、**设置面板**（工具栏可见性可配置，P3）、**slash menu/悬浮格式条**（WYSIWYG 补全，落地后工具栏可进一步弱化）
+- [ ] 关联任务：**原生菜单** ✅（已落地，承载迁出的低频操作）、**macOS 融合标题栏**（工具栏与标题栏一体化布局，P3）、**主题系统**（控件样式收编到主题变量，P3）、**设置面板**（工具栏可见性可配置，P3）、**slash menu/悬浮格式条**（WYSIWYG 补全，落地后工具栏可进一步弱化）
 
 **侧边栏**：
 
@@ -748,6 +749,25 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 - ✅ **i18n**：新增 key 三处同步（en.json / zh-CN.json / test setup）
 
 **测试规模：** 33 个测试文件、567+ 用例全部通过（`pnpm test:run`）
+
+---
+
+### 2026-08-05 原生菜单（Native Menu）落地
+
+**完成工作：**
+- ✅ **Rust 菜单构建**：新建 `src-tauri/src/menu.rs`（`build_menu` + en/zh-CN 文案字典）；macOS 布局 App/File/Edit/View/Window，Windows/Linux 布局 File（含 Settings/Exit）/Edit/View/Window/Help；Open Recent 动态子菜单；Edit 的 Undo/Redo 用自定义项转发编辑器 history（不用系统级 undo）
+- ✅ **事件转发与状态命令**：`lib.rs` 注册 `on_menu_event` → emit `native-menu-event`；新增 command `rebuild_menu` / `set_menu_item_enabled` / `set_menu_item_checked`
+- ✅ **前端对接**：新建 `src/lib/nativeMenu.ts`（`handleMenuAction` 分发 + store 订阅同步 undo/redo 可用态、视图模式/主题勾选态、语言与最近文件触发菜单重建）；`App.tsx` 启动接线
+- ✅ **Find 接入**：`CodeMirrorEditor` 监听 `editor-find` → `openSearchPanel`（仅 source/split 生效，WYSIWYG 查找留待后续）
+- ✅ **测试**：`nativeMenu.test.ts` 21 条分发用例；全套 588 用例通过；tsc/lint/format/cargo check 全绿
+
+**关键机制：** 带 accelerator 的键（Cmd+O/S/N 等）在桌面端被 OS 拦截，webview 收不到 keydown —— 桌面端快捷键由菜单事件驱动，`useKeyboardShortcuts` 仅作浏览器 dev/E2E 环境入口，两环境互不重迭。
+
+**新增文件：**
+- `src-tauri/src/menu.rs`、`src/lib/nativeMenu.ts`、`src/lib/__tests__/nativeMenu.test.ts`
+
+**修改文件：**
+- `src-tauri/src/lib.rs`、`src/App.tsx`、`src/components/Editor/CodeMirrorEditor.tsx`、`src/test/mocks/tauri.ts`
 
 ---
 

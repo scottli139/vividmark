@@ -141,6 +141,9 @@ Defined in `src-tauri/src/lib.rs`:
 | `delete_path`    | `path`                | `null`            | Delete (folder: recursive) |
 | `export_pdf`     | html content, title   | `ExportPdfResult` | Temp HTML → system browser |
 | `print_pdf`      | `fileName`            | `ExportPdfResult` | Native print dialog        |
+| `rebuild_menu`   | `lang, recentFiles`   | `null`            | Rebuild native menu (i18n / recent files) |
+| `set_menu_item_enabled` | `id, enabled`  | `null`            | Native menu item enabled state |
+| `set_menu_item_checked` | `id, checked`  | `null`            | Native menu check item state |
 
 Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `generate_handler![]`, invoke via `@tauri-apps/api/core`. Struct fields cross the bridge as camelCase (`#[serde(rename = "isDirectory")]`).
 
@@ -148,14 +151,17 @@ Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `genera
 
 | Shortcut                         | Action                      | Implementation                    |
 | -------------------------------- | --------------------------- | --------------------------------- |
-| `Cmd/Ctrl + O / S / Shift+S / N` | Open / Save / Save As / New | `useKeyboardShortcuts.ts`         |
+| `Cmd/Ctrl + O / S / Shift+S / N` | Open / Save / Save As / New | 原生菜单（桌面端）/ `useKeyboardShortcuts.ts`（浏览器） |
 | `Cmd/Ctrl + /`                   | WYSIWYG ⇄ Source 切换       | `useKeyboardShortcuts.ts`         |
 | `Cmd/Ctrl + B / I / K`           | Bold / Italic / Link        | `CodeMirrorEditor.tsx` keymap     |
 | `Cmd/Ctrl + 1 / 2 / 3`           | Heading 1 / 2 / 3           | `CodeMirrorEditor.tsx` keymap     |
-| `Cmd/Ctrl + Z / Shift+Z`         | Undo / Redo                 | CM / Milkdown history             |
-| `Cmd/Ctrl + F`                   | Find & replace              | `@codemirror/search`              |
-| `Cmd/Ctrl + =/+ / - / 0`         | Zoom in / out / reset       | `Editor.tsx`                      |
-| `Cmd/Ctrl + P`                   | Export PDF                  | `Toolbar.tsx`                     |
+| `Cmd/Ctrl + Z / Shift+Z`         | Undo / Redo                 | 原生菜单 → editor-undo/redo；CM / Milkdown history |
+| `Cmd/Ctrl + F`                   | Find & replace              | 原生菜单 → editor-find → `@codemirror/search` |
+| `Cmd/Ctrl + =/+ / - / 0`         | Zoom in / out / reset       | 原生菜单 / `Editor.tsx`           |
+| `Cmd/Ctrl + ,`                   | Settings                    | 原生菜单（App/File 菜单）         |
+| `Cmd/Ctrl + Shift+B`             | Toggle Sidebar              | 原生菜单（View 菜单）             |
+| `Cmd/Ctrl + Alt+1~4`             | WYSIWYG / Source / Split / Preview | 原生菜单（View 菜单 check 项） |
+| `Cmd/Ctrl + P`                   | Export PDF                  | 原生菜单 / `Toolbar.tsx`          |
 | `Escape`                         | Exit edit mode              | `Editor.tsx`                      |
 
 ## Architecture Notes & Gotchas
@@ -167,7 +173,8 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
 - **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`
-- **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（工具栏 → 编辑器），`editor-scroll-to-heading` (outline nav), `editor-request-html` (PDF export)
+- **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（工具栏 → 编辑器），`editor-scroll-to-heading` (outline nav), `editor-request-html` (PDF export), `editor-find` (原生菜单 Find)
+- **原生菜单事件流**: `src-tauri/src/menu.rs` 构建系统菜单（macOS App/File/Edit/View/Window；Windows/Linux 适配）→ `on_menu_event` emit `native-menu-event` → `src/lib/nativeMenu.ts` `handleMenuAction` 分发。带 accelerator 的键在桌面端被 OS 拦截，webview 收不到 keydown —— 桌面端快捷键由菜单事件驱动，`useKeyboardShortcuts` 仅浏览器 dev/E2E 生效，互不重迭；菜单 check/enabled 态与语言/最近文件由 store 订阅经 `set_menu_item_checked/enabled`/`rebuild_menu` 同步（**`Menu::get` 只查顶层项，子菜单内的项必须走 lib.rs 的 `find_menu_item` 递归查找；muda CheckMenuItem 点击会原生自动翻转勾选，最终态以同步为准；菜单重建后 check/enabled 回到构建默认值，必须重新同步一轮**）；Edit 的 Undo/Redo 用自定义项（系统级 undo 会绕过 CM/Milkdown history）
 - **Task list checkboxes**: with `dangerouslySetInnerHTML`, never read `checkbox.checked` — use the `data-task-status` attribute and re-sync DOM state in a `useEffect` after each render
 - **Windows paths**: normalize `\` → `/` before any path math (`imageUtils.getRelativePath`, `parser.resolveRelativePath`, Editor `baseDir`)
 - **External links**: intercept clicks in preview, `e.preventDefault()`, open via `@tauri-apps/plugin-shell` (requires `shell:default` capability)

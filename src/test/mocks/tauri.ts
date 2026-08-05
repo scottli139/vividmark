@@ -7,6 +7,13 @@ export const mockInvoke = vi.fn()
 export const mockOpenDialog = vi.fn()
 export const mockSaveDialog = vi.fn()
 
+// Mock Tauri event plugin（原生菜单 listen）
+export const mockListen = vi.fn().mockResolvedValue(vi.fn())
+
+vi.mock('@tauri-apps/api/event', () => ({
+  listen: mockListen,
+}))
+
 // Setup mocks for Tauri APIs
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: mockInvoke,
