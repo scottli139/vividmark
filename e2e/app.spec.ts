@@ -12,11 +12,8 @@ test.describe('VividMark Application', () => {
   })
 
   test('should load the application', async ({ page }) => {
-    await expect(page.locator('text=Untitled.md').first()).toBeVisible()
-  })
-
-  test('should display toolbar with file name', async ({ page }) => {
-    await expect(page.locator('text=Untitled.md').first()).toBeVisible()
+    // 文件名仅体现在原生窗口标题（浏览器 e2e 环境不可见），此处校验页面标题
+    await expect(page).toHaveTitle(/vividmark/i)
   })
 
   test('should toggle dark mode', async ({ page }) => {
@@ -26,19 +23,20 @@ test.describe('VividMark Application', () => {
   })
 
   test('should toggle sidebar', async ({ page }) => {
-    // Sidebar should be visible by default
-    await expect(page.locator('text=Current File')).toBeVisible()
+    // Sidebar should be visible by default（以「大纲」tab 作为侧栏可见性标志）
+    const outlineTab = page.getByRole('button', { name: 'Outline', exact: true })
+    await expect(outlineTab).toBeVisible()
 
     // Click sidebar toggle
     const sidebarButton = page.locator('button[title="Toggle Sidebar"]')
     await sidebarButton.click()
 
     // Sidebar should be hidden
-    await expect(page.locator('text=Current File')).not.toBeVisible()
+    await expect(outlineTab).not.toBeVisible()
 
     // Click again to show
     await sidebarButton.click()
-    await expect(page.locator('text=Current File')).toBeVisible()
+    await expect(outlineTab).toBeVisible()
   })
 
   test('should switch view modes', async ({ page }) => {

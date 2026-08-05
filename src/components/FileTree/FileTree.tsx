@@ -2,14 +2,46 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useTranslation } from 'react-i18next'
 import type { FileTreeItem } from '../../lib/fileTreeUtils'
-import { readDirectory, toggleFolder, filterMarkdownFiles } from '../../lib/fileTreeUtils'
+import {
+  readDirectory,
+  toggleFolder,
+  filterMarkdownFiles,
+  filterTreeByQuery,
+  expandFirstLevel,
+  setAllExpanded,
+  collectExpandedPaths,
+  applyExpandedPaths,
+  expandParentPaths,
+  findTreeItem,
+  updateTreeItem,
+  getParentPath,
+  createFile,
+  createFolder,
+  renamePath,
+  deletePath,
+} from '../../lib/fileTreeUtils'
 import { openFileByPath } from '../../lib/fileOps'
-import { confirmDialog } from '../../lib/dialog'
+import { confirmDialog, alertDialog } from '../../lib/dialog'
 import { useEditorStore } from '../../stores/editorStore'
+import { ContextMenu, type MenuItem } from '../Menu'
 import { FileTreeItem as FileTreeItemComponent } from './FileTreeItem'
+import type { CreatingState } from './FileTreeItem'
+import { InlineNameInput } from './InlineNameInput'
 
 interface FileTreeProps {
   showMarkdownOnly?: boolean
+}
+
+interface ContextMenuState {
+  x: number
+  y: number
+  /** 右键目标项；null = 空白区（作用于根目录） */
+  target: FileTreeItem | null
+}
+
+/** 提取 invoke 抛出的错误串（Tauri 后端直接 reject 英文错误串） */
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
 }
 
 export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
@@ -19,35 +51,35 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
   const [items, setItems] = useState<FileTreeItem[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [editingPath, setEditingPath] = useState<string | null>(null)
+  const [creating, setCreating] = useState<CreatingState | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
 
-  // 递归设置所有文件夹的展开状态
-  const setAllExpanded = useCallback((items: FileTreeItem[], expanded: boolean): FileTreeItem[] => {
-    return items.map((item) => ({
-      ...item,
-      isExpanded: item.isDirectory ? expanded : undefined,
-      children: item.children ? setAllExpanded(item.children, expanded) : undefined,
-    }))
-  }, [])
-
-  // 加载目录内容
+  // 加载目录内容；restore 提供时按其恢复展开状态，否则默认只展开第一层
   const loadDirectory = useCallback(
-    async (path: string) => {
+    async (path: string, options?: { restore?: Set<string>; reveal?: string }) => {
       setIsLoading(true)
       setError(null)
 
       try {
         const directoryItems = await readDirectory(path, true)
-        // 递归展开所有文件夹
-        const itemsWithExpansion = setAllExpanded(directoryItems, true)
-        setItems(showMarkdownOnly ? filterMarkdownFiles(itemsWithExpansion) : itemsWithExpansion)
+        let next = showMarkdownOnly ? filterMarkdownFiles(directoryItems) : directoryItems
+        next = options?.restore ? applyExpandedPaths(next, options.restore) : expandFirstLevel(next)
+        // 定位目标路径（默认当前打开文件）：展开其父链
+        const reveal = options?.reveal ?? useEditorStore.getState().filePath
+        if (reveal && findTreeItem(next, reveal)) {
+          next = expandParentPaths(next, reveal)
+        }
+        setItems(next)
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        setError(errorMessage(err))
         setItems([])
       } finally {
         setIsLoading(false)
       }
     },
-    [showMarkdownOnly, setAllExpanded]
+    [showMarkdownOnly]
   )
 
   // 当 openedFolder 变化时加载目录
@@ -58,6 +90,18 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
       setItems([])
     }
   }, [openedFolder, loadDirectory])
+
+  // 文件操作后刷新：收集当前展开路径集合，刷新后按路径恢复；revealPath 展开父链定位
+  const refreshTree = useCallback(
+    async (revealPath?: string) => {
+      if (!openedFolder) return
+      await loadDirectory(openedFolder, {
+        restore: collectExpandedPaths(items),
+        reveal: revealPath,
+      })
+    },
+    [openedFolder, items, loadDirectory]
+  )
 
   // 打开文件夹对话框
   const handleOpenFolder = useCallback(async () => {
@@ -98,6 +142,179 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
     [isDirty, t]
   )
 
+  // 过滤输入：退出进行中的行内编辑，避免输入行被过滤掉
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value)
+    setEditingPath(null)
+    setCreating(null)
+  }, [])
+
+  // 在目标文件夹内开始新建：追加临时输入行，确保目标展开并退出过滤
+  const startCreating = useCallback((parentPath: string, kind: 'file' | 'folder') => {
+    setQuery('')
+    setEditingPath(null)
+    setCreating({ parentPath, kind })
+    setItems((prevItems) => updateTreeItem(prevItems, parentPath, { isExpanded: true }))
+  }, [])
+
+  // 删除（目录提示级联删除）
+  const handleDelete = useCallback(
+    async (item: FileTreeItem) => {
+      const confirmed = await confirmDialog(
+        item.isDirectory
+          ? t('fileTree.confirmDeleteFolder', { name: item.name })
+          : t('fileTree.confirmDeleteFile', { name: item.name })
+      )
+      if (!confirmed) return
+
+      try {
+        await deletePath(item.path)
+      } catch (err) {
+        await alertDialog(errorMessage(err))
+        return
+      }
+      await refreshTree()
+    },
+    [t, refreshTree]
+  )
+
+  // 右键菜单
+  const handleItemContextMenu = useCallback((item: FileTreeItem, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, target: item })
+  }, [])
+
+  const handleBlankContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, target: null })
+  }, [])
+
+  const closeContextMenu = useCallback(() => setContextMenu(null), [])
+
+  const contextMenuItems = useMemo<MenuItem[]>(() => {
+    if (!contextMenu) return []
+    if (contextMenu.target) {
+      return [
+        { id: 'new-file', label: t('fileTree.newFile') },
+        { id: 'new-folder', label: t('fileTree.newFolder') },
+        { id: 'rename', label: t('fileTree.rename') },
+        { divider: true },
+        { id: 'delete', label: t('fileTree.delete') },
+      ]
+    }
+    return [
+      { id: 'new-file', label: t('fileTree.newFile') },
+      { id: 'new-folder', label: t('fileTree.newFolder') },
+      { id: 'open-folder', label: t('fileTree.openFolder') },
+    ]
+  }, [contextMenu, t])
+
+  const handleMenuSelect = useCallback(
+    (id: string) => {
+      const target = contextMenu?.target ?? null
+
+      switch (id) {
+        case 'new-file':
+        case 'new-folder': {
+          const parentPath = target
+            ? target.isDirectory
+              ? target.path
+              : getParentPath(target.path)
+            : openedFolder
+          if (parentPath) {
+            startCreating(parentPath, id === 'new-file' ? 'file' : 'folder')
+          }
+          break
+        }
+        case 'rename':
+          if (target) {
+            setCreating(null)
+            setEditingPath(target.path)
+          }
+          break
+        case 'delete':
+          if (target) {
+            void handleDelete(target)
+          }
+          break
+        case 'open-folder':
+          void handleOpenFolder()
+          break
+      }
+    },
+    [contextMenu, openedFolder, startCreating, handleDelete, handleOpenFolder]
+  )
+
+  // 重命名提交：同步 store（当前打开文件）并刷新定位
+  const handleRenameSubmit = useCallback(
+    async (item: FileTreeItem, newName: string) => {
+      setEditingPath(null)
+
+      const trimmed = newName.trim()
+      if (!trimmed || trimmed === item.name) return
+
+      const parentPath = getParentPath(item.path)
+      const newPath = parentPath ? `${parentPath}/${trimmed}` : trimmed
+
+      try {
+        await renamePath(item.path, newPath)
+      } catch (err) {
+        await alertDialog(errorMessage(err))
+        return
+      }
+
+      // 重命名当前打开文件时同步 store（含最近文件条目）
+      const state = useEditorStore.getState()
+      if (state.filePath === item.path) {
+        state.setFilePath(newPath)
+        state.setFileName(trimmed)
+        state.renameRecentFile(item.path, newPath, trimmed)
+      }
+
+      await refreshTree(newPath)
+    },
+    [refreshTree]
+  )
+
+  const handleRenameCancel = useCallback(() => setEditingPath(null), [])
+
+  // 新建提交
+  const handleCreateSubmit = useCallback(
+    async (name: string) => {
+      const current = creating
+      setCreating(null)
+      if (!current) return
+
+      const trimmed = name.trim()
+      if (!trimmed) return
+
+      const newPath = `${current.parentPath}/${trimmed}`
+
+      try {
+        if (current.kind === 'file') {
+          await createFile(newPath)
+        } else {
+          await createFolder(newPath)
+        }
+      } catch (err) {
+        await alertDialog(errorMessage(err))
+        return
+      }
+
+      await refreshTree(newPath)
+    },
+    [creating, refreshTree]
+  )
+
+  const handleCreateCancel = useCallback(() => setCreating(null), [])
+
+  // 过滤时命中结果临时全部展开（不改动原始展开状态，清空即恢复）
+  const visibleItems = useMemo(() => {
+    if (!query.trim()) return items
+    return setAllExpanded(filterTreeByQuery(items, query), true)
+  }, [items, query])
+
   // 获取文件夹名称
   const folderName = useMemo(() => {
     if (!openedFolder) return null
@@ -136,14 +353,14 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
       {/* 文件夹标题栏 */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--editor-border)]">
         <span
-          className="text-xs font-semibold text-gray-500 uppercase tracking-wider truncate flex-1"
+          className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider truncate flex-1"
           title={openedFolder ?? undefined}
         >
           {folderName}
         </span>
         <button
           onClick={handleCloseFolder}
-          className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300
+          className="p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text)]
             rounded transition-colors duration-150"
           title={t('fileTree.closeFolder')}
         >
@@ -158,10 +375,26 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
         </button>
       </div>
 
+      {/* 过滤输入框 */}
+      <div className="px-2 py-1.5 border-b border-[var(--editor-border)]">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleQueryChange(e.target.value)}
+          placeholder={t('fileTree.filterPlaceholder')}
+          className="w-full px-2 py-1 text-sm bg-[var(--editor-bg)]
+            text-[var(--color-text)] border border-[var(--editor-border)] rounded
+            outline-none focus:border-[var(--accent-color)]"
+        />
+      </div>
+
       {/* 文件树内容 */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <div
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+        onContextMenu={handleBlankContextMenu}
+      >
         {isLoading ? (
-          <div className="p-4 text-center text-sm text-gray-500">
+          <div className="p-4 text-center text-sm text-[var(--color-text-secondary)]">
             <svg
               className="w-5 h-5 mx-auto mb-2 animate-spin"
               fill="none"
@@ -201,23 +434,52 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
             </svg>
             {error}
           </div>
-        ) : items.length === 0 ? (
-          <div className="p-4 text-center text-sm text-gray-400">{t('fileTree.emptyFolder')}</div>
+        ) : visibleItems.length === 0 && !creating ? (
+          <div className="p-4 text-center text-sm text-[var(--color-text-muted)]">
+            {t(query.trim() ? 'fileTree.noMatches' : 'fileTree.emptyFolder')}
+          </div>
         ) : (
           <div className="py-1">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <FileTreeItemComponent
                 key={item.path}
                 item={item}
                 level={0}
                 selectedPath={filePath}
+                editingPath={editingPath}
+                creating={creating}
                 onToggle={handleToggle}
                 onSelect={handleSelect}
+                onContextMenu={handleItemContextMenu}
+                onRenameSubmit={handleRenameSubmit}
+                onRenameCancel={handleRenameCancel}
+                onCreateSubmit={handleCreateSubmit}
+                onCreateCancel={handleCreateCancel}
               />
             ))}
+            {/* 根目录新建的临时输入行 */}
+            {creating && creating.parentPath === openedFolder && (
+              <InlineNameInput
+                level={0}
+                isDirectory={creating.kind === 'folder'}
+                onSubmit={handleCreateSubmit}
+                onCancel={handleCreateCancel}
+              />
+            )}
           </div>
         )}
       </div>
+
+      {/* 右键菜单 */}
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onSelect={handleMenuSelect}
+          onClose={closeContextMenu}
+        />
+      )}
     </div>
   )
 }

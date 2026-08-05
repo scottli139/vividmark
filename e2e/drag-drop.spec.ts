@@ -7,7 +7,9 @@ test.describe('File Drag and Drop', () => {
     await page.waitForTimeout(1500)
   })
 
-  test('should show drag overlay when dragging file over window', async ({ page }) => {
+  // 浏览器环境无 Tauri onDragDropEvent / 文件对话框，拖放与打开链路无法触发
+  // （与同文件 test.skip 的既有说明同根因），待 Tauri 环境可测后启用。
+  test.skip('should show drag overlay when dragging file over window', async ({ page }) => {
     // Simulate drag enter using DataTransfer
     await page.evaluate(() => {
       const event = new DragEvent('dragenter', {
@@ -24,7 +26,8 @@ test.describe('File Drag and Drop', () => {
     await expect(page.locator('text=Drop Markdown file here')).toBeVisible()
   })
 
-  test('should open dropped markdown file', async ({ page }) => {
+  // 同上：浏览器环境无法触发文件对话框，待 Tauri 环境可测后启用。
+  test.skip('should open dropped markdown file', async ({ page }) => {
     // Create a temporary markdown file for testing
     const testContent = '# Test Document\n\nThis is a test.'
 

@@ -9,43 +9,54 @@ vi.mock('../../../lib/fileOps', () => ({
   openFileByPath: vi.fn(),
 }))
 
+// Mock Tauri dialog plugin（「打开文件夹」按钮）
+vi.mock('@tauri-apps/plugin-dialog', () => ({
+  open: vi.fn(),
+}))
+
 // Mock FileTree component
 vi.mock('../../FileTree', () => ({
   FileTree: () => <div data-testid="file-tree">FileTree Component</div>,
 }))
 
-// Mock outlineUtils module
-vi.mock('../../../lib/outlineUtils', () => ({
-  extractOutline: vi.fn((content: string) => {
-    // Simple mock implementation
-    const lines = content.split('\n')
-    const headings: Array<{
-      level: number
-      text: string
-      lineIndex: number
-      charIndex: number
-      index: number
-    }> = []
-    let charIndex = 0
-    let headingIndex = 0
+// Mock outlineUtils module（extractOutline 用简化实现；树构建/高亮匹配用真实纯函数）
+vi.mock('../../../lib/outlineUtils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../lib/outlineUtils')>()
+  return {
+    ...actual,
+    extractOutline: vi.fn((content: string) => {
+      // Simple mock implementation
+      const lines = content.split('\n')
+      const headings: Array<{
+        level: number
+        text: string
+        lineIndex: number
+        charIndex: number
+        index: number
+      }> = []
+      let charIndex = 0
+      let headingIndex = 0
 
-    lines.forEach((line, lineIndex) => {
-      if (line.startsWith('#')) {
-        const level = line.match(/^#+/)?.[0].length || 1
-        const text = line.replace(/^#+\s*/, '')
-        headings.push({ level, text, lineIndex, charIndex, index: headingIndex++ })
-      }
-      charIndex += line.length + 1
-    })
+      lines.forEach((line, lineIndex) => {
+        if (line.startsWith('#')) {
+          const level = line.match(/^#+/)?.[0].length || 1
+          const text = line.replace(/^#+\s*/, '')
+          headings.push({ level, text, lineIndex, charIndex, index: headingIndex++ })
+        }
+        charIndex += line.length + 1
+      })
 
-    return headings
-  }),
-  scrollPreviewToHeading: vi.fn(),
-}))
+      return headings
+    }),
+    scrollPreviewToHeading: vi.fn(),
+  }
+})
 
 // Import mocked function
 import { openFileByPath } from '../../../lib/fileOps'
+import { open } from '@tauri-apps/plugin-dialog'
 const mockOpenFileByPath = vi.mocked(openFileByPath)
+const mockOpenDialog = vi.mocked(open)
 
 describe('Sidebar', () => {
   beforeEach(() => {
@@ -59,8 +70,14 @@ describe('Sidebar', () => {
       recentFiles: [],
       isDarkMode: false,
       showSidebar: true,
+      sidebarTab: 'outline',
+      sidebarWidth: 224,
+      openedFolder: null,
       viewMode: 'source',
       activeBlockId: null,
+      cursorLine: 1,
+      cursorCol: 1,
+      activeHeadingIndex: null,
     })
   })
 
@@ -71,7 +88,8 @@ describe('Sidebar', () => {
   describe('visibility', () => {
     it('should render when sidebar is visible', () => {
       render(<Sidebar />)
-      expect(screen.getByText('Current File')).toBeInTheDocument()
+      expect(screen.getByText('Files')).toBeInTheDocument()
+      expect(screen.getByText('Outline')).toBeInTheDocument()
     })
 
     it('should not render when sidebar is hidden', () => {
@@ -82,19 +100,12 @@ describe('Sidebar', () => {
     })
   })
 
-  describe('current file display', () => {
-    it('should display current file name', () => {
-      render(<Sidebar />)
-      expect(screen.getByText('test.md')).toBeInTheDocument()
-    })
+  describe('sidebar width', () => {
+    it('should render with width from store', () => {
+      useEditorStore.setState({ sidebarWidth: 300 })
 
-    it('should show dirty indicator when file has unsaved changes', () => {
-      useEditorStore.getState().setDirty(true)
-      render(<Sidebar />)
-
-      // Find the current file section and check for the asterisk
-      const currentFileSection = screen.getByText('Current File').parentElement
-      expect(currentFileSection).toHaveTextContent('*')
+      const { container } = render(<Sidebar />)
+      expect(container.firstChild).toHaveStyle({ width: '300px' })
     })
   })
 
@@ -134,6 +145,11 @@ describe('Sidebar', () => {
   })
 
   describe('recent files', () => {
+    beforeEach(() => {
+      // 最近文件位于「文件」tab（未打开文件夹时）
+      useEditorStore.getState().setSidebarTab('files')
+    })
+
     it('should show "No recent files" when list is empty', () => {
       render(<Sidebar />)
       expect(screen.getByText('No recent files')).toBeInTheDocument()
@@ -222,6 +238,69 @@ describe('Sidebar', () => {
       })
       expect(mockOpenFileByPath).not.toHaveBeenCalled()
     })
+
+    it('should show open folder button', () => {
+      render(<Sidebar />)
+      expect(screen.getByText('Open Folder')).toBeInTheDocument()
+    })
+
+    it('should open folder dialog when open folder button is clicked', async () => {
+      mockOpenDialog.mockResolvedValue('/test/folder')
+
+      render(<Sidebar />)
+
+      fireEvent.click(screen.getByText('Open Folder'))
+
+      await waitFor(() => {
+        expect(useEditorStore.getState().openedFolder).toBe('/test/folder')
+      })
+    })
+
+    it('should not show filter input when no recent files', () => {
+      render(<Sidebar />)
+      expect(screen.queryByPlaceholderText('Filter recent files...')).not.toBeInTheDocument()
+    })
+
+    it('should filter recent files by name (case-insensitive)', () => {
+      useEditorStore.getState().addRecentFile('/path/to/Notes.md', 'Notes.md')
+      useEditorStore.getState().addRecentFile('/path/to/todo.md', 'todo.md')
+
+      render(<Sidebar />)
+
+      fireEvent.change(screen.getByPlaceholderText('Filter recent files...'), {
+        target: { value: 'NOTES' },
+      })
+
+      expect(screen.getByText('Notes.md')).toBeInTheDocument()
+      expect(screen.queryByText('todo.md')).not.toBeInTheDocument()
+    })
+
+    it('should filter recent files by path', () => {
+      useEditorStore.getState().addRecentFile('/docs/guide.md', 'guide.md')
+      useEditorStore.getState().addRecentFile('/src/readme.md', 'readme.md')
+
+      render(<Sidebar />)
+
+      fireEvent.change(screen.getByPlaceholderText('Filter recent files...'), {
+        target: { value: '/src' },
+      })
+
+      expect(screen.getByText('readme.md')).toBeInTheDocument()
+      expect(screen.queryByText('guide.md')).not.toBeInTheDocument()
+    })
+
+    it('should show empty state when filter matches nothing', () => {
+      useEditorStore.getState().addRecentFile('/path/to/file.md', 'file.md')
+
+      render(<Sidebar />)
+
+      fireEvent.change(screen.getByPlaceholderText('Filter recent files...'), {
+        target: { value: 'zzz' },
+      })
+
+      expect(screen.getByText('No recent files')).toBeInTheDocument()
+      expect(screen.queryByText('file.md')).not.toBeInTheDocument()
+    })
   })
 
   describe('outline navigation', () => {
@@ -289,31 +368,38 @@ describe('Sidebar', () => {
       expect(screen.getByText('Heading 1')).toBeInTheDocument()
     })
 
-    it('should switch to file tree tab when clicked', () => {
+    it('should switch to files tab when clicked', () => {
       render(<Sidebar />)
 
-      const fileTreeTab = screen.getByText('File Tree')
-      fireEvent.click(fileTreeTab)
+      const filesTab = screen.getByText('Files')
+      fireEvent.click(filesTab)
 
-      // File tree tab should be active
-      expect(fileTreeTab).toHaveClass('text-[var(--accent-color)]')
+      // Files tab should be active and persisted to store
+      expect(useEditorStore.getState().sidebarTab).toBe('files')
+      expect(filesTab).toHaveClass('text-[var(--accent-color)]')
 
-      // FileTree component should be visible
+      // 未打开文件夹时显示最近文件区块
+      expect(screen.getByText('Recent Files')).toBeInTheDocument()
+    })
+
+    it('should show file tree in files tab when a folder is opened', () => {
+      useEditorStore.setState({ sidebarTab: 'files', openedFolder: '/test/folder' })
+
+      render(<Sidebar />)
+
       expect(screen.getByTestId('file-tree')).toBeInTheDocument()
     })
 
     it('should switch back to outline tab when clicked', () => {
+      useEditorStore.getState().setSidebarTab('files')
+
       render(<Sidebar />)
 
-      // First switch to file tree
-      const fileTreeTab = screen.getByText('File Tree')
-      fireEvent.click(fileTreeTab)
-
-      // Then switch back to outline
       const outlineTab = screen.getByText('Outline')
       fireEvent.click(outlineTab)
 
-      // Outline tab should be active
+      // Outline tab should be active and persisted to store
+      expect(useEditorStore.getState().sidebarTab).toBe('outline')
       expect(outlineTab).toHaveClass('text-[var(--accent-color)]')
 
       // Outline content should be visible
@@ -324,11 +410,149 @@ describe('Sidebar', () => {
       render(<Sidebar />)
 
       const outlineTab = screen.getByText('Outline')
-      const fileTreeTab = screen.getByText('File Tree')
+      const filesTab = screen.getByText('Files')
 
       // Both tabs should have base styling
       expect(outlineTab).toHaveClass('flex-1', 'px-3', 'py-2', 'text-xs', 'font-medium')
-      expect(fileTreeTab).toHaveClass('flex-1', 'px-3', 'py-2', 'text-xs', 'font-medium')
+      expect(filesTab).toHaveClass('flex-1', 'px-3', 'py-2', 'text-xs', 'font-medium')
+    })
+  })
+
+  describe('outline collapse', () => {
+    beforeEach(() => {
+      // 层级：H1 > [H2 > [H3], H2b]，H4 为根级兄弟
+      useEditorStore.setState({
+        content: '# H1\n\n## H2\n\n### H3\n\n## H2b\n\n# H4',
+      })
+    })
+
+    it('should render chevrons only for items with children', () => {
+      render(<Sidebar />)
+
+      // H1（含 H2/H2b）与 H2（含 H3）有 chevron；H3/H2b/H4 无子级
+      expect(screen.getAllByRole('button', { name: 'Collapse' })).toHaveLength(2)
+    })
+
+    it('should collapse and expand children via chevron', () => {
+      render(<Sidebar />)
+
+      // 默认全展开
+      for (const text of ['H1', 'H2', 'H3', 'H2b', 'H4']) {
+        expect(screen.getByText(text)).toBeInTheDocument()
+      }
+
+      // 折叠 H1 → 整个子树隐藏，根级兄弟 H4 不受影响
+      fireEvent.click(screen.getAllByRole('button', { name: 'Collapse' })[0])
+      expect(screen.getByText('H1')).toBeInTheDocument()
+      expect(screen.queryByText('H2')).not.toBeInTheDocument()
+      expect(screen.queryByText('H3')).not.toBeInTheDocument()
+      expect(screen.queryByText('H2b')).not.toBeInTheDocument()
+      expect(screen.getByText('H4')).toBeInTheDocument()
+
+      // 再点展开（折叠后 aria-label 变为 Expand，且只剩 H1 一个 chevron）
+      fireEvent.click(screen.getByRole('button', { name: 'Expand' }))
+      expect(screen.getByText('H2')).toBeInTheDocument()
+      expect(screen.getByText('H3')).toBeInTheDocument()
+      expect(screen.getByText('H2b')).toBeInTheDocument()
+    })
+
+    it('should collapse a nested subtree independently', () => {
+      render(<Sidebar />)
+
+      // 折叠 H2 → 仅其子级 H3 隐藏，H2b 不受影响
+      fireEvent.click(screen.getAllByRole('button', { name: 'Collapse' })[1])
+      expect(screen.getByText('H2')).toBeInTheDocument()
+      expect(screen.queryByText('H3')).not.toBeInTheDocument()
+      expect(screen.getByText('H2b')).toBeInTheDocument()
+    })
+
+    it('should still dispatch jump event when clicking heading text', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Sidebar />)
+
+      fireEvent.click(screen.getByText('H3'))
+
+      const event = dispatchEventSpy.mock.calls[0][0] as CustomEvent
+      expect(event.type).toBe('editor-scroll-to-heading')
+      expect(event.detail.index).toBe(2)
+
+      dispatchEventSpy.mockRestore()
+    })
+  })
+
+  describe('outline active highlight', () => {
+    // content: '# Heading 1\n\nSome content\n\n## Heading 2'（外层 beforeEach）
+    // lineIndex: Heading 1 = 0，Heading 2 = 4
+    const rowOf = (text: string) => screen.getByText(text).parentElement
+
+    it('should highlight the current heading by cursorLine in source mode', () => {
+      render(<Sidebar />)
+
+      // cursorLine=1 → Heading 1 高亮
+      expect(rowOf('Heading 1')).toHaveClass('bg-[var(--active-bg)]')
+      expect(rowOf('Heading 2')).not.toHaveClass('bg-[var(--active-bg)]')
+
+      act(() => {
+        useEditorStore.getState().setCursorPosition(5, 1)
+      })
+
+      expect(rowOf('Heading 1')).not.toHaveClass('bg-[var(--active-bg)]')
+      expect(rowOf('Heading 2')).toHaveClass('bg-[var(--active-bg)]')
+      expect(rowOf('Heading 2')).toHaveClass('border-[var(--accent-color)]')
+    })
+
+    it('should not highlight when cursor is before the first heading', () => {
+      useEditorStore.setState({ content: 'intro\n\n# H1' })
+      render(<Sidebar />)
+
+      act(() => {
+        useEditorStore.getState().setCursorPosition(1, 1)
+      })
+
+      expect(rowOf('H1')).not.toHaveClass('bg-[var(--active-bg)]')
+    })
+
+    it('should follow activeHeadingIndex in wysiwyg mode', () => {
+      useEditorStore.setState({ viewMode: 'wysiwyg' })
+      render(<Sidebar />)
+
+      expect(rowOf('Heading 1')).not.toHaveClass('bg-[var(--active-bg)]')
+
+      act(() => {
+        useEditorStore.getState().setActiveHeadingIndex(1)
+      })
+      expect(rowOf('Heading 2')).toHaveClass('bg-[var(--active-bg)]')
+
+      act(() => {
+        useEditorStore.getState().setActiveHeadingIndex(null)
+      })
+      expect(rowOf('Heading 2')).not.toHaveClass('bg-[var(--active-bg)]')
+    })
+
+    it('should not highlight in preview mode', () => {
+      useEditorStore.setState({ viewMode: 'preview' })
+      render(<Sidebar />)
+
+      act(() => {
+        useEditorStore.getState().setCursorPosition(5, 1)
+      })
+
+      expect(rowOf('Heading 1')).not.toHaveClass('bg-[var(--active-bg)]')
+      expect(rowOf('Heading 2')).not.toHaveClass('bg-[var(--active-bg)]')
+    })
+
+    it('should scroll the active item into view when the highlight changes', () => {
+      const scrollSpy = vi.spyOn(Element.prototype, 'scrollIntoView')
+      render(<Sidebar />)
+
+      act(() => {
+        useEditorStore.getState().setCursorPosition(5, 1)
+      })
+
+      expect(scrollSpy).toHaveBeenCalledWith({ block: 'nearest' })
+
+      scrollSpy.mockRestore()
     })
   })
 })

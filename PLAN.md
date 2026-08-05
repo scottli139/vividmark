@@ -128,10 +128,13 @@
 
 #### P3 — 桌面质感与高级体验
 
-- [ ] macOS 融合标题栏；原生菜单 + 右键菜单；多标签页 + 会话恢复
-- [ ] 主题系统（CSS 主题 + 跟随系统暗色）；专注模式 / 打字机模式
+- [x] macOS 融合标题栏 ✅（Overlay + hiddenTitle + 自绘居中标题）
+- [x] 右键菜单 ✅（自绘 ContextMenu 实现，文件树已接入，不依赖原生菜单）
+- [ ] 原生菜单；多标签页 + 会话恢复
+- [x] 主题系统（部分）✅ - 亮/暗/跟随系统三态 + 控件颜色收编 CSS 变量（CSS 主题包/自定义主题未做）
+- [ ] 专注模式 / 打字机模式
 - [x] 统一自绘对话框（替换原生 confirm/alert，修复 WKWebView 下 Cancel 失效吞内容）
-- [ ] 大纲位置高亮跟随；文件树搜索与文件管理；设置面板
+- [x] 大纲位置高亮跟随 ✅；文件树搜索与文件管理 ✅；设置面板 ✅（最小可用：主题/语言/侧栏显隐）
 - [ ] KaTeX / Mermaid / PlantUML 离线化；HTML/Word 导出
 
 #### 附加修复与品牌（2026-08-04/05）✅
@@ -140,22 +143,22 @@
 - [x] 修复：WysiwygEditor 懒创建 + 创建失败自愈与错误提示（HMR 陈旧状态导致无法编辑）
 - [x] Logo 重设计（V + 光标）+ macOS 图标 80% 安全区（修复 Dock 图标过大）；安装版应用已更新至 v0.1.4 新构建
 
-#### P4 — 侧栏与工具栏 UI/UX 优化（🔥 高优先级，下一阶段主线）
+#### P4 — 侧栏与工具栏 UI/UX 优化 ✅ (已完成，2026-08-05)
 
 > 用户反馈：主界面侧边栏和工具栏 UI 与使用体验不够理想，需重点优化。与多项后续任务存在关联，宜统一规划而非零散修补。
 
 **工具栏**：
 
-- [ ] 信息架构精简：约 20 个常驻控件密度过高（Typora 取向是极简+快捷键/菜单）；低频操作（导出 PDF、语言、缩放）评估移入菜单/设置
-- [ ] 语言选择器原生 `<select>` 与整体风格不统一，换自绘下拉（参照 FormatMenu/HeadingDropdown）
+- [x] 信息架构精简 ✅：低频操作（导出 PDF、语言、缩放）已移入自绘 MoreMenu（缩放/导出/语言/设置）与设置面板，常驻控件大幅收敛
+- [x] 语言选择器原生 `<select>` 已移除 ✅：语言切换并入 MoreMenu（自绘 Dropdown，带勾选态）
 - [ ] 关联任务：**原生菜单**（承载迁出的低频操作，P3）、**macOS 融合标题栏**（工具栏与标题栏一体化布局，P3）、**主题系统**（控件样式收编到主题变量，P3）、**设置面板**（工具栏可见性可配置，P3）、**slash menu/悬浮格式条**（WYSIWYG 补全，落地后工具栏可进一步弱化）
 
 **侧边栏**：
 
-- [ ] 信息架构重组：当前文件/最近文件/大纲/文件树的排布与默认优先级重评估；最近文件支持搜索/过滤
-- [ ] 大纲增强：当前位置高亮跟随（P3 已有）、层级折叠
-- [ ] 文件树增强：搜索过滤、新建/重命名/删除（P3 已有）、右键菜单（依赖原生菜单，P3）、打开文件夹默认折叠展开策略
-- [ ] 侧栏宽度持久化（关联：会话恢复/偏好持久化，P3）
+- [x] 信息架构重组 ✅：移除"当前文件"区块，tab 精简为「文件/大纲」（persisted `sidebarTab`，默认大纲）；最近文件支持过滤（不再限 5 条）
+- [x] 大纲增强 ✅：当前位置高亮跟随（P3）、chevron 层级折叠（OutlineTree）
+- [x] 文件树增强 ✅：搜索过滤、新建/重命名/删除、右键菜单（自绘 ContextMenu 已落地，不等原生菜单）、第一层目录 + 当前文件父链展开策略
+- [x] 侧栏宽度持久化 ✅（persisted `sidebarWidth`，默认 224，clamp 180-400）
 - [ ] 关联任务：**多标签页**（标签栏与侧栏信息架构联动，P3）、**设置面板**（侧栏默认显隐/宽度，P3）
 
 ---
@@ -728,6 +731,23 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 - `README.zh-CN.md` - 中文项目说明
 - `docs/index.zh-CN.html` - 中文官网页面
 - 语言切换器 (`EN | 中`)
+
+---
+
+### 2026-08-05 P4 侧栏/工具栏 UI 优化 + P3 关联项落地
+
+**完成工作：**
+- ✅ **主题地基**：Tailwind `@custom-variant dark`（`dark:` 变体从系统媒体查询改为跟随应用内 `.dark` class，挂 documentElement）；新增 persisted `themeMode`（light/dark/system，默认 system）+ persist v1 migrate/merge；`isDarkMode` 改为派生非持久化；新增 `src/lib/theme.ts` 与 `--hover-bg`/`--active-bg`/`--color-text-muted` 变量，组件 Tailwind 硬编码灰色全部收编
+- ✅ **菜单原语**：新增 `src/components/Menu/`（Dropdown / ContextMenu / MenuPanel / menuPosition.ts），FormatMenu/HeadingDropdown/InsertMenu 重构复用
+- ✅ **工具栏精简**：缩放三按钮、原生语言 `<select>`、导出 PDF 按钮移除；新增 MoreMenu（缩放/导出 PDF/语言勾选/设置）
+- ✅ **设置面板**：`SettingsDialog.tsx`（主题三态/语言/侧栏显隐）；store 新增非持久化 `isSettingsOpen`，`showSidebar` 转 persisted
+- ✅ **侧栏重组**：移除"当前文件"区块；tab 精简为「文件/大纲」（persisted `sidebarTab`，默认大纲）；最近文件过滤（不限 5 条）；宽度持久化 `sidebarWidth`（默认 224，clamp 180-400）
+- ✅ **大纲增强**：`OutlineTree.tsx` 树渲染 + chevron 折叠；位置跟随（source/split 走 cursorLine，wysiwyg 走 `wysiwygActiveHeadingPlugin.ts` → `activeHeadingIndex`）
+- ✅ **文件树增强**：Rust 新命令 create_file/create_folder/rename_path/delete_path；头部过滤输入框；自绘右键菜单（ContextMenu）；行内新建/重命名；删除走 confirmDialog；collect/apply 展开路径刷新
+- ✅ **macOS 融合标题栏**：`titleBarStyle: Overlay` + `hiddenTitle`；新增 `src/lib/platform.ts`；Toolbar `data-tauri-drag-region` + traffic light 预留（pl-78px）+ 自绘居中标题（<760px 隐藏）
+- ✅ **i18n**：新增 key 三处同步（en.json / zh-CN.json / test setup）
+
+**测试规模：** 33 个测试文件、567+ 用例全部通过（`pnpm test:run`）
 
 ---
 

@@ -1,10 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { invoke } from '@tauri-apps/api/core'
 import {
+  createFile,
+  createFolder,
+  renamePath,
+  deletePath,
   toggleFolder,
   findTreeItem,
   expandParentPaths,
   updateTreeItem,
   filterMarkdownFiles,
+  filterTreeByQuery,
+  expandFirstLevel,
+  setAllExpanded,
+  collectExpandedPaths,
+  applyExpandedPaths,
+  getParentPath,
   getFileExtension,
   getFileIconType,
   type FileTreeItem,
@@ -329,6 +340,182 @@ describe('fileTreeUtils', () => {
 
       expect(result[0].children?.[0].children).toHaveLength(1)
       expect(result[0].children?.[0].children?.[0].name).toBe('readme.md')
+    })
+  })
+
+  describe('file operation invoke wrappers', () => {
+    it('createFile should invoke create_file with path', async () => {
+      await createFile('/root/new.md')
+
+      expect(invoke).toHaveBeenCalledWith('create_file', { path: '/root/new.md' })
+    })
+
+    it('createFolder should invoke create_folder with path', async () => {
+      await createFolder('/root/docs')
+
+      expect(invoke).toHaveBeenCalledWith('create_folder', { path: '/root/docs' })
+    })
+
+    it('renamePath should invoke rename_path with oldPath and newPath', async () => {
+      await renamePath('/root/old.md', '/root/new.md')
+
+      expect(invoke).toHaveBeenCalledWith('rename_path', {
+        oldPath: '/root/old.md',
+        newPath: '/root/new.md',
+      })
+    })
+
+    it('deletePath should invoke delete_path with path', async () => {
+      await deletePath('/root/gone.md')
+
+      expect(invoke).toHaveBeenCalledWith('delete_path', { path: '/root/gone.md' })
+    })
+
+    it('should propagate backend rejection', async () => {
+      vi.mocked(invoke).mockRejectedValueOnce('File already exists: /root/new.md')
+
+      await expect(createFile('/root/new.md')).rejects.toBe('File already exists: /root/new.md')
+    })
+  })
+
+  describe('filterTreeByQuery', () => {
+    const items: FileTreeItem[] = [
+      {
+        name: 'docs',
+        path: '/docs',
+        isDirectory: true,
+        children: [
+          { name: 'guide.md', path: '/docs/guide.md', isDirectory: false },
+          { name: 'image.png', path: '/docs/image.png', isDirectory: false },
+        ],
+      },
+      { name: 'README.md', path: '/README.md', isDirectory: false },
+      { name: 'notes.txt', path: '/notes.txt', isDirectory: false },
+    ]
+
+    it('should return items as-is for empty query', () => {
+      expect(filterTreeByQuery(items, '')).toBe(items)
+      expect(filterTreeByQuery(items, '   ')).toBe(items)
+    })
+
+    it('should match by name case-insensitively', () => {
+      const result = filterTreeByQuery(items, 'readme')
+
+      expect(result).toHaveLength(1)
+      expect(result[0].name).toBe('README.md')
+    })
+
+    it('should keep ancestor chain of matched descendants', () => {
+      const result = filterTreeByQuery(items, 'guide')
+
+      expect(result).toHaveLength(1)
+      expect(result[0].name).toBe('docs')
+      expect(result[0].children).toHaveLength(1)
+      expect(result[0].children?.[0].name).toBe('guide.md')
+    })
+
+    it('should keep whole subtree when directory name matches', () => {
+      const result = filterTreeByQuery(items, 'DOCS')
+
+      expect(result).toHaveLength(1)
+      expect(result[0].name).toBe('docs')
+      expect(result[0].children).toHaveLength(2)
+    })
+
+    it('should return empty array when nothing matches', () => {
+      expect(filterTreeByQuery(items, 'nonexistent')).toHaveLength(0)
+    })
+  })
+
+  describe('expandFirstLevel', () => {
+    it('should expand only top-level directories', () => {
+      const items: FileTreeItem[] = [
+        {
+          name: 'root',
+          path: '/root',
+          isDirectory: true,
+          children: [
+            {
+              name: 'nested',
+              path: '/root/nested',
+              isDirectory: true,
+              isExpanded: true,
+              children: [],
+            },
+          ],
+        },
+        { name: 'file.md', path: '/file.md', isDirectory: false, isExpanded: true },
+      ]
+
+      const result = expandFirstLevel(items)
+
+      expect(result[0].isExpanded).toBe(true)
+      expect(result[0].children?.[0].isExpanded).toBe(false)
+      expect(result[1].isExpanded).toBeUndefined()
+    })
+  })
+
+  describe('collectExpandedPaths / applyExpandedPaths', () => {
+    it('should roundtrip expanded directory paths', () => {
+      const items: FileTreeItem[] = [
+        {
+          name: 'a',
+          path: '/a',
+          isDirectory: true,
+          isExpanded: true,
+          children: [
+            {
+              name: 'b',
+              path: '/a/b',
+              isDirectory: true,
+              isExpanded: true,
+              children: [],
+            },
+            {
+              name: 'c',
+              path: '/a/c',
+              isDirectory: true,
+              isExpanded: false,
+              children: [],
+            },
+          ],
+        },
+        { name: 'file.md', path: '/file.md', isDirectory: false },
+      ]
+
+      const paths = collectExpandedPaths(items)
+      expect(paths).toEqual(new Set(['/a', '/a/b']))
+
+      // 刷新后 isExpanded 信息丢失，按路径集合恢复
+      const fresh = setAllExpanded(items, false)
+      const restored = applyExpandedPaths(fresh, paths)
+
+      expect(restored[0].isExpanded).toBe(true)
+      expect(restored[0].children?.[0].isExpanded).toBe(true)
+      expect(restored[0].children?.[1].isExpanded).toBe(false)
+    })
+
+    it('should collapse directories not in the set', () => {
+      const items: FileTreeItem[] = [
+        { name: 'a', path: '/a', isDirectory: true, isExpanded: true, children: [] },
+      ]
+
+      expect(applyExpandedPaths(items, new Set())[0].isExpanded).toBe(false)
+    })
+  })
+
+  describe('getParentPath', () => {
+    it('should return parent directory', () => {
+      expect(getParentPath('/root/docs/file.md')).toBe('/root/docs')
+    })
+
+    it('should normalize windows separators', () => {
+      expect(getParentPath('C:\\root\\docs\\file.md')).toBe('C:/root/docs')
+    })
+
+    it('should return null for root-level path', () => {
+      expect(getParentPath('/file.md')).toBeNull()
+      expect(getParentPath('file.md')).toBeNull()
     })
   })
 

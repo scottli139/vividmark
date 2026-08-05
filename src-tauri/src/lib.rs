@@ -88,6 +88,7 @@ fn format_error_with_context(operation: &str, path: &str, error: &std::io::Error
     let error_desc = match error_kind {
         std::io::ErrorKind::NotFound => "文件不存在",
         std::io::ErrorKind::PermissionDenied => "权限被拒绝",
+        std::io::ErrorKind::AlreadyExists => "文件或目录已存在",
         std::io::ErrorKind::InvalidInput => "无效的输入",
         std::io::ErrorKind::InvalidData => "无效的数据",
         std::io::ErrorKind::WriteZero => "写入零字节",
@@ -307,6 +308,124 @@ fn read_directory(params: ReadDirectoryParams) -> Result<Vec<FileTreeItem>, Stri
     );
 
     Ok(entries)
+}
+
+// 创建空文件（已存在则报错）
+#[tauri::command]
+fn create_file(path: String) -> Result<(), String> {
+    let path_buf = PathBuf::from(&path);
+
+    log::info!("[create_file] Starting file creation");
+    log::debug!("[create_file] Target path: {}", path);
+
+    // create_new(true) 保证文件已存在时以 AlreadyExists 失败，不会覆盖现有内容
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path_buf)
+        .map_err(|e| {
+            let error_msg = format_error_with_context("create_file", &path, &e);
+            log::error!("[create_file] Operation failed: {}", error_msg);
+
+            if e.kind() == std::io::ErrorKind::AlreadyExists {
+                format!("File already exists: {}", path)
+            } else {
+                format!("Failed to create file: {}", e)
+            }
+        })?;
+
+    log::info!("[create_file] ✓ Success: {}", path);
+    Ok(())
+}
+
+// 创建目录（已存在则报错，不递归创建父目录）
+#[tauri::command]
+fn create_folder(path: String) -> Result<(), String> {
+    let path_buf = PathBuf::from(&path);
+
+    log::info!("[create_folder] Starting folder creation");
+    log::debug!("[create_folder] Target path: {}", path);
+
+    fs::create_dir(&path_buf).map_err(|e| {
+        let error_msg = format_error_with_context("create_folder", &path, &e);
+        log::error!("[create_folder] Operation failed: {}", error_msg);
+
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            format!("Folder already exists: {}", path)
+        } else {
+            format!("Failed to create folder: {}", e)
+        }
+    })?;
+
+    log::info!("[create_folder] ✓ Success: {}", path);
+    Ok(())
+}
+
+// 重命名/移动文件或目录（目标已存在则报错）
+#[tauri::command]
+fn rename_path(old_path: String, new_path: String) -> Result<(), String> {
+    let old_path_buf = PathBuf::from(&old_path);
+    let new_path_buf = PathBuf::from(&new_path);
+
+    log::info!("[rename_path] Starting rename operation");
+    log::debug!("[rename_path] {} -> {}", old_path, new_path);
+
+    if !old_path_buf.exists() {
+        log::error!("[rename_path] Source path does not exist: {}", old_path);
+        return Err(format!("Source path does not exist: {}", old_path));
+    }
+
+    if new_path_buf.exists() {
+        log::error!("[rename_path] Target path already exists: {}", new_path);
+        return Err(format!("Target path already exists: {}", new_path));
+    }
+
+    fs::rename(&old_path_buf, &new_path_buf).map_err(|e| {
+        let error_msg = format_error_with_context("rename_path", &old_path, &e);
+        log::error!("[rename_path] Operation failed: {}", error_msg);
+        format!("Failed to rename: {}", e)
+    })?;
+
+    log::info!("[rename_path] ✓ Success: {} -> {}", old_path, new_path);
+    Ok(())
+}
+
+// 删除文件或目录（目录递归删除；前端已做确认，后端不再确认）
+#[tauri::command]
+fn delete_path(path: String) -> Result<(), String> {
+    let path_buf = PathBuf::from(&path);
+
+    log::info!("[delete_path] Starting delete operation");
+    log::debug!("[delete_path] Target path: {}", path);
+
+    if !path_buf.exists() {
+        log::error!("[delete_path] Path does not exist: {}", path);
+        return Err(format!("Path does not exist: {}", path));
+    }
+
+    let is_dir = path_buf.is_dir();
+    let result = if is_dir {
+        fs::remove_dir_all(&path_buf)
+    } else {
+        fs::remove_file(&path_buf)
+    };
+
+    result.map_err(|e| {
+        let error_msg = format_error_with_context("delete_path", &path, &e);
+        log::error!("[delete_path] Operation failed: {}", error_msg);
+        format!(
+            "Failed to delete {}: {}",
+            if is_dir { "folder" } else { "file" },
+            e
+        )
+    })?;
+
+    log::info!(
+        "[delete_path] ✓ Success: {} ({})",
+        path,
+        if is_dir { "folder" } else { "file" }
+    );
+    Ok(())
 }
 
 // 导出 PDF - 使用系统打印对话框
@@ -781,7 +900,7 @@ pub fn run() {
             log::info!("[VividMark] Application started successfully");
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, export_pdf, print_pdf])
+        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, create_file, create_folder, rename_path, delete_path, export_pdf, print_pdf])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

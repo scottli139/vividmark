@@ -9,6 +9,7 @@ import { imageView } from './imageView'
 import { plantUmlCodeBlockView } from './plantUmlCodeBlockView'
 import { taskListItemView } from './taskListItemView'
 import { wysiwygHistoryPlugin } from './wysiwygHistoryPlugin'
+import { wysiwygActiveHeadingPlugin } from './wysiwygActiveHeadingPlugin'
 
 /** WYSIWYG 使用的 Milkdown 插件集合（导出供测试复用，保持与组件一致） */
 export const wysiwygPlugins: MilkdownPlugin[] = [
@@ -17,6 +18,7 @@ export const wysiwygPlugins: MilkdownPlugin[] = [
   ...history,
   listener,
   wysiwygHistoryPlugin,
+  wysiwygActiveHeadingPlugin,
   taskListItemView,
   plantUmlCodeBlockView,
   imageView,

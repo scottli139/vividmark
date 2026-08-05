@@ -14,27 +14,27 @@ describe('i18n configuration', () => {
   it('should have English translations loaded', () => {
     expect(i18n.exists('toolbar.tooltip.newFile')).toBe(true)
     expect(i18n.exists('welcome.title')).toBe(true)
-    expect(i18n.exists('sidebar.currentFile')).toBe(true)
+    expect(i18n.exists('sidebar.files')).toBe(true)
   })
 
   it('should have Chinese translations loaded', async () => {
     await i18n.changeLanguage('zh-CN')
     expect(i18n.exists('toolbar.tooltip.newFile')).toBe(true)
     expect(i18n.exists('welcome.title')).toBe(true)
-    expect(i18n.exists('sidebar.currentFile')).toBe(true)
+    expect(i18n.exists('sidebar.files')).toBe(true)
   })
 
   it('should translate to English correctly', () => {
     expect(i18n.t('welcome.title')).toBe('Welcome to VividMark')
     expect(i18n.t('toolbar.viewMode.source')).toBe('Source')
-    expect(i18n.t('sidebar.currentFile')).toBe('Current File')
+    expect(i18n.t('sidebar.files')).toBe('Files')
   })
 
   it('should translate to Chinese correctly', async () => {
     await i18n.changeLanguage('zh-CN')
     expect(i18n.t('welcome.title')).toBe('欢迎使用 VividMark')
     expect(i18n.t('toolbar.viewMode.source')).toBe('源码')
-    expect(i18n.t('sidebar.currentFile')).toBe('当前文件')
+    expect(i18n.t('sidebar.files')).toBe('文件')
   })
 
   it('should support interpolation', () => {
@@ -96,11 +96,12 @@ describe('i18n configuration', () => {
 
   it('should have complete translation keys for sidebar', () => {
     const sidebarKeys = [
-      'sidebar.currentFile',
+      'sidebar.files',
       'sidebar.recentFiles',
       'sidebar.outline',
       'sidebar.clear',
       'sidebar.noRecentFiles',
+      'sidebar.filterRecent',
       'sidebar.noHeadings',
       'sidebar.words',
       'sidebar.chars',

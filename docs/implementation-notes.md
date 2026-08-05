@@ -1072,3 +1072,38 @@ if (lang === 'typst') {
 新 logo：紫色渐变（#6366F1→#8B5CF6→#D946EF）+ 白色 V 字母 + 琥珀色光标下划线。矢量源 `src-tauri/icons/icon.svg`，方案对比图与母版在 `docs/images/logo-concepts/`。
 
 **macOS 图标安全区**：Big Sur 起图标内容只能占画布的 ~80%（1024 画布中 824），全幅图标在 Dock 会比其他应用大一圈。重新生成图标时必须用带 80% 内边距的母版（`docs/images/logo-concepts/a-vivid-v-padded-1024.png`）执行 `pnpm tauri icon <母版>`。
+
+---
+
+## 2026-08-05 P4 侧栏/工具栏优化与 P3 关联项（主题/菜单/标题栏/文件树）
+
+### dark 变体失灵根因与 @custom-variant 修法
+
+- **根因**：Tailwind CSS 4 的 `dark:` 变体默认编译为 `prefers-color-scheme` 媒体查询，应用内手动切换 `.dark` class 完全不影响 `dark:` 样式——表现为暗色切换"半失灵"。
+- **修法**：`globals.css` 顶部声明 `@custom-variant dark (&:where(.dark, .dark *))`，把 `dark:` 重定义为跟随 `.dark` class；`.dark` 由 App.tsx effect 挂到 `documentElement`（原来挂根 div，Portal/overlay 组件吃不到暗色）。
+- **变量收编**：新增 `--hover-bg` / `--active-bg` / `--color-text-muted`（:root 与 .dark 双定义），Sidebar/FileTree/Toolbar/App 的 Tailwind 硬编码灰色全部替换为变量。**约定：新组件禁止 Tailwind 灰色硬编码，颜色一律走 CSS 变量。**
+
+### persist v0 → v1 迁移要点
+
+- persisted `themeMode: 'light'|'dark'|'system'`（默认 system）取代持久化的 `isDarkMode` bool；`isDarkMode` 变为派生非持久化字段（`resolveTheme(themeMode, getSystemDark())`，见 `src/lib/theme.ts`）。
+- `version: 1` + `migrate`：旧版 persist 数据里的 `isDarkMode: true/false` 映射为 `themeMode: 'dark'/'light'`。
+- 自定义 `merge`：rehydrate 时用持久化的 themeMode + 当前系统偏好重算 `isDarkMode`，不复用快照里的旧值。
+- 系统主题变化经 `setSystemDark` 回写，`themeMode: 'system'` 时实时跟随；`toggleDarkMode` 语义变为 light↔dark 显式切换。
+
+### 菜单原语（src/components/Menu/）
+
+- `Dropdown`：trigger + 面板，外部点击/Escape 关闭，`align: left|right`；`ContextMenu`：受控组件，fixed 坐标 + 边界翻转，props `{x, y, items, onSelect, onClose}`；`MenuPanel`：统一渲染 item（`{id,label,icon?,shortcut?,checked?,disabled?} | {divider:true}`）；`menuPosition.ts` 的 `resolveContextMenuPosition` 是纯函数可单测。
+- **坑**：ContextMenu 的 `onClose` 必须 `useCallback` 稳定化，否则父组件重渲染会导致菜单意外关闭。
+- FormatMenu / HeadingDropdown / InsertMenu / MoreMenu 已重构复用 Dropdown；**禁止再复制 outside-click 模式自绘菜单**。
+
+### macOS 融合标题栏注意点
+
+- `tauri.conf.json` windows 配置 `"titleBarStyle": "Overlay", "hiddenTitle": true`（仅 macOS 生效，Windows/Linux 忽略）。
+- `hiddenTitle` 后系统不再绘制标题，需自绘：Toolbar 居中渲染文件名（含脏标记 ●），`hidden min-[760px]:block` 窗口过窄时让位给控件；仅 macOS + Tauri 运行时渲染（`src/lib/platform.ts` 的 `isMacOSDesktop`，App 同时给 documentElement 加 `is-macos` class）。
+- 拖拽与 traffic light：Toolbar 根节点加 `data-tauri-drag-region`，macOS 下左侧 `pl-[78px]` 预留红绿灯区域。
+
+### 文件树 collect/apply 刷新策略
+
+- 文件管理操作（新建/重命名/删除）后需重新 `read_directory`，但重建会丢展开状态。解法：操作前 `collectExpandedPaths()` 收集展开目录路径集合，刷新后 `applyExpandedPaths()` 按路径恢复；当前文件父链强制展开。
+- 过滤搜索：query 非空时 `filterTreeByQuery`（保留祖先链）并临时全展开；清空后回到"第一层展开 + 当前文件父链展开"策略（`expandFirstLevel`）。
+- 重命名当前打开文件必须同步 store 的 `filePath`/`fileName` 并 `renameRecentFile`，否则自动保存会写到旧路径。

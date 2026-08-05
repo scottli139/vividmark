@@ -51,6 +51,54 @@ export function extractOutline(content: string): OutlineItem[] {
   return headings
 }
 
+/** 大纲树节点：在 OutlineItem 基础上挂载子级 */
+export interface OutlineNode extends OutlineItem {
+  children: OutlineNode[]
+}
+
+/**
+ * 把平铺的大纲项按 level 构建为层级树：
+ * 同级连续项归为一组，深层项嵌进最近的上级（栈顶即父级候选）
+ */
+export function buildOutlineTree(items: OutlineItem[]): OutlineNode[] {
+  const roots: OutlineNode[] = []
+  const stack: OutlineNode[] = []
+
+  for (const item of items) {
+    const node: OutlineNode = { ...item, children: [] }
+    // 弹出所有 level >= 当前项的节点，剩下的栈顶就是最近的上级
+    while (stack.length > 0 && stack[stack.length - 1].level >= item.level) {
+      stack.pop()
+    }
+    if (stack.length === 0) {
+      roots.push(node)
+    } else {
+      stack[stack.length - 1].children.push(node)
+    }
+    stack.push(node)
+  }
+
+  return roots
+}
+
+/**
+ * 计算光标当前所属的大纲项：最后一个满足 lineIndex + 1 <= cursorLine 的标题
+ * @param headings 平铺大纲项（按文档顺序）
+ * @param cursorLine 光标行号（1-based）
+ * @returns 命中的大纲项；光标在第一个标题之前或无标题时返回 null
+ */
+export function findActiveOutlineItem(
+  headings: OutlineItem[],
+  cursorLine: number
+): OutlineItem | null {
+  let active: OutlineItem | null = null
+  for (const heading of headings) {
+    if (heading.lineIndex + 1 > cursorLine) break
+    active = heading
+  }
+  return active
+}
+
 /**
  * 滚动预览区域到指定标题
  * @param container 预览容器元素

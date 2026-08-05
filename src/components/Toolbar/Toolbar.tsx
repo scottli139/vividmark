@@ -9,8 +9,9 @@ import { TableDialog } from '../TableDialog'
 import { FormatMenu } from './FormatMenu'
 import { HeadingDropdown } from './HeadingDropdown'
 import { InsertMenu } from './InsertMenu'
+import { MoreMenu } from './MoreMenu'
 import type { FormatType } from '../../lib/markdownEditing'
-import { availableLanguages, type Language } from '../../i18n'
+import { isMacOSDesktop } from '../../lib/platform'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 
 // 格式化按钮组件
@@ -77,7 +78,7 @@ function ViewModeButton({
       onClick={onClick}
       className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
         active
-          ? 'bg-white dark:bg-gray-700 shadow-sm text-[var(--color-text)]'
+          ? 'bg-[var(--active-bg)] shadow-sm text-[var(--color-text)]'
           : 'text-[var(--color-text-secondary)] hover:bg-[var(--editor-border)]/50 hover:text-[var(--color-text)]'
       }`}
       title={label}
@@ -89,7 +90,7 @@ function ViewModeButton({
 
 export function Toolbar() {
   const [isTableDialogOpen, setIsTableDialogOpen] = useState(false)
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
 
   const {
     fileName,
@@ -99,16 +100,10 @@ export function Toolbar() {
     viewMode,
     canUndo,
     canRedo,
-    language,
-    zoomLevel,
     showSidebar,
     toggleDarkMode,
     toggleSidebar,
     setViewMode,
-    setLanguage,
-    zoomIn,
-    zoomOut,
-    zoomReset,
   } = useEditorStore()
 
   // 更新窗口标题
@@ -128,15 +123,6 @@ export function Toolbar() {
 
   const handleSave = useCallback(async () => {
     await saveFile()
-  }, [])
-
-  const handleExportPdf = useCallback(async () => {
-    // 派发事件请求 Editor 提供 HTML 内容
-    window.dispatchEvent(
-      new CustomEvent('editor-request-html', {
-        detail: { requestId: Date.now() },
-      })
-    )
   }, [])
 
   const handleOpen = useCallback(async () => {
@@ -196,21 +182,22 @@ export function Toolbar() {
     window.dispatchEvent(new CustomEvent('editor-format', { detail: { format: 'codeblock' } }))
   }, [])
 
-  const handleLanguageChange = useCallback(
-    (lang: Language) => {
-      setLanguage(lang)
-      i18n.changeLanguage(lang)
-    },
-    [setLanguage, i18n]
-  )
-
   // 检测是否为 Mac
   const isMac =
     typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
   const cmdKey = isMac ? 'Cmd' : 'Ctrl'
 
+  // macOS 融合标题栏：预留 traffic light 区域 + 自绘文件名（hiddenTitle 后系统标题不可见）
+  const macFusion = isMacOSDesktop()
+  const displayTitle = fileName === 'Untitled.md' ? t('app.untitled') : fileName
+
   return (
-    <div className="h-12 flex items-center justify-between px-3 border-b border-[var(--editor-border)] bg-[var(--toolbar-bg)]">
+    <div
+      data-tauri-drag-region
+      className={`h-12 flex items-center justify-between px-3 border-b border-[var(--editor-border)] bg-[var(--toolbar-bg)] ${
+        macFusion ? 'pl-[78px]' : ''
+      }`}
+    >
       {/* 左侧 - 文件操作和基础工具 */}
       <div className="flex items-center gap-1">
         {/* 侧边栏切换 */}
@@ -272,19 +259,6 @@ export function Toolbar() {
               strokeLinejoin="round"
               strokeWidth={2}
               d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-            />
-          </svg>
-        </ActionButton>
-        <ActionButton
-          onClick={handleExportPdf}
-          title={t('toolbar.tooltip.exportPdf', { shortcut: `${cmdKey}+P` })}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
             />
           </svg>
         </ActionButton>
@@ -412,58 +386,17 @@ export function Toolbar() {
         </div>
       </div>
 
-      {/* 右侧 - 缩放和设置 */}
-      <div className="flex items-center gap-2">
-        {/* 缩放控制 */}
-        <div className="flex items-center gap-0.5 bg-[var(--editor-border)]/20 rounded-lg px-1">
-          <button
-            onClick={zoomOut}
-            className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-            title={t('toolbar.tooltip.zoomOut', { shortcut: `${cmdKey}+-` })}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-            </svg>
-          </button>
-          <button
-            onClick={zoomReset}
-            className="px-1.5 py-1 text-xs font-medium min-w-[36px] text-center hover:bg-[var(--editor-border)]/50 rounded transition-colors"
-            title={t('toolbar.tooltip.zoomReset', { shortcut: `${cmdKey}+0` })}
-          >
-            {zoomLevel}%
-          </button>
-          <button
-            onClick={zoomIn}
-            className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-            title={t('toolbar.tooltip.zoomIn', { shortcut: `${cmdKey}+=` })}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-          </button>
+      {/* macOS 融合标题栏：自绘文件名（弹性占位 + 截断防重叠，窄窗口隐藏） */}
+      {macFusion && (
+        <div className="flex-1 min-w-0 truncate text-center text-xs font-medium text-[var(--color-text-secondary)] pointer-events-none select-none hidden min-[760px]:block">
+          {displayTitle}
+          {isDirty ? ' ●' : ''}
         </div>
+      )}
 
-        <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
-
-        {/* 语言切换 */}
-        <select
-          value={language}
-          onChange={(e) => handleLanguageChange(e.target.value as Language)}
-          className="text-xs bg-transparent border border-[var(--editor-border)] rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] cursor-pointer"
-          title={t('language.title')}
-        >
-          {availableLanguages.map((lang) => (
-            <option key={lang.code} value={lang.code}>
-              {lang.label}
-            </option>
-          ))}
-        </select>
-
+      {/* 右侧 - 暗色切换和更多菜单 */}
+      <div className="flex items-center gap-2">
+        {' '}
         {/* 暗黑模式切换 */}
         <button
           onClick={toggleDarkMode}
@@ -490,6 +423,8 @@ export function Toolbar() {
             </svg>
           )}
         </button>
+        {/* 更多菜单（缩放 / 导出 PDF / 语言 / 设置） */}
+        <MoreMenu />
       </div>
 
       {/* 表格插入对话框 */}

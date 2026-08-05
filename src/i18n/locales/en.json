@@ -37,17 +37,33 @@
       "source": "Source",
       "split": "Split",
       "preview": "Preview"
-    }
+    },
+    "more": "More"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearance": "Appearance",
+    "theme": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "language": "Language",
+    "sidebar": "Sidebar",
+    "showSidebar": "Show Sidebar",
+    "close": "Close"
   },
   "sidebar": {
-    "currentFile": "Current File",
+    "files": "Files",
     "recentFiles": "Recent Files",
     "outline": "Outline",
-    "fileTree": "File Tree",
     "clear": "Clear",
     "clearTooltip": "Clear recent files",
     "noRecentFiles": "No recent files",
+    "filterRecent": "Filter recent files...",
     "noHeadings": "No headings",
+    "collapse": "Collapse",
+    "expand": "Expand",
     "words": "Words:",
     "chars": "Chars:",
     "stats": "Statistics"
@@ -63,7 +79,15 @@
     "closeFolder": "Close Folder",
     "loading": "Loading...",
     "emptyFolder": "Empty folder",
-    "error": "Failed to load folder"
+    "error": "Failed to load folder",
+    "newFile": "New File",
+    "newFolder": "New Folder",
+    "rename": "Rename",
+    "delete": "Delete",
+    "filterPlaceholder": "Filter files...",
+    "noMatches": "No matching files",
+    "confirmDeleteFile": "Delete \"{{name}}\"?",
+    "confirmDeleteFolder": "Delete folder \"{{name}}\" and all its contents?"
   },
   "dialog": {
     "confirmDiscard": "Discard unsaved changes?",

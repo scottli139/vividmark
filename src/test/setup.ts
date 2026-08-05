@@ -22,6 +22,7 @@ vi.mock('react-i18next', () => ({
       const count = options?.count ?? ''
       const line = options?.line ?? ''
       const col = options?.col ?? ''
+      const name = options?.name ?? ''
       // Handle interpolation for colHeader
       if (key === 'dialog.colHeader') {
         return `Col ${number}`
@@ -60,6 +61,16 @@ vi.mock('react-i18next', () => ({
         'toolbar.viewMode.source': 'Source',
         'toolbar.viewMode.split': 'Split',
         'toolbar.viewMode.preview': 'Preview',
+        'toolbar.more': 'More',
+        'settings.title': 'Settings',
+        'settings.appearance': 'Appearance',
+        'settings.theme.light': 'Light',
+        'settings.theme.dark': 'Dark',
+        'settings.theme.system': 'System',
+        'settings.language': 'Language',
+        'settings.sidebar': 'Sidebar',
+        'settings.showSidebar': 'Show Sidebar',
+        'settings.close': 'Close',
         'app.untitled': 'Untitled.md',
         'language.title': 'Language',
         'language.en': 'EN',
@@ -73,14 +84,16 @@ vi.mock('react-i18next', () => ({
         'dialog.rows': 'Rows (excluding header)',
         'dialog.columns': 'Columns',
         'dialog.preview': 'Preview',
-        'sidebar.currentFile': 'Current File',
+        'sidebar.files': 'Files',
         'sidebar.recentFiles': 'Recent Files',
         'sidebar.outline': 'Outline',
-        'sidebar.fileTree': 'File Tree',
         'sidebar.clear': 'Clear',
         'sidebar.clearTooltip': 'Clear recent files',
         'sidebar.noRecentFiles': 'No recent files',
+        'sidebar.filterRecent': 'Filter recent files...',
         'sidebar.noHeadings': 'No headings',
+        'sidebar.collapse': 'Collapse',
+        'sidebar.expand': 'Expand',
         'sidebar.words': 'Words:',
         'sidebar.chars': 'Chars:',
         'statusBar.words': `Words: ${count}`,
@@ -94,6 +107,14 @@ vi.mock('react-i18next', () => ({
         'fileTree.closeFolder': 'Close Folder',
         'fileTree.loading': 'Loading...',
         'fileTree.emptyFolder': 'Empty folder',
+        'fileTree.newFile': 'New File',
+        'fileTree.newFolder': 'New Folder',
+        'fileTree.rename': 'Rename',
+        'fileTree.delete': 'Delete',
+        'fileTree.filterPlaceholder': 'Filter files...',
+        'fileTree.noMatches': 'No matching files',
+        'fileTree.confirmDeleteFile': `Delete "${name}"?`,
+        'fileTree.confirmDeleteFolder': `Delete folder "${name}" and all its contents?`,
       }
       return translations[key] || key
     },

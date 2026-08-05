@@ -70,8 +70,10 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 
 ### User Interface
 - **Multi-language support** - English and 简体中文 (Simplified Chinese), easily extensible to more languages
-- **Dark mode** - Toggle between light and dark themes
-- **Sidebar with outline navigation** - Document outline with clickable headings for quick navigation (works in all view modes)
+- **Theme modes** - Light, Dark, or Auto (follows system appearance)
+- **Settings panel** - Appearance, language, and sidebar preferences in one place
+- **Sidebar with outline navigation** - Collapsible outline tree with active-position highlighting and click-to-navigate (works in all view modes)
+- **File tree with file management** - Browse folders, filter by name, and create/rename/delete files via the context menu
 - **Clean UI** - Minimalist design for focused writing
 - **Sync scrolling** - Split mode with bidirectional scroll synchronization
 

@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 
+/* dark: 变体跟随应用内 .dark class（挂在 documentElement 上），而非 OS 的 prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Highlight.js 代码高亮样式 - 基于 GitHub 主题 */
 .hljs {
   background: #f6f8fa;
@@ -204,6 +207,10 @@ code {
   --text-secondary: #6b7280;
   --color-text: var(--editor-text);
   --color-text-secondary: #6b7280;
+  /* 弱化文本与交互态背景 */
+  --color-text-muted: #9ca3af;
+  --hover-bg: #f3f4f6;
+  --active-bg: #ffffff;
 }
 
 .dark {
@@ -218,6 +225,10 @@ code {
   --text-secondary: #9ca3af;
   --color-text: var(--editor-text);
   --color-text-secondary: #9ca3af;
+  /* 弱化文本与交互态背景 */
+  --color-text-muted: #6b7280;
+  --hover-bg: #1f2937;
+  --active-bg: #374151;
 }
 
 * {

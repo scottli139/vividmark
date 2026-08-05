@@ -37,17 +37,33 @@
       "source": "源码",
       "split": "分屏",
       "preview": "预览"
-    }
+    },
+    "more": "更多"
+  },
+  "settings": {
+    "title": "设置",
+    "appearance": "外观",
+    "theme": {
+      "light": "浅色",
+      "dark": "深色",
+      "system": "跟随系统"
+    },
+    "language": "语言",
+    "sidebar": "侧边栏",
+    "showSidebar": "显示侧边栏",
+    "close": "关闭"
   },
   "sidebar": {
-    "currentFile": "当前文件",
+    "files": "文件",
     "recentFiles": "最近文件",
     "outline": "大纲",
-    "fileTree": "文件树",
     "clear": "清空",
     "clearTooltip": "清空最近文件",
     "noRecentFiles": "无最近文件",
+    "filterRecent": "过滤最近文件...",
     "noHeadings": "无大纲",
+    "collapse": "折叠",
+    "expand": "展开",
     "words": "字数：",
     "chars": "字符：",
     "stats": "统计"
@@ -63,7 +79,15 @@
     "closeFolder": "关闭文件夹",
     "loading": "加载中...",
     "emptyFolder": "空文件夹",
-    "error": "加载文件夹失败"
+    "error": "加载文件夹失败",
+    "newFile": "新建文件",
+    "newFolder": "新建文件夹",
+    "rename": "重命名",
+    "delete": "删除",
+    "filterPlaceholder": "过滤文件...",
+    "noMatches": "无匹配文件",
+    "confirmDeleteFile": "删除「{{name}}」？",
+    "confirmDeleteFolder": "删除文件夹「{{name}}」及其全部内容？"
   },
   "dialog": {
     "confirmDiscard": "放弃未保存的更改？",

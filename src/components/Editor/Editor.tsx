@@ -10,7 +10,7 @@ import { WysiwygEditor } from './WysiwygEditor'
 import '../../styles/globals.css'
 
 export function Editor() {
-  const { content, setContent, isDarkMode, viewMode, filePath, zoomLevel } = useEditorStore()
+  const { content, setContent, viewMode, filePath, zoomLevel } = useEditorStore()
 
   const [renderedHtml, setRenderedHtml] = useState('')
   const cmViewRef = useRef<EditorView | null>(null)
@@ -260,7 +260,7 @@ export function Editor() {
         : 'hidden'
 
   return (
-    <div className={`flex-1 flex overflow-hidden ${isDarkMode ? 'dark' : ''}`}>
+    <div className="flex-1 flex overflow-hidden">
       {/* CodeMirror 编辑器（Source/Split） */}
       <div className={editorWrapperClass}>
         <CodeMirrorEditor onScroll={handleSourceScroll} viewRef={cmViewRef} />

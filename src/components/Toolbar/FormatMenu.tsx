@@ -1,40 +1,14 @@
-import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Dropdown } from '../Menu'
+import type { MenuItem } from '../Menu'
 import type { FormatType } from '../../lib/markdownEditing'
 
 interface FormatMenuProps {
   onFormat: (format: FormatType) => void
 }
 
-interface MenuItem {
-  format: FormatType
-  label: string
-  shortcut?: string
-  icon: React.ReactNode
-  divider?: boolean
-}
-
 export function FormatMenu({ onFormat }: FormatMenuProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
   const { t } = useTranslation()
-
-  // 点击外部关闭菜单
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen])
 
   const isMac =
     typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0
@@ -42,7 +16,7 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
 
   const menuItems: MenuItem[] = [
     {
-      format: 'strike',
+      id: 'strike',
       label: t('toolbar.tooltip.strikethrough'),
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,7 +31,7 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
       ),
     },
     {
-      format: 'code',
+      id: 'code',
       label: t('toolbar.tooltip.inlineCode'),
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,7 +45,7 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
       ),
     },
     {
-      format: 'tasklist',
+      id: 'tasklist',
       label: t('toolbar.tooltip.tasklist'),
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -82,8 +56,9 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
         </svg>
       ),
     },
+    { divider: true },
     {
-      format: 'quote',
+      id: 'quote',
       label: t('toolbar.tooltip.quote'),
       icon: (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -95,10 +70,9 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
           />
         </svg>
       ),
-      divider: true,
     },
     {
-      format: 'link',
+      id: 'link',
       label: t('toolbar.tooltip.link'),
       shortcut: `${cmdKey}+K`,
       icon: (
@@ -114,18 +88,13 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
     },
   ]
 
-  const handleItemClick = (format: FormatType) => {
-    onFormat(format)
-    setIsOpen(false)
-  }
-
   return (
-    <div className="relative" ref={menuRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-        title={t('toolbar.tooltip.moreFormatting')}
-      >
+    <Dropdown
+      items={menuItems}
+      onSelect={(id) => onFormat(id as FormatType)}
+      title={t('toolbar.tooltip.moreFormatting')}
+      widthClass="w-48"
+      trigger={
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
@@ -134,31 +103,7 @@ export function FormatMenu({ onFormat }: FormatMenuProps) {
             d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
           />
         </svg>
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-48 bg-[var(--editor-bg)] border border-[var(--editor-border)] rounded-lg shadow-lg py-1 z-50">
-          {menuItems.map((item, index) => (
-            <div key={item.format}>
-              {item.divider && index > 0 && (
-                <div className="border-t border-[var(--editor-border)] my-1" />
-              )}
-              <button
-                onClick={() => handleItemClick(item.format)}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-[var(--editor-border)]/50 transition-colors text-left"
-              >
-                <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
-                <span className="flex-1">{item.label}</span>
-                {item.shortcut && (
-                  <span className="text-xs text-[var(--color-text-secondary)]">
-                    {item.shortcut}
-                  </span>
-                )}
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      }
+    />
   )
 }

@@ -1,27 +1,70 @@
 import { useTranslation } from 'react-i18next'
-import { useEditorStore, type RecentFile } from '../../stores/editorStore'
+import { open } from '@tauri-apps/plugin-dialog'
+import {
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  useEditorStore,
+  type RecentFile,
+} from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
 import { confirmDialog } from '../../lib/dialog'
-import { extractOutline, type OutlineItem } from '../../lib/outlineUtils'
-import { useMemo, useCallback, useState } from 'react'
+import {
+  buildOutlineTree,
+  extractOutline,
+  findActiveOutlineItem,
+  type OutlineItem,
+} from '../../lib/outlineUtils'
+import { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import { FileTree } from '../FileTree'
+import { OutlineTree } from './OutlineTree'
 import { useResizable } from '../../hooks/useResizable'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 
-type SidebarTab = 'outline' | 'fileTree'
-
 export function Sidebar() {
   const { t } = useTranslation()
-  const { showSidebar, content, recentFiles, isDirty, fileName, clearRecentFiles } =
-    useEditorStore()
+  const {
+    showSidebar,
+    content,
+    recentFiles,
+    isDirty,
+    clearRecentFiles,
+    sidebarTab,
+    setSidebarTab,
+    sidebarWidth,
+    setSidebarWidth,
+    openedFolder,
+    setOpenedFolder,
+    cursorLine,
+    viewMode,
+    activeHeadingIndex,
+  } = useEditorStore()
 
-  const [activeTab, setActiveTab] = useState<SidebarTab>('outline')
+  // 最近文件过滤关键字（本地状态）
+  const [recentFilter, setRecentFilter] = useState('')
 
-  // 可拖拽调整宽度
+  // 大纲折叠状态：存已折叠项的 OutlineItem.index，默认全展开；
+  // 内容变化（防抖后）时集合自然保留，index 漂移可接受，不做过期清理
+  const [collapsedSet, setCollapsedSet] = useState<ReadonlySet<number>>(new Set())
+
+  const toggleCollapsed = useCallback((index: number) => {
+    setCollapsedSet((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) {
+        next.delete(index)
+      } else {
+        next.add(index)
+      }
+      return next
+    })
+  }, [])
+
+  // 可拖拽调整宽度，拖动时实时写回 store 持久化
+  const handleResize = useCallback((w: number) => setSidebarWidth(w), [setSidebarWidth])
   const { width, isResizing, handleMouseDown } = useResizable({
-    initialWidth: 224, // w-56 = 14rem = 224px
-    minWidth: 180,
-    maxWidth: 400,
+    initialWidth: sidebarWidth,
+    minWidth: SIDEBAR_MIN_WIDTH,
+    maxWidth: SIDEBAR_MAX_WIDTH,
+    onResize: handleResize,
   })
 
   // 大纲使用 200ms 防抖后的内容，避免每次按键全量重算
@@ -29,6 +72,34 @@ export function Sidebar() {
 
   // 提取大纲（使用工具函数）
   const headings = useMemo(() => extractOutline(debouncedContent), [debouncedContent])
+
+  // 平铺大纲 → 层级树（同级连续项归组，深层项嵌进最近的上级）
+  const outlineTree = useMemo(() => buildOutlineTree(headings), [headings])
+
+  // 当前位置高亮：source/split 按 cursorLine 推导「最后一个 lineIndex+1 <= cursorLine 的标题」；
+  // wysiwyg 用 WysiwygEditor 上报的 activeHeadingIndex；preview 不高亮
+  const activeOutlineIndex = useMemo(() => {
+    if (viewMode === 'source' || viewMode === 'split') {
+      return findActiveOutlineItem(headings, cursorLine)?.index ?? null
+    }
+    if (viewMode === 'wysiwyg') return activeHeadingIndex
+    return null
+  }, [viewMode, headings, cursorLine, activeHeadingIndex])
+
+  // 高亮项变化时滚动到大纲可视区域（nearest：已可见则不滚动）
+  const activeItemRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    activeItemRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [activeOutlineIndex])
+
+  // 按 name/path 子串过滤最近文件（大小写不敏感）
+  const filteredRecentFiles = useMemo(() => {
+    const query = recentFilter.trim().toLowerCase()
+    if (!query) return recentFiles
+    return recentFiles.filter(
+      (file) => file.name.toLowerCase().includes(query) || file.path.toLowerCase().includes(query)
+    )
+  }, [recentFiles, recentFilter])
 
   const handleRecentFileClick = useCallback(
     async (file: RecentFile) => {
@@ -41,6 +112,18 @@ export function Sidebar() {
     },
     [isDirty, t]
   )
+
+  // 打开文件夹（与 FileTree 未打开状态的入口一致）
+  const handleOpenFolder = useCallback(async () => {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+    })
+
+    if (selected && typeof selected === 'string') {
+      setOpenedFolder(selected)
+    }
+  }, [setOpenedFolder])
 
   // 点击大纲项 - 派发事件通知 Editor 滚动
   const handleHeadingClick = useCallback((heading: OutlineItem) => {
@@ -62,120 +145,140 @@ export function Sidebar() {
       className="border-r border-[var(--editor-border)] bg-[var(--sidebar-bg)] flex flex-col relative"
       style={{ width: `${width}px`, minWidth: `${width}px` }}
     >
-      {/* 当前文件 */}
-      <div className="p-3 border-b border-[var(--editor-border)]">
-        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
-          {t('sidebar.currentFile')}
-        </h3>
-        <div className="text-sm truncate flex items-center gap-1">
-          <span className="truncate">{fileName}</span>
-          {isDirty && <span className="text-[var(--accent-color)]">*</span>}
-        </div>
-      </div>
-
-      {/* 最近文件 */}
-      <div className="p-3 border-b border-[var(--editor-border)]">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            {t('sidebar.recentFiles')}
-          </h3>
-          {recentFiles.length > 0 && (
-            <button
-              onClick={clearRecentFiles}
-              className="text-xs text-gray-400 hover:text-gray-600"
-              title={t('sidebar.clearTooltip')}
-            >
-              {t('sidebar.clear')}
-            </button>
-          )}
-        </div>
-        {recentFiles.length === 0 ? (
-          <div className="text-sm text-gray-400 italic">{t('sidebar.noRecentFiles')}</div>
-        ) : (
-          <ul className="space-y-1">
-            {recentFiles.slice(0, 5).map((file) => (
-              <li
-                key={file.path}
-                onClick={() => handleRecentFileClick(file)}
-                className="text-sm text-gray-600 dark:text-gray-300 hover:text-[var(--accent-color)] cursor-pointer truncate flex items-center gap-1"
-                title={file.path}
-              >
-                <svg
-                  className="w-3 h-3 flex-shrink-0 opacity-50"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                <span className="truncate">{file.name}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
       {/* 标签页切换 */}
       <div className="flex border-b border-[var(--editor-border)]">
         <button
-          onClick={() => setActiveTab('outline')}
+          onClick={() => setSidebarTab('files')}
           className={`
             flex-1 px-3 py-2 text-xs font-medium transition-colors duration-150
             ${
-              activeTab === 'outline'
+              sidebarTab === 'files'
                 ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
+            }
+          `}
+        >
+          {t('sidebar.files')}
+        </button>
+        <button
+          onClick={() => setSidebarTab('outline')}
+          className={`
+            flex-1 px-3 py-2 text-xs font-medium transition-colors duration-150
+            ${
+              sidebarTab === 'outline'
+                ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]'
+                : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
             }
           `}
         >
           {t('sidebar.outline')}
         </button>
-        <button
-          onClick={() => setActiveTab('fileTree')}
-          className={`
-            flex-1 px-3 py-2 text-xs font-medium transition-colors duration-150
-            ${
-              activeTab === 'fileTree'
-                ? 'text-[var(--accent-color)] border-b-2 border-[var(--accent-color)]'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }
-          `}
-        >
-          {t('sidebar.fileTree')}
-        </button>
       </div>
 
       {/* 内容区域 */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        {activeTab === 'outline' ? (
+        {sidebarTab === 'outline' ? (
           // 大纲视图
           <div className="p-3 flex-1 overflow-y-auto overflow-x-hidden">
             {headings.length === 0 ? (
-              <div className="text-sm text-gray-400 italic">{t('sidebar.noHeadings')}</div>
+              <div className="text-sm text-[var(--color-text-muted)] italic">
+                {t('sidebar.noHeadings')}
+              </div>
+            ) : (
+              <OutlineTree
+                nodes={outlineTree}
+                collapsedSet={collapsedSet}
+                activeIndex={activeOutlineIndex}
+                onToggle={toggleCollapsed}
+                onHeadingClick={handleHeadingClick}
+                activeItemRef={activeItemRef}
+              />
+            )}
+          </div>
+        ) : openedFolder ? (
+          // 文件视图（已打开文件夹）：文件树头部与关闭按钮由 FileTree 自身渲染
+          <FileTree />
+        ) : (
+          // 文件视图（未打开文件夹）：打开文件夹入口 + 最近文件
+          <div className="p-3 flex-1 overflow-y-auto overflow-x-hidden">
+            <button
+              onClick={handleOpenFolder}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 mb-3
+                text-sm font-medium text-[var(--accent-color)]
+                border border-[var(--accent-color)] rounded
+                hover:bg-[var(--accent-color)] hover:text-white
+                transition-colors duration-150"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                />
+              </svg>
+              {t('fileTree.openFolder')}
+            </button>
+
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+                {t('sidebar.recentFiles')}
+              </h3>
+              {recentFiles.length > 0 && (
+                <button
+                  onClick={clearRecentFiles}
+                  className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                  title={t('sidebar.clearTooltip')}
+                >
+                  {t('sidebar.clear')}
+                </button>
+              )}
+            </div>
+
+            {recentFiles.length > 0 && (
+              <input
+                type="text"
+                value={recentFilter}
+                onChange={(e) => setRecentFilter(e.target.value)}
+                placeholder={t('sidebar.filterRecent')}
+                className="w-full px-2 py-1 mb-2 text-sm bg-[var(--editor-bg)]
+                  text-[var(--color-text)] border border-[var(--editor-border)] rounded
+                  outline-none focus:border-[var(--accent-color)]"
+              />
+            )}
+
+            {filteredRecentFiles.length === 0 ? (
+              <div className="text-sm text-[var(--color-text-muted)] italic">
+                {t('sidebar.noRecentFiles')}
+              </div>
             ) : (
               <ul className="space-y-1">
-                {headings.map((heading, index) => (
+                {filteredRecentFiles.map((file) => (
                   <li
-                    key={index}
-                    onClick={() => handleHeadingClick(heading)}
-                    className="text-sm text-gray-600 dark:text-gray-300 hover:text-[var(--accent-color)] cursor-pointer truncate transition-colors duration-150"
-                    style={{ paddingLeft: `${(heading.level - 1) * 12}px` }}
-                    title={heading.text}
+                    key={file.path}
+                    onClick={() => handleRecentFileClick(file)}
+                    className="text-sm text-[var(--color-text)] hover:text-[var(--accent-color)] cursor-pointer truncate flex items-center gap-1"
+                    title={file.path}
                   >
-                    {heading.text}
+                    <svg
+                      className="w-3 h-3 flex-shrink-0 opacity-50"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    <span className="truncate">{file.name}</span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
-        ) : (
-          // 文件树视图
-          <FileTree />
         )}
       </div>
 

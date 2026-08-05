@@ -32,6 +32,8 @@ describe('Toolbar', () => {
       viewMode: 'wysiwyg',
       activeBlockId: null,
       language: 'en',
+      zoomLevel: 100,
+      isSettingsOpen: false,
     })
   })
 
@@ -127,7 +129,7 @@ describe('Toolbar', () => {
     it('should default to wysiwyg view mode', () => {
       render(<Toolbar />)
 
-      // WYSIWYG button should be active by default (has bg-white class)
+      // WYSIWYG button should be active by default (has active background class)
       const wysiwygButton = screen.getByRole('button', { name: 'WYSIWYG' })
       expect(wysiwygButton).toBeInTheDocument()
       expect(useEditorStore.getState().viewMode).toBe('wysiwyg')
@@ -245,23 +247,25 @@ describe('Toolbar', () => {
   })
 
   describe('language switcher', () => {
-    it('should render language selector', () => {
+    it('should render language options in more menu with current language checked', () => {
       render(<Toolbar />)
 
-      // 语言选择器通过 title 查找
-      const languageSelect = screen.getByTitle('Language')
-      expect(languageSelect).toBeInTheDocument()
+      // 打开更多菜单
+      fireEvent.click(screen.getByTitle('More'))
+
+      // 当前语言（en）项应勾选，另一项不勾选
+      const enItem = screen.getByText('EN').closest('button')
+      const zhItem = screen.getByText('中').closest('button')
+      expect(enItem).toHaveAttribute('aria-checked', 'true')
+      expect(zhItem).toHaveAttribute('aria-checked', 'false')
     })
 
-    it('should change language when selecting different option', () => {
+    it('should change language when selecting menu item', () => {
       render(<Toolbar />)
 
-      // Get language select element by title
-      const languageSelect = screen.getByTitle('Language') as HTMLSelectElement
-      expect(languageSelect).toBeInTheDocument()
-
-      // Change language to Chinese
-      fireEvent.change(languageSelect, { target: { value: 'zh-CN' } })
+      // 打开更多菜单并选择中文
+      fireEvent.click(screen.getByTitle('More'))
+      fireEvent.click(screen.getByText('中'))
 
       // Verify store was updated
       expect(useEditorStore.getState().language).toBe('zh-CN')
@@ -269,13 +273,14 @@ describe('Toolbar', () => {
   })
 
   describe('export pdf', () => {
-    it('should dispatch editor-request-html event when export pdf button is clicked', () => {
+    it('should dispatch editor-request-html event when export pdf menu item is clicked', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       render(<Toolbar />)
 
-      const exportPdfButton = screen.getByTitle('Export PDF (Cmd+P)')
-      fireEvent.click(exportPdfButton)
+      // 打开更多菜单并点击导出 PDF
+      fireEvent.click(screen.getByTitle('More'))
+      fireEvent.click(screen.getByText('Export PDF (Cmd+P)'))
 
       expect(dispatchEventSpy).toHaveBeenCalled()
       const call = dispatchEventSpy.mock.calls.find((call) => {
@@ -287,11 +292,55 @@ describe('Toolbar', () => {
       dispatchEventSpy.mockRestore()
     })
 
-    it('should render export pdf button with correct icon', () => {
+    it('should render export pdf item in more menu', () => {
       render(<Toolbar />)
 
-      const exportPdfButton = screen.getByTitle('Export PDF (Cmd+P)')
-      expect(exportPdfButton).toBeInTheDocument()
+      fireEvent.click(screen.getByTitle('More'))
+
+      expect(screen.getByText('Export PDF (Cmd+P)')).toBeInTheDocument()
+    })
+  })
+
+  describe('more menu', () => {
+    it('should open more menu when trigger is clicked', () => {
+      render(<Toolbar />)
+
+      // 菜单初始不可见
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTitle('More'))
+
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+    })
+
+    it('should call zoomIn / zoomOut / zoomReset from menu items', () => {
+      render(<Toolbar />)
+
+      fireEvent.click(screen.getByTitle('More'))
+      fireEvent.click(screen.getByText('Zoom In (Cmd+=)'))
+      expect(useEditorStore.getState().zoomLevel).toBe(110)
+
+      fireEvent.click(screen.getByTitle('More'))
+      fireEvent.click(screen.getByText('Zoom Out (Cmd+-)'))
+      expect(useEditorStore.getState().zoomLevel).toBe(100)
+
+      act(() => {
+        useEditorStore.getState().setZoomLevel(150)
+      })
+      fireEvent.click(screen.getByTitle('More'))
+      fireEvent.click(screen.getByText('Reset Zoom (Cmd+0)'))
+      expect(useEditorStore.getState().zoomLevel).toBe(100)
+    })
+
+    it('should open settings dialog when settings item is clicked', () => {
+      render(<Toolbar />)
+
+      expect(useEditorStore.getState().isSettingsOpen).toBe(false)
+
+      fireEvent.click(screen.getByTitle('More'))
+      fireEvent.click(screen.getByText('Settings'))
+
+      expect(useEditorStore.getState().isSettingsOpen).toBe(true)
     })
   })
 

@@ -48,11 +48,12 @@ Key features:
 vividmark/
 ├── src/                      # React frontend
 │   ├── components/           # Editor/ Sidebar/ Toolbar/ FileTree/ StatusBar/
+│   │                         # Menu/（Dropdown/ContextMenu 菜单原语）Settings/
 │   ├── hooks/                # useAutoSave, useFileDragDrop, useKeyboardShortcuts,
 │   │                         # useResizable, useDebouncedValue
 │   ├── stores/editorStore.ts # Zustand main store
 │   ├── lib/                  # markdown/ markdownEditing textStats plantuml imageSrc
-│   │                         # fileOps logger imageUtils ...
+│   │                         # fileOps logger imageUtils theme(主题解析) platform(平台检测) ...
 │   ├── i18n/                 # i18next config + locales/{en,zh-CN}.json
 │   ├── styles/globals.css    # Tailwind + theme CSS variables
 │   ├── test/                 # Vitest setup + Tauri mocks
@@ -113,8 +114,8 @@ beforeEach(() => {
 
 Main store: `src/stores/editorStore.ts`.
 
-- **Persisted**: `recentFiles`, `isDarkMode`, `language`, `viewMode`, `zoomLevel`
-- **Non-persisted**: `content`, `filePath`/`fileName`, `isDirty`, `showSidebar`, `cursorLine`/`cursorCol`
+- **Persisted**: `recentFiles`, `themeMode`, `language`, `viewMode`, `zoomLevel`, `showSidebar`, `sidebarTab`, `sidebarWidth`
+- **Non-persisted**: `content`, `filePath`/`fileName`, `isDirty`, `isDarkMode`（派生）, `openedFolder`, `cursorLine`/`cursorCol`, `activeHeadingIndex`, `isSettingsOpen`
 
 ## Internationalization (i18n)
 
@@ -134,6 +135,10 @@ Defined in `src-tauri/src/lib.rs`:
 | `save_file`      | `path, content`       | `SaveResult`      | Write file content         |
 | `file_exists`    | `path`                | `bool`            | Check existence            |
 | `read_directory` | `ReadDirectoryParams` | `FileTreeItem[]`  | File tree data             |
+| `create_file`    | `path`                | `null`            | Create empty file          |
+| `create_folder`  | `path`                | `null`            | Create directory           |
+| `rename_path`    | `oldPath, newPath`    | `null`            | Rename/move file or folder |
+| `delete_path`    | `path`                | `null`            | Delete (folder: recursive) |
 | `export_pdf`     | html content, title   | `ExportPdfResult` | Temp HTML → system browser |
 | `print_pdf`      | `fileName`            | `ExportPdfResult` | Native print dialog        |
 
@@ -167,6 +172,9 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **Windows paths**: normalize `\` → `/` before any path math (`imageUtils.getRelativePath`, `parser.resolveRelativePath`, Editor `baseDir`)
 - **External links**: intercept clicks in preview, `e.preventDefault()`, open via `@tauri-apps/plugin-shell` (requires `shell:default` capability)
 - **Window title**: shows `文件名 ● - VividMark` (● = unsaved), set via `@tauri-apps/api/window`
+- **主题约定**: globals.css 顶部 `@custom-variant dark (&:where(.dark, .dark *))` — `dark:` 变体跟随应用内 `.dark` class（挂 documentElement），不再是系统媒体查询；颜色一律走 CSS 变量（`--hover-bg`/`--active-bg`/`--color-text-muted` 等，:root 与 .dark 双定义），新组件禁止 Tailwind 灰色硬编码
+- **菜单原语**: 下拉/右键菜单统一用 `src/components/Menu/`（Dropdown / ContextMenu / MenuPanel），禁止再复制 outside-click 模式；ContextMenu 的 `onClose` 必须 useCallback 稳定化
+- **macOS 融合标题栏**: tauri.conf.json `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS 生效）；App 给 documentElement 加 `is-macos` class（判定走 `src/lib/platform.ts`）；Toolbar 根 `data-tauri-drag-region` + macOS 下 `pl-[78px]`（traffic light 预留）+ 自绘居中标题（<760px 隐藏）
 - **Logging**: use `createLogger('Module')` from `src/lib/logger.ts` (frontend) and `tauri-plugin-log` (backend); logs at `~/Library/Logs/com.vividmark.app/` on macOS
 
 ## Known Issues

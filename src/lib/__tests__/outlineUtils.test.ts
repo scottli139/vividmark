@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
-import { extractOutline, scrollPreviewToHeading } from '../outlineUtils'
+import {
+  buildOutlineTree,
+  extractOutline,
+  findActiveOutlineItem,
+  scrollPreviewToHeading,
+} from '../outlineUtils'
 
 describe('outlineUtils', () => {
   describe('extractOutline', () => {
@@ -148,6 +153,66 @@ Line 3`
       scrollPreviewToHeading(container, -1)
 
       expect(scrollToMock).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('buildOutlineTree', () => {
+    it('should nest deeper items under the nearest ancestor', () => {
+      const items = extractOutline('# H1\n\n## H2\n\n### H3\n\n## H2b\n\n# H4')
+
+      const tree = buildOutlineTree(items)
+
+      expect(tree).toHaveLength(2) // H1, H4
+      expect(tree[0].text).toBe('H1')
+      expect(tree[0].children.map((n) => n.text)).toEqual(['H2', 'H2b'])
+      expect(tree[0].children[0].children.map((n) => n.text)).toEqual(['H3'])
+      expect(tree[1].text).toBe('H4')
+      expect(tree[1].children).toHaveLength(0)
+    })
+
+    it('should treat a level jump as nested under the nearest ancestor', () => {
+      // ### 直接出现在 # 下（跳过 ##）
+      const items = extractOutline('# H1\n\n### H3')
+
+      const tree = buildOutlineTree(items)
+
+      expect(tree).toHaveLength(1)
+      expect(tree[0].children).toHaveLength(1)
+      expect(tree[0].children[0].text).toBe('H3')
+    })
+
+    it('should handle leading non-h1 headings as roots', () => {
+      const items = extractOutline('## H2\n\n### H3\n\n## H2b')
+
+      const tree = buildOutlineTree(items)
+
+      expect(tree.map((n) => n.text)).toEqual(['H2', 'H2b'])
+      expect(tree[0].children.map((n) => n.text)).toEqual(['H3'])
+    })
+
+    it('should return empty array for no headings', () => {
+      expect(buildOutlineTree([])).toEqual([])
+    })
+  })
+
+  describe('findActiveOutlineItem', () => {
+    // lines: 0:'# H1', 1:'', 2:'text', 3:'', 4:'## H2', 5:'', 6:'more'
+    const items = extractOutline('# H1\n\ntext\n\n## H2\n\nmore')
+
+    it('should return the last heading at or before the cursor line', () => {
+      expect(findActiveOutlineItem(items, 7)?.text).toBe('H2')
+      expect(findActiveOutlineItem(items, 5)?.text).toBe('H2') // 光标恰在 H2 行
+      expect(findActiveOutlineItem(items, 4)?.text).toBe('H1')
+      expect(findActiveOutlineItem(items, 1)?.text).toBe('H1')
+    })
+
+    it('should return null when cursor is before the first heading', () => {
+      const withIntro = extractOutline('intro\n\n# H1')
+      expect(findActiveOutlineItem(withIntro, 1)).toBeNull()
+    })
+
+    it('should return null for empty outline', () => {
+      expect(findActiveOutlineItem([], 10)).toBeNull()
     })
   })
 })

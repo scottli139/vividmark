@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Dropdown } from '../Menu'
+import type { MenuItem } from '../Menu'
 
 interface InsertMenuProps {
   onImage: () => void
@@ -7,34 +8,14 @@ interface InsertMenuProps {
   onCodeBlock: () => void
 }
 
-interface MenuItem {
-  id: string
-  label: string
-  icon: React.ReactNode
-  onClick: () => void
-}
-
 export function InsertMenu({ onImage, onTable, onCodeBlock }: InsertMenuProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
   const { t } = useTranslation()
 
-  // 点击外部关闭菜单
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside)
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [isOpen])
+  const handlers: Record<string, () => void> = {
+    image: onImage,
+    table: onTable,
+    codeblock: onCodeBlock,
+  }
 
   const menuItems: MenuItem[] = [
     {
@@ -50,7 +31,6 @@ export function InsertMenu({ onImage, onTable, onCodeBlock }: InsertMenuProps) {
           />
         </svg>
       ),
-      onClick: onImage,
     },
     {
       id: 'table',
@@ -64,7 +44,6 @@ export function InsertMenu({ onImage, onTable, onCodeBlock }: InsertMenuProps) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 4v16" />
         </svg>
       ),
-      onClick: onTable,
     },
     {
       id: 'codeblock',
@@ -79,41 +58,20 @@ export function InsertMenu({ onImage, onTable, onCodeBlock }: InsertMenuProps) {
           />
         </svg>
       ),
-      onClick: onCodeBlock,
     },
   ]
 
-  const handleItemClick = (item: MenuItem) => {
-    item.onClick()
-    setIsOpen(false)
-  }
-
   return (
-    <div className="relative" ref={menuRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-        title={t('toolbar.tooltip.insert')}
-      >
+    <Dropdown
+      items={menuItems}
+      onSelect={(id) => handlers[id]?.()}
+      title={t('toolbar.tooltip.insert')}
+      widthClass="w-44"
+      trigger={
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
         </svg>
-      </button>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-1 w-44 bg-[var(--editor-bg)] border border-[var(--editor-border)] rounded-lg shadow-lg py-1 z-50">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleItemClick(item)}
-              className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-[var(--editor-border)]/50 transition-colors text-left"
-            >
-              <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      }
+    />
   )
 }
