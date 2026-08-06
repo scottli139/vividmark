@@ -55,6 +55,15 @@ describe('WysiwygEditor', () => {
     expect(editor.action(getMarkdown())).toBe(INITIAL_CONTENT)
   })
 
+  it('disables WKWebView smart substitution (autocorrect/autocapitalize off)', async () => {
+    const { editorRef } = setup()
+    const editor = await waitForEditor(editorRef)
+
+    const dom = editor.action((ctx) => ctx.get(editorViewCtx)).dom
+    expect(dom.getAttribute('autocorrect')).toBe('off')
+    expect(dom.getAttribute('autocapitalize')).toBe('off')
+  })
+
   it('should sync editor edits to store', async () => {
     const { editorRef } = setup()
     const editor = await waitForEditor(editorRef)

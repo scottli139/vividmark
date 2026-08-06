@@ -83,6 +83,13 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
         }
         editorRef.current = created
         if (editorRefProp) editorRefProp.current = created
+        // macOS/WKWebView 的智能替换（弯引号、自动大写、自动纠错）会悄悄改写
+        // 文档字节——markdown 编辑器要求源码与输入一致，全局禁用
+        created.action((ctx) => {
+          const dom = ctx.get(editorViewCtx).dom
+          dom.setAttribute('autocorrect', 'off')
+          dom.setAttribute('autocapitalize', 'off')
+        })
         // create 是异步的，期间 store 可能又变了；就绪后对齐一次
         const store = useEditorStore.getState()
         const serialized = created.action(getMarkdown())

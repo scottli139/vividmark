@@ -6,15 +6,17 @@ interface InsertMenuProps {
   onImage: () => void
   onTable: () => void
   onCodeBlock: () => void
+  onAdmonition: () => void
 }
 
-export function InsertMenu({ onImage, onTable, onCodeBlock }: InsertMenuProps) {
+export function InsertMenu({ onImage, onTable, onCodeBlock, onAdmonition }: InsertMenuProps) {
   const { t } = useTranslation()
 
   const handlers: Record<string, () => void> = {
     image: onImage,
     table: onTable,
     codeblock: onCodeBlock,
+    admonition: onAdmonition,
   }
 
   const menuItems: MenuItem[] = [
@@ -55,6 +57,20 @@ export function InsertMenu({ onImage, onTable, onCodeBlock }: InsertMenuProps) {
             strokeLinejoin="round"
             strokeWidth={2}
             d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+      ),
+    },
+    {
+      id: 'admonition',
+      label: t('toolbar.tooltip.admonition'),
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
           />
         </svg>
       ),

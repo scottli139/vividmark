@@ -1049,12 +1049,82 @@ if (lang === 'typst') {
 
 ### 已知限制（P3+ 候选）
 
-- wysiwyg 下 Cmd+K / Cmd+1/2/3 快捷键未接（Mod-B/I 由 Milkdown 自带 keymap 支持）
 - 表格创建是 Milkdown 的 `|CxR| ` 语法，不是 Typora 的 `|a|b|`+回车；行列增删无 UI
-- admonition 无法在编辑器内新建（仅展示/编辑已有），标题 attr 不可编辑
-- 代码块在 wysiwyg 下无语法高亮；slash menu / 悬浮格式条未接
+- admonition 已有块的类型/标题 attr 在编辑器内不可修改（需切 source 改围栏行）
+- slash menu / 悬浮格式条未接；WYSIWYG 查找替换未接（Find 仅 source/split）
 
 ---
+
+## 2026-08-05 WYSIWYG 编辑体验补全（代码块高亮 / 语言输入框 / admonition 新建 / 快捷键）
+
+### 代码块语法高亮（codeHighlightPlugin.ts）
+
+- 方案：highlight.js（已有依赖，与预览 parser.ts 同引擎）分词 → PM inline decorations，span 挂全局 `.hljs-*` 类（globals.css 亮暗双套裸类选择器直接生效，无需新增样式）。
+- `hljs.highlight(...).value` 的 HTML 写入游离 div 递归遍历，展平为 `{from, to, cls}` 区间（嵌套 span 类名栈合并）；偏移以代码块内容起点 `pos + 1` 为基准。
+- 缓存 `Map<lang+code, spans>`（200 条 FIFO）：每次 docChanged 全量重建 decorations，但只有内容变过的块重新分词。
+- 只认显式 `language`（无语言/未知语言/plantuml 跳过），不做 highlightAuto——避免误判闪烁与击键开销，与 Typora 行为一致。
+
+### 代码块语言输入框（plantUmlCodeBlockView.ts 扩展）
+
+- 非 plantuml 分支的 `pre` 加 `hljs` class（基色/等宽规则与预览一致），`pre` 内追加 `<input class="code-block-lang">`（contentDOM 之外的兄弟节点，PM 不管理）。
+- 提交：Enter/blur → `setNodeMarkup(getPos(), …, {language})`；Escape 还原；无变化不 dispatch（避免空事务弄脏文档）。
+- nodeview 三件套：`stopEvent` 拦截 input 内事件（按键不交给 PM）、`ignoreMutation` 由「非 contentDOM 即忽略」天然覆盖、`update()` 在非聚焦时同步 input.value（undo/外部变更）。
+- 输入 `plantuml` 走既有「update 返回 false 重建 nodeview」路径，自动切换为预览双区。
+
+### Admonition 编辑器内新建
+
+- 链路：InsertMenu「提示框」→ `AdmonitionDialog`（9 类型网格复用 `.admonition` CSS 渲染迷你预览 + 可选自定义标题）→ dispatch `editor-insert`，片段 `::: {type}{ title}\n\n:::\n`。
+- WYSIWYG 侧 `insertWysiwygSnippet` 经 remark 变换天然解析为 admonition 节点；光标修正条件从 table/code_block 扩到 admonition（落入容器内首个块）。source 模式由 CM 直接插文本，零改动。
+
+### WYSIWYG 快捷键（wysiwygFormat.ts 的 wysiwygShortcutPlugin）
+
+- `$prose((ctx) => keymap({...}))`：Mod-K 链接、Mod-1/2/3 标题 1/2/3，处理函数复用工具栏同一套 `applyLink`/`applyHeading`（行为两端一致）。
+- Mod-B/I 由 Milkdown commonmark 自带 keymap 提供；原生菜单 accelerator 未占用这三个键（视图切换是 Cmd+Alt+1~4），桌面/浏览器均直达 webview。
+
+### 中文 IME 组合输入系列问题（最终形态，2026-08-06）
+
+这一系列问题（`\` 垃圾行、换行拼接、幻影空行、`<!-- -->` 注释包裹）都发生在 WKWebView + macOS 拼音的组合输入路径上，互相纠缠，最终拆解为六个独立机制：
+
+**1. 幻影节点（`\`/空格垃圾）— strictBrParserPlugin.ts（ignore 语义）**
+- 机制：组合输入时浏览器在 DOM 插入无属性 `<br>` 占位（预编辑文本分音节处、块尾），PM 回读时按默认规则解析成 hardbreak 节点（序列化为 `\`）或空格文本。
+- 修复：自定义 `domParser` 视图 prop（readDOMChange 与剪贴板解析都经 `someProp("domParser")` 命中）：`br[data-type="hardbreak"]` → hardbreak 节点（PM 渲染的 hardbreak 必带此属性，回读无损，`data-is-inline` 经 getAttrs 保真）；裸 `<br>` → `ignore: true` 整块跳过（**不产生任何节点或文本**）。
+- 教训：v1 曾用 `getAttrs: false` 拒绝裸 br——落入 leafFallback 变成 `\n` 文本、折叠成空格，空格混进文本流干扰 PM 的 diff 对齐，导致上屏错位（「拼接」回归）。**让幻影消失必须什么都不产生**。
+- 注意：PM Plugin 构造器的 bindProps 会立即读取 props 值（getter 惰性求值不可行）；`$prose` 工厂在 SchemaReady 后执行，`ctx.get(schemaCtx)` 直接可用。
+
+**2. 残留兜底 — hardbreakCleanupPlugin.ts（延迟清理）**
+- 规则：①纯 hardbreak 段落删除（唯一子节点时替换为空段落，满足 `block+` 约束）；②文本段落内 ≥2 连续非 inline hardbreak 运行段删除（合法 Shift+Enter 只会产生单个）；③文本块内 ≥3 连续 ASCII 空格删除（macOS 拼音预编辑文本的分音节空格 span 残留；≤2 保留，代码块不动）。
+- 时机：仅 composition-meta 事务；**上屏事务 dispatch 时 PM 仍处于 composing 状态**（compositionend 事件更晚到），此时不能 dispatch——记标记，compositionend 后延迟 50ms 统一清理（晚于 PM 的 scheduleComposeEnd 20ms flush；若新一轮组合已开始则顺延）。
+
+**3. 换行被吞/拼接 — imeEnterGuardPlugin.ts**
+- 机制：prosemirror-view 的 `inOrNearComposition` kludge——`safari` 判定（navigator.vendor 含 Apple，WKWebView 命中）下 **compositionend 后 500ms 内第一个非组合态 keydown 被整个忽略**（本意是吞掉 IME 确认上屏时 Safari 补发的配对 Enter）。中文用户「选词上屏→立刻回车」的 Enter 被吞 → 新段落没建成 → 后续文本接到上一行（「拼接」）。插件的 handleKeyDown 看不到这次按键（PM 提前返回），只能从 DOM 事件层补。
+- 修复：view.dom 的 **capture 阶段**监听（先于 PM 冒泡处理器，不依赖注册顺序）；直接读写 PM 的 `input.compositionEndedAt`（不维护镜像状态，与 kludge 天然同步）；命中窗口内 Enter 就 preventDefault + stopImmediatePropagation + 手动执行与正常 Enter 相同的 `wysiwygEnterCommand`——**有且仅有一次分段**。60ms 下界：确认上屏的配对 Enter 与 compositionend 同刻到达，放行给 kludge。代码块内不补偿。
+- 测试注意：jsdom 默认 vendor 就是 "Apple Computer, Inc."，PM 的 safari 标记在模块加载时固化——测试里 kludge 真实生效；补偿事务带 `imeEnterGuardCompensation` meta 供探针计数。
+
+**4. `<!-- -->` 注释包裹 — 不是序列化 bug，是 CodeMirror 的按键冲突**
+- 机制：`@codemirror/commands` 的 defaultKeymap 把 **Mod-/ 绑定到 toggleComment**（`<!-- -->` 正是 markdown 的注释语法）。源码模式按 Cmd+/ 想切视图，CM 顺手把当前行/选区注释掉；再按一次又解开（toggle）。admonition 围栏、代码块收尾围栏被裹都是它。
+- 排查手段值得记录：所有序列化路径查无产出者后，给 `store.setContent` 包装调用栈记录，直接指名写入者。
+- 修复：CodeMirrorEditor 装配时从 defaultKeymap 过滤掉 `Mod-/`（模式切换走 window 级监听，CM 不拦截传播，两者都能收到按键）。
+
+**5. 单换行 Enter 模型 — wysiwygFormat.ts 的 wysiwygEnterCommand**
+- 用户约定：普通段落 Enter = 行内软换行（isInline:true hardbreak，序列化为单个换行符，行间无空行）；段尾已是换行时再按 → 折叠为新段落（Enter×2 = 新段落，段落语义入口）。列表走 splitListItemCommand（**prosemirror 原版 splitListItem 与 Milkdown 列表自定义 attrs 不兼容，会抛 TransformError**）；代码块/表格交默认。
+- 坑：Milkdown 的 `hardbreakClearMarkPlugin` 在带 `hardbreak` meta 的事务后会把节点 attrs 重置为默认（isInline 被抹成 false）——插入事务**不能带 hardbreak meta**。
+- 渲染：isInline 软换行默认渲染成带空格的 span（不换行，多行会挤成一行）——`hardbreakView.ts` nodeview 统一渲染为 `<br>`（属性保留供解析器回读）。
+- 优先级：wysiwygEnterPlugin 在 wysiwygPlugins 数组首位（keymap 先匹配）。
+
+**6. macOS 智能替换（引号变全角）**
+- WKWebView contenteditable 默认启用系统智能替换（弯引号/自动大写），会悄悄改写文档字节。WYSIWYG 根节点设 `autocorrect=off autocapitalize=off`（WysiwygEditor 创建后 setAttribute）；代码块 pre 额外 `spellcheck=false`。CM6 默认已全关（contentAttrs 内置）。
+- **既有垃圾文件**：清理机制只防新增；文件里已存在的 `\`/`<!-- -->` 残留需在源码模式手动删一次。
+- **同类已知残留**：PM kludge 吞的是「第一个 keydown」不区分键——上屏后 500ms 内的第一个 Backspace 也会被吞（按第二次即可），影响轻微未处理。
+
+### Admonition 结束围栏融合（`<br />\n:::` 被 html 块吞掉）
+
+- **机制**：admonition 末块是空段落时，Milkdown 的 paragraph 序列化器把它编码为 html 节点 `<br />`，且紧贴结束围栏输出（`<br />\n:::`）；重解析时 micromark 把 `<br />` 当作 html 块起始，**html 块一直吞到空行才停**——结束围栏被吞进 html 节点（`value: "<br />\n:::"`），remarkPreserveEmptyLinePlugin 的精确匹配剥除也因此失效，admonition 整体降级为普通文本。同类风险：末块是 blockquote 时 `:::` 被懒惰延续吞掉。
+- **修复**（`admonitionToMarkdown`）：①序列化前丢弃尾部空段落（空行在 markdown 本无语义）；②结束围栏前强制输出一个空行（`\n\n:::` 成为规范形态，旧写法解析后规范化一次）。空 admonition 的不动点是 `::: note\n:::`。有回归测试锁定（尾部空段落/空容器/末块 blockquote 三种形态）。
+
+### explodeParagraph 换行保真
+
+- 重拼融合段落时，段间插入**原始 break 节点**而非新建 `isInline:true` 的软换行——此前硬换行（`\`）经过 admonition 解析会被改写成软换行，导致含硬换行的内容每次往返都被悄悄改写。
+
 
 ## 2026-08-04 自绘对话框系统
 

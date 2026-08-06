@@ -28,14 +28,16 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 ## Features
 
 ### Core Editor
+
 - **Four view modes** - WYSIWYG (seamless live editing, default), Source, Preview (read-only), Split (side-by-side with sync scrolling)
 - **CodeMirror 6 editing** - Markdown syntax highlighting, smart list continuation, auto-closing brackets, Tab indentation
 - **Real-time Markdown preview** - See your formatted content instantly
 - **Find & replace** - Built-in search panel with Cmd/Ctrl + F
 - **Status bar** - Word count, cursor position, and zoom level at a glance
-- **Code syntax highlighting** - Powered by highlight.js
+- **Code syntax highlighting** - Powered by highlight.js, in both preview and WYSIWYG editing
 
 ### File Operations
+
 - **Open/Save/Save As** - Full file management support with native dialogs
 - **Keyboard shortcuts** - Cmd/Ctrl + O, S, N for quick access
 - **Drag & drop** - Drop Markdown files to open instantly
@@ -45,21 +47,26 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Undo/Redo** - Full history support with Cmd/Ctrl + Z / Shift+Z
 
 ### Formatting Tools
+
 - **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links (Cmd/Ctrl + B / I / K)
 - **Block formatting** - Headings (H1-H6), Quote, List, Code block
 - **Image insertion** - Toolbar, paste, or drag & drop with automatic asset management
 - **Table editing** - Visual table creation with customizable rows and columns
+- **Admonition insertion** - Insert callout boxes (tip, warning, note, etc.) from the toolbar with an optional custom title
 
 ### MkDocs-Ready: Extended Markdown Support
+
 - **Tables** - Full GFM table support with alignment
+
   ```markdown
-  | Name  | Age | City  |
-  |:------|:---:|------:|
-  | Alice | 25  | NYC   |
-  | Bob   | 30  | LA    |
+  | Name  | Age | City |
+  | :---- | :-: | ---: |
+  | Alice | 25  |  NYC |
+  | Bob   | 30  |   LA |
   ```
 
 - **Admonitions** - Beautiful callout boxes for tips, warnings, notes, etc.
+
   ```markdown
   ::: tip
   This is a helpful tip!
@@ -69,6 +76,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
   This is a warning with custom title.
   :::
   ```
+
   Supported types: `tip`, `warning`, `info`, `note`, `danger`, `success`, `hint`, `important`, `caution`
 
 - **PlantUML Diagrams** - Render UML diagrams directly in your document
@@ -80,6 +88,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
   ```
 
 ### User Interface
+
 - **Multi-language support** - English and 简体中文 (Simplified Chinese), easily extensible to more languages
 - **Theme modes** - Light, Dark, or Auto (follows system appearance)
 - **Settings panel** - Appearance, language, and sidebar preferences in one place
@@ -104,10 +113,10 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 
 This project was **entirely built with AI coding assistants**:
 
-| Tool | Model |
-|------|-------|
-| [Claude Code CLI](https://github.com/anthropics/claude-code) | GLM model |
-| [Kimi CLI](https://www.kimi.com/) | Kimi model |
+| Tool                                                         | Model      |
+| ------------------------------------------------------------ | ---------- |
+| [Claude Code CLI](https://github.com/anthropics/claude-code) | GLM model  |
+| [Kimi CLI](https://www.kimi.com/)                            | Kimi model |
 
 > 🤖 No human-written code. Every line was generated, reviewed, and refined through AI collaboration.
 
@@ -142,22 +151,22 @@ pnpm tauri build
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Cmd/Ctrl + O` | Open file |
-| `Cmd/Ctrl + S` | Save file |
-| `Cmd/Ctrl + Shift + S` | Save as |
-| `Cmd/Ctrl + N` | New file |
-| `Cmd/Ctrl + B` | Bold |
-| `Cmd/Ctrl + I` | Italic |
-| `Cmd/Ctrl + K` | Insert link |
-| `Cmd/Ctrl + 1 / 2 / 3` | Heading 1 / 2 / 3 |
-| `Cmd/Ctrl + F` | Find & replace |
-| `Cmd/Ctrl + Z` | Undo |
-| `Cmd/Ctrl + Shift + Z` | Redo |
-| `Cmd/Ctrl + /` | Toggle WYSIWYG / Source |
-| `Cmd/Ctrl + = / - / 0` | Zoom in / out / reset |
-| `Escape` | Exit edit mode |
+| Shortcut               | Action                  |
+| ---------------------- | ----------------------- |
+| `Cmd/Ctrl + O`         | Open file               |
+| `Cmd/Ctrl + S`         | Save file               |
+| `Cmd/Ctrl + Shift + S` | Save as                 |
+| `Cmd/Ctrl + N`         | New file                |
+| `Cmd/Ctrl + B`         | Bold                    |
+| `Cmd/Ctrl + I`         | Italic                  |
+| `Cmd/Ctrl + K`         | Insert link             |
+| `Cmd/Ctrl + 1 / 2 / 3` | Heading 1 / 2 / 3       |
+| `Cmd/Ctrl + F`         | Find & replace          |
+| `Cmd/Ctrl + Z`         | Undo                    |
+| `Cmd/Ctrl + Shift + Z` | Redo                    |
+| `Cmd/Ctrl + /`         | Toggle WYSIWYG / Source |
+| `Cmd/Ctrl + = / - / 0` | Zoom in / out / reset   |
+| `Escape`               | Exit edit mode          |
 
 ## Project Structure
 
@@ -188,6 +197,7 @@ vividmark/
 See [PLAN.md](./PLAN.md) for detailed development progress.
 
 ### Completed
+
 - [x] Phase 1: Basic framework
 - [x] Phase 2: Core editor
 - [x] Phase 3: File operations
@@ -198,6 +208,7 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 - [x] Phase 11: Logging system
 
 ### In Progress / Planned
+
 - [ ] Phase 5: File management (File tree, Multi-tabs)
 - [ ] Phase 6: Advanced features (PDF export, Search & replace)
 - [ ] Phase 7: Polish & optimization (Performance, Preferences)

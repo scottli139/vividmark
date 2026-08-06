@@ -814,6 +814,36 @@ body {
   color: var(--text-secondary);
 }
 
+/* WYSIWYG 代码块语言输入框（右上角，平时半透明，悬停/聚焦显形） */
+.wysiwyg-editor pre {
+  position: relative;
+}
+
+.wysiwyg-editor .code-block-lang {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 72px;
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: right;
+  opacity: 0.45;
+  z-index: 1;
+}
+
+.wysiwyg-editor .code-block-lang:hover,
+.wysiwyg-editor .code-block-lang:focus {
+  opacity: 1;
+  border-color: var(--editor-border);
+  background: var(--editor-bg);
+  outline: none;
+}
+
 /* admonition 内容区在编辑器内需要最小高度以便点击落入空容器 */
 .wysiwyg-editor .admonition-content {
   min-height: 1.2em;

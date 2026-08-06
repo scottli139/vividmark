@@ -80,6 +80,20 @@ describe('CodeMirrorEditor', () => {
     })
   })
 
+  it('Mod-/ does NOT comment out the current line (reserved for view-mode toggle)', () => {
+    const { viewRef } = setup()
+    const view = viewRef.current!
+
+    // defaultKeymap 自带的 toggleComment 已移除；按 Cmd+/ 不应改变文档
+    act(() => {
+      view.contentDOM.dispatchEvent(
+        new KeyboardEvent('keydown', { key: '/', metaKey: true, bubbles: true, cancelable: true })
+      )
+    })
+
+    expect(view.state.doc.toString()).toBe(INITIAL_CONTENT)
+  })
+
   it('should handle editor-format event (bold with selection)', () => {
     const { viewRef } = setup()
     const view = viewRef.current!

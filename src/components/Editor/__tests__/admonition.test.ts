@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, afterEach } from 'vitest'
 import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from '@milkdown/kit/core'
+import { TextSelection } from '@milkdown/kit/prose/state'
 import { getMarkdown, replaceAll } from '@milkdown/kit/utils'
 import { wysiwygPlugins } from '../wysiwygPlugins'
 
@@ -55,16 +56,35 @@ describe('admonition (::: container)', () => {
 
   it('round-trips basic admonition losslessly', async () => {
     const ed = await createEditor('')
-    const src = '::: tip\n这是提示内容\n:::'
+    // 规范形态：结束围栏前有一个空行（防止末块与围栏融合，见实现注释）
+    const src = '::: tip\n这是提示内容\n\n:::'
     const out = roundTrip(ed, src)
     expect(out).toBe(`${src}\n`)
   })
 
+  it('normalizes a missing blank line before the closing fence', async () => {
+    const ed = await createEditor('')
+    // 旧写法（围栏前无空行）解析正常，序列化规范化为带空行形态
+    const out = roundTrip(ed, '::: tip\n这是提示内容\n:::')
+    expect(out).toBe('::: tip\n这是提示内容\n\n:::\n')
+  })
+
   it('round-trips custom title', async () => {
     const ed = await createEditor('')
-    const src = '::: warning 自定义标题\n警告内容\n:::'
+    const src = '::: warning 自定义标题\n警告内容\n\n:::'
     const out = roundTrip(ed, src)
     expect(out).toBe(`${src}\n`)
+  })
+
+  it('preserves hard breaks when fence lines are fused with content', async () => {
+    const ed = await createEditor('')
+    // 围栏与内容之间无空行：remarkLineBreaks 把它们融合成一个含 break 的段落，
+    // explodeParagraph 拆开重拼时必须保留原始硬换行（`\`），不能降级成软换行
+    const src = '::: tip\n哈哈哈哈\\\n密密麻麻吗\n:::'
+    const out = roundTrip(ed, src)
+    expect(out).toContain('::: tip')
+    expect(out).toContain('哈哈哈哈\\')
+    expect(out).toContain('密密麻麻吗')
   })
 
   it('shows custom title in nodeview, falls back to capitalized type', async () => {
@@ -130,6 +150,52 @@ describe('admonition (::: container)', () => {
     expect(roundTrip(ed, out)).toBe(out)
   })
 
+  it('drops trailing empty paragraphs and never fuses the closing fence into an html block', async () => {
+    const ed = await createEditor('::: danger\n你会\n\n:::')
+    const view = ed.action((ctx) => ctx.get(editorViewCtx))
+
+    // 在「你会」末尾回车，制造尾部空段落（序列化的 `<br />` 曾紧贴 ::: 被 html 块吞掉围栏）
+    let contentEnd = -1
+    view.state.doc.descendants((node, pos) => {
+      if (node.isText && node.text === '你会') contentEnd = pos + node.text!.length
+      return true
+    })
+    const { splitBlock } = await import('@milkdown/kit/prose/commands')
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, contentEnd)))
+    splitBlock(view.state, view.dispatch)
+
+    const out = ed.action(getMarkdown())
+    expect(out).not.toContain('<br')
+    expect(out).toContain('\n\n:::')
+
+    // 重新解析后围栏存活：仍是 admonition 节点而非降级文本
+    ed.action(replaceAll(out, true))
+    let hasAdmonition = false
+    view.state.doc.descendants((node) => {
+      if (node.type.name === 'admonition') hasAdmonition = true
+      return true
+    })
+    expect(hasAdmonition).toBe(true)
+  })
+
+  it('serializes an empty admonition to a clean fixed point (no <br />)', async () => {
+    const ed = await createEditor('')
+    const out = roundTrip(ed, '::: note\n\n:::')
+    expect(out).toBe('::: note\n:::\n')
+    expect(roundTrip(ed, out)).toBe(out)
+  })
+
+  it('keeps the closing fence when the last block is a blockquote', async () => {
+    const ed = await createEditor('')
+    // `> 引用` 后直接跟 `:::` 会被 blockquote 懒惰延续吞掉；序列化必须补空行
+    const out = roundTrip(ed, '::: tip\n> 引用\n\n:::')
+    expect(out).toContain('\n\n:::')
+    const second = roundTrip(ed, out)
+    expect(second).toBe(out)
+    expect(second).toContain('::: tip')
+    expect(second).toContain('> 引用')
+  })
+
   it('supports all nine admonition types', async () => {
     const ed = await createEditor('')
     const types = [
@@ -144,7 +210,7 @@ describe('admonition (::: container)', () => {
       'caution',
     ]
     for (const type of types) {
-      const src = `::: ${type}\n内容\n:::`
+      const src = `::: ${type}\n内容\n\n:::`
       expect(roundTrip(ed, src)).toBe(`${src}\n`)
     }
   })

@@ -437,5 +437,57 @@ describe('Toolbar', () => {
 
       dispatchEventSpy.mockRestore()
     })
+
+    it('should insert admonition with selected type and custom title', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Toolbar />)
+
+      // 打开插入菜单 → 点击提示框选项
+      fireEvent.click(screen.getByTitle('Insert'))
+      fireEvent.click(screen.getByText('Admonition'))
+
+      // 对话框可见，默认选中 Note
+      expect(screen.getByText('Insert Admonition')).toBeInTheDocument()
+
+      // 选 warning 类型 + 填自定义标题
+      fireEvent.click(screen.getByText('Warning'))
+      // 选中态：accent outline（不能用 ring/box-shadow——会被 .admonition 的 box-shadow 覆盖）
+      expect(screen.getByText('Warning').closest('button')?.className).toContain('outline-2')
+      expect(screen.getByText('Note').closest('button')?.className).not.toContain('outline-2')
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: '注意' } })
+      fireEvent.click(screen.getByText('Insert'))
+
+      // 应派发 editor-insert，片段为 ::: warning 注意 围栏
+      const call = dispatchEventSpy.mock.calls.find((call) => {
+        const event = call[0] as CustomEvent
+        return event.type === 'editor-insert' && event.detail?.text?.includes('::: warning 注意')
+      })
+      expect(call).toBeTruthy()
+
+      // 对话框已关闭
+      expect(screen.queryByText('Insert Admonition')).not.toBeInTheDocument()
+
+      dispatchEventSpy.mockRestore()
+    })
+
+    it('should insert admonition with default type and no title', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+
+      render(<Toolbar />)
+
+      fireEvent.click(screen.getByTitle('Insert'))
+      fireEvent.click(screen.getByText('Admonition'))
+      fireEvent.click(screen.getByText('Insert'))
+
+      const call = dispatchEventSpy.mock.calls.find((call) => {
+        const event = call[0] as CustomEvent
+        return event.type === 'editor-insert'
+      })
+      expect(call).toBeTruthy()
+      expect((call![0] as CustomEvent).detail.text).toBe('::: note\n\n:::\n')
+
+      dispatchEventSpy.mockRestore()
+    })
   })
 })

@@ -23,6 +23,7 @@
       "tasklist": "Task List",
       "orderedList": "Ordered List",
       "codeBlock": "Code Block",
+      "admonition": "Admonition",
       "heading": "Heading",
       "moreFormatting": "More Formatting",
       "insert": "Insert",
@@ -105,6 +106,9 @@
     "close": "Close",
     "insert": "Insert",
     "colHeader": "Col {{number}}",
+    "insertAdmonition": "Insert Admonition",
+    "admonitionType": "Type",
+    "admonitionTitle": "Custom title (optional)",
     "confirm": "Confirm",
     "close": "Close"
   },

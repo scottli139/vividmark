@@ -6,6 +6,7 @@ import { confirmDialog } from '../../lib/dialog'
 import { selectLocalImage, createImageMarkdown } from '../../lib/imageUtils'
 import { generateTable } from '../../lib/tableUtils'
 import { TableDialog } from '../TableDialog'
+import { AdmonitionDialog } from '../AdmonitionDialog'
 import { FormatMenu } from './FormatMenu'
 import { HeadingDropdown } from './HeadingDropdown'
 import { InsertMenu } from './InsertMenu'
@@ -90,6 +91,7 @@ function ViewModeButton({
 
 export function Toolbar() {
   const [isTableDialogOpen, setIsTableDialogOpen] = useState(false)
+  const [isAdmonitionDialogOpen, setIsAdmonitionDialogOpen] = useState(false)
   const { t } = useTranslation()
 
   const {
@@ -180,6 +182,15 @@ export function Toolbar() {
 
   const handleCodeBlock = useCallback(() => {
     window.dispatchEvent(new CustomEvent('editor-format', { detail: { format: 'codeblock' } }))
+  }, [])
+
+  const handleAdmonition = useCallback(() => {
+    setIsAdmonitionDialogOpen(true)
+  }, [])
+
+  const handleInsertAdmonition = useCallback((type: string, title: string) => {
+    const text = `::: ${type}${title ? ` ${title}` : ''}\n\n:::\n`
+    window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text } }))
   }, [])
 
   // 检测是否为 Mac
@@ -354,7 +365,12 @@ export function Toolbar() {
         <div className="w-px h-6 bg-[var(--editor-border)] mx-2" />
 
         {/* 插入菜单 */}
-        <InsertMenu onImage={handleImage} onTable={handleTable} onCodeBlock={handleCodeBlock} />
+        <InsertMenu
+          onImage={handleImage}
+          onTable={handleTable}
+          onCodeBlock={handleCodeBlock}
+          onAdmonition={handleAdmonition}
+        />
 
         {/* 更多格式化 */}
         <FormatMenu onFormat={handleFormat} />
@@ -432,6 +448,13 @@ export function Toolbar() {
         isOpen={isTableDialogOpen}
         onClose={() => setIsTableDialogOpen(false)}
         onInsert={handleInsertTable}
+      />
+
+      {/* Admonition 插入对话框 */}
+      <AdmonitionDialog
+        isOpen={isAdmonitionDialogOpen}
+        onClose={() => setIsAdmonitionDialogOpen(false)}
+        onInsert={handleInsertAdmonition}
       />
     </div>
   )

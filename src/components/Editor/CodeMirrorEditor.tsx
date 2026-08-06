@@ -89,6 +89,11 @@ const formatKeymap = Prec.highest(
   ])
 )
 
+// defaultKeymap 的 Mod-/ 是 toggleComment（会把当前行/选区注释成 <!-- -->），
+// 与应用的「Cmd+/ 切换 WYSIWYG⇄Source」冲突——移除该绑定（模式切换由
+// useKeyboardShortcuts 的 window 级监听负责，CM 不拦截传播，两个监听都能收到）
+const appDefaultKeymap = defaultKeymap.filter((binding) => binding.key !== 'Mod-/')
+
 /** CM 编辑 → store 同步；撤销深度与光标位置上报 */
 const syncUpdateListener = EditorView.updateListener.of((update) => {
   const store = useEditorStore.getState()
@@ -229,7 +234,7 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
             ...markdownKeymap,
             ...searchKeymap,
             ...historyKeymap,
-            ...defaultKeymap,
+            ...appDefaultKeymap,
             indentWithTab,
           ]),
         ],

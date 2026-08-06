@@ -70,6 +70,8 @@ describe('plantuml code block view', () => {
     const pre = container!.querySelector('pre')
     expect(pre).toBeInTheDocument()
     expect(pre!.querySelector('code')?.textContent).toContain('const a = 1')
+    // 代码块内禁用拼写检查（红波浪线噪音）；autocorrect 已在编辑器根全局禁用
+    expect(pre!.spellcheck).toBe(false)
   })
 
   it('rebuilds nodeview when language changes away from plantuml', async () => {

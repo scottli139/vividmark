@@ -771,6 +771,44 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 
 ---
 
+### 2026-08-05 WYSIWYG 编辑体验补全（代码块高亮 / admonition 新建 / 快捷键）
+
+**完成工作：**
+- ✅ **代码块语法高亮**：新增 `codeHighlightPlugin.ts`——highlight.js（与预览同引擎，零新依赖）分词 → PM inline decorations 挂全局 `.hljs-*` 类；`Map<lang+code, spans>` 缓存（200 条 FIFO），只有变更块重新分词；只认显式 language（plantuml/未知语言跳过）
+- ✅ **代码块语言输入框**：扩展 `plantUmlCodeBlockView.ts`——非 plantuml 块右上角渲染 `lang` 输入框（Enter/blur 提交 `setNodeMarkup`，Escape 还原），pre 加 `hljs` class 与预览基色一致；输入 `plantuml` 自动重建为预览双区
+- ✅ **Admonition 编辑器内新建**：新增 `AdmonitionDialog.tsx`（9 类型网格复用 `.admonition` CSS 迷你预览 + 可选自定义标题）；InsertMenu 新增「提示框」项；`insertWysiwygSnippet` 光标修正扩到 admonition；source 模式经 `editor-insert` 零改动可用
+- ✅ **WYSIWYG 快捷键**：`wysiwygFormat.ts` 新增 `wysiwygShortcutPlugin`（Mod-K 链接、Mod-1/2/3 标题，复用工具栏同一套实现；Mod-B/I 走 Milkdown 自带 keymap）
+- ✅ **i18n**：`toolbar.tooltip.admonition` + `dialog.insertAdmonition/admonitionType/admonitionTitle` 三处同步（en / zh-CN / test setup）
+
+**测试规模：** 新增 21 条用例（codeHighlight 5 / codeBlockLangInput 7 / admonitionInsert 4 / wysiwygShortcuts 3 / Toolbar 2），全套 38 文件 612 用例通过；tsc/lint/format 全绿
+
+**新增文件：**
+- `src/components/Editor/codeHighlightPlugin.ts`、`src/components/AdmonitionDialog.tsx`
+- `src/components/Editor/__tests__/{codeHighlight,codeBlockLangInput,admonitionInsert,wysiwygShortcuts}.test.ts`
+
+**修改文件：**
+- `src/components/Editor/{wysiwygPlugins,plantUmlCodeBlockView,wysiwygFormat}.ts(x)`、`src/components/Toolbar/{Toolbar,InsertMenu}.tsx`、`src/styles/globals.css`、`src/i18n/locales/{en,zh-CN}.json`、`src/test/setup.ts`
+
+---
+
+### 2026-08-06 中文 IME（WKWebView）组合输入系列问题修复
+
+用户实测中发现的一串纠缠问题，经事件级日志（临时探针写入 /tmp 日志文件）逐一钉死机制后修复；全套 654 用例通过：
+
+- ✅ **幻影 `\`/空格垃圾**：浏览器在组合输入时往 DOM 插无属性 `<br>` 占位，被 PM 回读成 hardbreak/空格 → `strictBrParserPlugin`（裸 br `ignore:true` 整块忽略；带 `data-type` 的真 hardbreak 保留）+ `hardbreakCleanupPlugin`（compositionend 后 50ms 延迟清理残留，上屏事务在 composing 态 dispatch 不能插手）
+- ✅ **回车拼接/被吞**：PM 的 `inOrNearComposition` kludge 吞掉 compositionend 后 500ms 内首个 keydown → `imeEnterGuardPlugin` 在 capture 阶段接管该 Enter（读写 PM 的 compositionEndedAt 保持同步，stopImmediatePropagation 保证只分一次段）
+- ✅ **`<!-- -->` 注释包裹**：真凶是 CodeMirror defaultKeymap 的 `Mod-/` → toggleComment（Cmd+/ 切视图时顺手注释了当前行）——已从 CM keymap 移除该绑定
+- ✅ **Enter 单换行模型**（用户约定）：普通段落 Enter = 软换行（行间无空行），Enter×2 = 新段落；列表/标题/代码块不变。坑：Milkdown `hardbreakClearMarkPlugin` 会重置带 hardbreak meta 的节点 attrs（isInline 被抹掉）→ 插入事务不带该 meta；prosemirror 原版 splitListItem 与 Milkdown 列表不兼容 → 用 splitListItemCommand
+- ✅ **软换行渲染**：isInline hardbreak 默认渲染为不换行的 span → `hardbreakView` nodeview 渲染为 `<br>`
+- ✅ **智能引号替换**（`'` 变全角）：WYSIWYG 根设 `autocorrect/autocapitalize=off`，代码块 `spellcheck=false`（CM6 默认已关）
+- ✅ **Admonition 序列化加固**：结束围栏前强制空行 + 丢弃尾部空段落（修 `<br />\n:::` 被 html 块吞掉围栏）；`explodeParagraph` 保留原始 break 节点（硬换行往返保真）
+- ✅ **AdmonitionDialog 选中态**：ring（box-shadow）被 `.admonition` 的 box-shadow 覆盖 → 改 outline
+
+**新增文件**：`strictBrParserPlugin.ts`、`hardbreakCleanupPlugin.ts`、`imeEnterGuardPlugin.ts`、`hardbreakView.ts`（+ 对应测试）
+**机制详解**：`docs/implementation-notes.md`「中文 IME 组合输入系列问题（最终形态）」
+
+---
+
 ## 注意事项
 
 1. **网络问题**: 使用清华镜像

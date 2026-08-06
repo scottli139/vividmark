@@ -73,16 +73,20 @@ function isMarkerSegment(segment: MdastFlowNode[]): boolean {
  * `::: tip\n内容\n:::` 变成一个含 break 的段落而不是三个独立块。
  * 这里把「含有围栏标记行」的段落按 break 切成段：标记行独立成段，
  * 其余连续行保持 break 融合（不改变非 admonition 内容的序列化结果）。
+ * 重拼时段间插入的是原始 break 节点而非新建——硬换行（`\`，isInline:false）
+ * 必须保真，否则含硬换行的内容每次往返都会被改写成软换行。
  */
 function explodeParagraph(node: MdastFlowNode): MdastFlowNode[] {
   if (node.type !== 'paragraph') return [node]
   const children = node.children ?? []
   if (!children.some((child) => child.type === 'break')) return [node]
 
-  // 按 break 切段
+  // 按 break 切段；separators[i] 是 segments[i] 与 segments[i+1] 之间的原始 break
   const segments: MdastFlowNode[][] = [[]]
+  const separators: MdastFlowNode[] = []
   for (const child of children) {
     if (child.type === 'break') {
+      separators.push(child)
       segments.push([])
     } else {
       segments[segments.length - 1].push(child)
@@ -92,24 +96,27 @@ function explodeParagraph(node: MdastFlowNode): MdastFlowNode[] {
   if (!segments.some(isMarkerSegment)) return [node]
 
   const out: MdastFlowNode[] = []
-  let buffer: MdastFlowNode[][] = []
+  // buffer 项 = 段内容 + 它与前一个 buffered 段之间的原始 break
+  let buffer: { sep: MdastFlowNode | null; segment: MdastFlowNode[] }[] = []
   const flush = () => {
     if (buffer.length === 0) return
     const merged: MdastFlowNode[] = []
-    buffer.forEach((segment, idx) => {
-      if (idx > 0) merged.push({ type: 'break', data: { isInline: true } })
-      merged.push(...segment)
+    buffer.forEach((item, idx) => {
+      if (idx > 0 && item.sep) merged.push(item.sep)
+      merged.push(...item.segment)
     })
     out.push({ type: 'paragraph', children: merged })
     buffer = []
   }
 
-  for (const segment of segments) {
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i]
+    const sep = i > 0 ? separators[i - 1] : null
     if (isMarkerSegment(segment)) {
       flush()
       out.push({ type: 'paragraph', children: segment })
     } else {
-      buffer.push(segment)
+      buffer.push({ sep, segment })
     }
   }
   flush()
@@ -172,6 +179,23 @@ function transformChildren(parent: MdastFlowNode): void {
 
 // ==================== 2. mdast → markdown 序列化 handler ====================
 
+/**
+ * 尾部空段落判定：无子节点，或唯一子节点是空段落占位符 `<br>` 的 html 节点
+ * （Milkdown 的 paragraph 序列化器把空段落编码为 html `<br />`）
+ */
+function isEmptyParagraphChild(child: MdastFlowNode): boolean {
+  if (child.type !== 'paragraph') return false
+  const children = child.children ?? []
+  if (children.length === 0) return true
+  const only = children[0]
+  return (
+    children.length === 1 &&
+    only.type === 'html' &&
+    typeof only.value === 'string' &&
+    /^<br\s*\/?>$/i.test(only.value.trim())
+  )
+}
+
 function admonitionToMarkdown(
   node: MdastFlowNode,
   _parent: unknown,
@@ -184,11 +208,21 @@ function admonitionToMarkdown(
   const title = typeof node.title === 'string' ? node.title : ''
 
   let value = tracker.move(`::: ${type}${title ? ` ${title}` : ''}`)
-  const content = state.containerFlow(node, tracker.current())
+  // 丢弃尾部空段落：空行在 markdown 里本无语义；其序列化产物 `<br />` 若紧贴
+  // 结束围栏，重解析时 micromark 会把 `<br />\n:::` 整体吞进 html 块（围栏丢失）
+  const children = (node.children ?? []).slice()
+  while (children.length > 0 && isEmptyParagraphChild(children[children.length - 1])) {
+    children.pop()
+  }
+  const content = state.containerFlow({ ...node, children }, tracker.current())
   if (content) {
     value += tracker.move(`\n${content}`)
+    // 结束围栏前强制空行：防止末块与 `:::` 融合
+    // （html 块吞行、blockquote 懒惰延续等都会把围栏吃进去）
+    value += tracker.move('\n\n:::')
+  } else {
+    value += tracker.move('\n:::')
   }
-  value += tracker.move('\n:::')
   exit()
   return value
 }

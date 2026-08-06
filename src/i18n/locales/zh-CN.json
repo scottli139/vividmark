@@ -23,6 +23,7 @@
       "tasklist": "任务列表",
       "orderedList": "有序列表",
       "codeBlock": "代码块",
+      "admonition": "提示框",
       "heading": "标题",
       "moreFormatting": "更多格式",
       "insert": "插入",
@@ -105,6 +106,9 @@
     "close": "关闭",
     "insert": "插入",
     "colHeader": "列 {{number}}",
+    "insertAdmonition": "插入提示框",
+    "admonitionType": "类型",
+    "admonitionTitle": "自定义标题（可选）",
     "confirm": "确认",
     "close": "关闭"
   },
