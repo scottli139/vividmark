@@ -15,6 +15,16 @@ A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired b
 
 Visit the project website: **[https://scottli139.github.io/vividmark](https://scottli139.github.io/vividmark)**
 
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/screenshot-wysiwyg-light.png" alt="WYSIWYG editing — light theme" width="49%">
+  <img src="docs/images/screenshot-wysiwyg-dark.png" alt="WYSIWYG editing — dark theme" width="49%">
+</p>
+<p align="center">
+  <img src="docs/images/screenshot-split-light.png" alt="Split mode — source and live preview" width="70%">
+</p>
+
 ## Features
 
 ### Core Editor

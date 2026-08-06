@@ -63,6 +63,7 @@ vividmark/
 │   ├── capabilities/         # Permissions
 │   └── tauri.conf.json
 ├── e2e/                      # Playwright specs（sourceMode.ts 预置源码模式）
+├── scripts/                  # 工具脚本（take-screenshots.mjs 生成 README 截图，需 dev server）
 └── docs/                     # Plans, requirements, GitHub Pages site
 ```
 
