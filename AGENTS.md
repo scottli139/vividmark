@@ -84,7 +84,7 @@ pnpm lint / lint:fix # ESLint
 pnpm format / format:check  # Prettier
 ```
 
-Before committing: `pnpm tsc --noEmit` → `pnpm lint` → `pnpm format` → `pnpm test:run`.
+Before committing: `pnpm tsc -b`（**不是** `tsc --noEmit`——根 tsconfig 是 solution 引用式，后者不检查任何文件）→ `pnpm lint` → `pnpm format` → `pnpm test:run`。
 
 ## Code Style
 

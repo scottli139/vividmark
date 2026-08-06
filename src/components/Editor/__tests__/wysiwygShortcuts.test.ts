@@ -54,7 +54,7 @@ describe('wysiwyg format shortcuts', () => {
     let linked: string | null = null
     view.state.doc.descendants((node) => {
       if (node.isText && node.marks.some((m) => m.type.name === 'link')) {
-        linked = node.text
+        linked = node.text ?? null
       }
     })
     expect(linked).toBe('hello world')

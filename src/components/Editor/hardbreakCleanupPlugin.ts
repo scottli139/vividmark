@@ -107,6 +107,7 @@ export const hardbreakCleanupPlugin = $prose(() => {
   /** 有待清理垃圾但当前不能 dispatch（组合进行中）；组合结束后补一轮 */
   let pendingCleanup = false
   let deferTimer: ReturnType<typeof setTimeout> | null = null
+  let destroyed = false
 
   const applyEdits = (state: EditorState) => {
     const edits = collectEdits(state)
@@ -128,7 +129,7 @@ export const hardbreakCleanupPlugin = $prose(() => {
   const runDeferredCleanup = () => {
     deferTimer = null
     const v = view
-    if (!v || !v.docView) return
+    if (!v || destroyed) return
     if (v.composing) {
       // 新一轮组合已开始，顺延到它的 compositionend
       pendingCleanup = true
@@ -143,8 +144,10 @@ export const hardbreakCleanupPlugin = $prose(() => {
     key: new PluginKey('vividmark-hardbreak-cleanup'),
     view: (v) => {
       view = v
+      destroyed = false
       return {
         destroy: () => {
+          destroyed = true
           if (deferTimer) clearTimeout(deferTimer)
           view = null
         },

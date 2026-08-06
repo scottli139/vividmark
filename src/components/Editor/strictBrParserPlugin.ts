@@ -1,6 +1,6 @@
 import { schemaCtx } from '@milkdown/kit/core'
 import { DOMParser } from '@milkdown/kit/prose/model'
-import type { Schema } from '@milkdown/kit/prose/model'
+import type { ParseRule, Schema } from '@milkdown/kit/prose/model'
 import { Plugin, PluginKey } from '@milkdown/kit/prose/state'
 import { $prose } from '@milkdown/kit/utils'
 
@@ -36,7 +36,7 @@ export const strictBrParserPlugin = $prose((ctx) => {
 
 function buildStrictBrParser(schema: Schema): DOMParser {
   const base = DOMParser.fromSchema(schema)
-  const tags = base.tags
+  const rules: ParseRule[] = base.rules
     // 移除默认的裸 br → hardbreak 规则
     .filter((rule) => rule.tag !== 'br')
     .concat([
@@ -56,5 +56,5 @@ function buildStrictBrParser(schema: Schema): DOMParser {
         priority: 60,
       },
     ])
-  return new DOMParser(schema, tags, base.styles)
+  return new DOMParser(schema, rules)
 }

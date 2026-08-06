@@ -46,7 +46,9 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       const language = value.trim()
       if (language === String(node.attrs.language ?? '')) return
       if (typeof getPos !== 'function') return
-      view.dispatch(view.state.tr.setNodeMarkup(getPos(), undefined, { ...node.attrs, language }))
+      const pos = getPos()
+      if (pos === undefined) return
+      view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, language }))
     }
 
     /** 语言输入框：Enter 提交并回到编辑区；Escape 还原并回到编辑区；blur 提交 */
