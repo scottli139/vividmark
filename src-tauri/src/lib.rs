@@ -1111,7 +1111,7 @@ fn log_system_info() {
     log::info!("[System] ============================================");
 }
 
-/// 「打开方式」/ 双击关联文件的路径队列：RunEvent::Opened 可能早于前端监听器
+/// 「打开方式」/ 双击关联文件的路径队列：打开事件可能早于前端监听器
 /// 注册（冷启动），先入队；前端就绪后调用 take_pending_open_files 取走
 static PENDING_OPEN_FILES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
 
@@ -1122,6 +1122,8 @@ fn take_pending_open_files() -> Vec<String> {
 }
 
 /// 处理 macOS 文件打开事件（Finder「打开方式」/ 双击 .md）：入队 + 广播
+/// （RunEvent::Opened 仅 macOS/iOS 存在，故整个函数按目标平台门控）
+#[cfg(target_os = "macos")]
 fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
     let paths: Vec<String> = urls
         .iter()
@@ -1225,10 +1227,12 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|app, event| {
+        .run(|_app, _event| {
             // macOS Finder「打开方式」/ 双击关联文件（Windows/Linux 走 argv，暂不支持）
-            if let tauri::RunEvent::Opened { urls } = event {
-                handle_opened_urls(app, urls);
+            // RunEvent::Opened 仅 macOS/iOS 存在，其他平台编译时整段剔除
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Opened { urls } = _event {
+                handle_opened_urls(_app, urls);
             }
         });
 }
