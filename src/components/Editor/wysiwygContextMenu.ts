@@ -6,12 +6,15 @@ import {
   addRowAfterCommand,
   addRowBeforeCommand,
 } from '@milkdown/kit/preset/gfm'
+import { paragraphSchema } from '@milkdown/kit/preset/commonmark'
+import { setBlockType } from '@milkdown/kit/prose/commands'
 import { AllSelection, Selection, TextSelection } from '@milkdown/kit/prose/state'
 import type { Node as ProseNode, ResolvedPos } from '@milkdown/kit/prose/model'
 import type { EditorView } from '@milkdown/kit/prose/view'
 import { callCommand } from '@milkdown/kit/utils'
 import type { WysiwygMenuContext } from '../../lib/contextMenu'
 import { readClipboardText, writeClipboardText } from '../../lib/clipboard'
+import { generateTable } from '../../lib/tableUtils'
 import { insertWysiwygSnippet } from './wysiwygFormat'
 
 /**
@@ -203,11 +206,57 @@ function deleteImage(view: EditorView): boolean {
 }
 
 /**
+ * 在当前顶层块的上方/下方插入空段落，光标落入新段落。
+ * 解决 WYSIWYG 下表格/代码块/admonition 等块级元素紧贴文档边缘或彼此相邻时
+ * 难以插出新段落的问题（Typora「在上方/下方插入段落」同款）。
+ */
+function insertParagraphBlock(view: EditorView, above: boolean): boolean {
+  const { state } = view
+  const { $from } = state.selection
+  if ($from.depth < 1) return false
+
+  const pos = above ? $from.before(1) : $from.after(1)
+  const paragraph = state.schema.nodes.paragraph.create()
+  const tr = state.tr.insert(pos, paragraph)
+  // 新段落占据 [pos, pos+2)，光标落段内
+  view.dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(pos + 1))).scrollIntoView())
+  return true
+}
+
+/**
  * 执行右键菜单动作（WYSIWYG 侧）。返回 true 表示已处理；
  * format:* 与 undo/redo 等由调用方走既有通道，这里不处理（返回 false）。
  */
 export function applyWysiwygContextAction(ctx: Ctx, id: string): boolean {
   const view = ctx.get(editorViewCtx)
+
+  // 插入片段类：与工具栏 editor-insert 同通道（markdown 解析插入，不退化为纯文本）
+  if (id.startsWith('insert:')) {
+    switch (id) {
+      case 'insert:paragraph-above':
+      case 'insert:paragraph-below':
+        return insertParagraphBlock(view, id === 'insert:paragraph-above')
+      case 'insert:image':
+        insertWysiwygSnippet(ctx, '![alt text](image-url)')
+        return true
+      case 'insert:table':
+        insertWysiwygSnippet(ctx, generateTable(2, 2))
+        return true
+      case 'insert:codeblock':
+        insertWysiwygSnippet(ctx, '```\ncode here\n```')
+        return true
+      case 'insert:hr':
+        insertWysiwygSnippet(ctx, '\n---\n')
+        return true
+      default:
+        return false
+    }
+  }
+
+  // 段落子菜单的「正文」：当前文本块还原为段落
+  if (id === 'block:paragraph') {
+    return setBlockType(paragraphSchema.type(ctx))(view.state, view.dispatch)
+  }
 
   switch (id) {
     // 表格：新增行列走 milkdown gfm 命令（作用于当前选区）

@@ -5,6 +5,7 @@ import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from '@milkdown/kit/c
 import { listenerCtx } from '@milkdown/kit/plugin/listener'
 import { redo, undo } from '@milkdown/kit/prose/history'
 import { TextSelection } from '@milkdown/kit/prose/state'
+import type { EditorView } from '@milkdown/kit/prose/view'
 import { getMarkdown, replaceAll } from '@milkdown/kit/utils'
 import { useEditorStore } from '../../stores/editorStore'
 import type { FormatType } from '../../lib/markdownEditing'
@@ -23,6 +24,22 @@ import { applyWysiwygFormat, insertWysiwygSnippet } from './wysiwygFormat'
 import { applyWysiwygContextAction, resolveWysiwygContext } from './wysiwygContextMenu'
 
 const logger = createLogger('WysiwygEditor')
+
+/**
+ * WebKit/WKWebView 在右键 mousedown→contextmenu 之间会抢先写入 DOM 词/行选择
+ * （不可取消的内部步骤），PM 随后经 selectionchange 采纳 DOM 选择形成污染。
+ * 对策：contextmenu 时把 DOM 选择直接压回目标光标——PM 同步到的就是光标。
+ */
+function collapseDomSelectionToCursor(view: EditorView) {
+  const selection = view.state.selection
+  if (!(selection instanceof TextSelection)) return
+  try {
+    const { node, offset } = view.domAtPos(selection.head)
+    window.getSelection()?.collapse(node, offset)
+  } catch {
+    // domAtPos 在极端位置可能抛错；忽略，PM 侧选区仍正确
+  }
+}
 
 /** 基础字号（与 CodeMirrorEditor 一致），随 zoomLevel 缩放 */
 const BASE_FONT_SIZE = 14
@@ -75,15 +92,17 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
     if (!editor) return
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
-      // 右键落点在选区外时，光标先落到右键位置（编辑器标准行为），
-      // 上下文解析与后续动作都以该位置为准
+      // contextmenu 触发时 PM 选区尚未被 DOM 污染（探针验证）——落点在选区外时
+      // 光标落到右键位置，并把 DOM 选择压回光标（WebKit 抢先写入的词/行选择
+      // 不可取消，只能覆盖；PM 随后经 selectionchange 同步到的就是光标）
       const coords = view.posAtCoords({ left: e.clientX, top: e.clientY })
       if (coords) {
         const { from, to } = view.state.selection
-        if (coords.pos < from || coords.pos > to) {
+        if (from === to || coords.pos < from || coords.pos > to) {
           view.dispatch(
             view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(coords.pos)))
           )
+          collapseDomSelectionToCursor(view)
         }
       }
       openMenu(e, {

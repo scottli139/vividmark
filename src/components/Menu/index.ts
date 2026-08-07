@@ -1,5 +1,5 @@
 export { MenuPanel } from './MenuPanel'
-export type { MenuActionItem, MenuDividerItem, MenuItem } from './MenuPanel'
+export type { MenuActionItem, MenuDividerItem, MenuSubmenuItem, MenuItem } from './MenuPanel'
 export { Dropdown } from './Dropdown'
 export { ContextMenu } from './ContextMenu'
 export { resolveContextMenuPosition } from './menuPosition'

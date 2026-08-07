@@ -230,6 +230,67 @@ describe('wysiwyg context menu', () => {
     })
   })
 
+  describe('insert paragraph & block actions', () => {
+    it('insert:paragraph-above inserts an empty paragraph above the current block', async () => {
+      const ed = await createEditor('first\n\nsecond')
+      const view = getView(ed)
+      cursorOnText(view, 'second')
+
+      expect(act(ed, 'insert:paragraph-above')).toBe(true)
+
+      // 新空段落插入在 second 之前，文档结构为三块，光标落入新段落
+      expect(view.state.doc.childCount).toBe(3)
+      expect(view.state.doc.child(1).type.name).toBe('paragraph')
+      expect(view.state.doc.child(1).textContent).toBe('')
+      expect(ed.action(getMarkdown())).toContain('second')
+      expect(view.state.selection.$from.parent.textContent).toBe('')
+    })
+
+    it('insert:paragraph-below inserts an empty paragraph below the current block', async () => {
+      const ed = await createEditor('first\n\nsecond')
+      const view = getView(ed)
+      cursorOnText(view, 'first')
+
+      expect(act(ed, 'insert:paragraph-below')).toBe(true)
+
+      expect(view.state.doc.childCount).toBe(3)
+      expect(view.state.doc.child(1).textContent).toBe('')
+      expect(view.state.selection.$from.parent.textContent).toBe('')
+    })
+
+    it('insert:paragraph-below works at document end (code block edge case)', async () => {
+      const ed = await createEditor('```\nconst a = 1\n```')
+      const view = getView(ed)
+      cursorOnText(view, 'const')
+
+      expect(act(ed, 'insert:paragraph-below')).toBe(true)
+
+      expect(view.state.doc.childCount).toBe(2)
+      expect(view.state.doc.lastChild?.type.name).toBe('paragraph')
+    })
+
+    it('block:paragraph turns a heading back into a paragraph', async () => {
+      const ed = await createEditor('# Title')
+      const view = getView(ed)
+      cursorOnText(view, 'Title')
+
+      expect(act(ed, 'block:paragraph')).toBe(true)
+
+      expect(view.state.doc.firstChild?.type.name).toBe('paragraph')
+      expect(ed.action(getMarkdown())).not.toContain('#')
+    })
+
+    it('insert:hr inserts a thematic break', async () => {
+      const ed = await createEditor('text')
+      const view = getView(ed)
+      cursorOnText(view, 'text')
+
+      expect(act(ed, 'insert:hr')).toBe(true)
+      // Milkdown 序列化水平分割线为 ***
+      expect(ed.action(getMarkdown())).toContain('***')
+    })
+  })
+
   describe('clipboard / selection actions', () => {
     it('select-all selects the whole document', async () => {
       const ed = await createEditor('hello world')

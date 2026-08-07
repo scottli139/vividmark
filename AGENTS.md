@@ -170,7 +170,7 @@ Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `genera
 Read these before touching editor code — details in `docs/implementation-notes.md`:
 
 - **Dual editor cores**: WYSIWYG = Milkdown/ProseMirror（`WysiwygEditor.tsx`），Source/Split = CodeMirror 6（`CodeMirrorEditor.tsx`），都常驻挂载（非激活 hidden）。Markdown 源码是唯一事实来源；两侧事件 handler 与 `canUndo/canRedo` 写入都按 `viewMode` 门控
-- **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表 checkbox）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定
+- **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表 checkbox）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定；**commonmark 预设剔除了 `remark-preserve-empty-line`**（它把空段落序列化成独立 `<br />` 行，用户视为垃圾——剔除后空段落 = 普通空行，重载自然折叠；源码已有的 `<br />` 行解析为 html 节点保留）
 - **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
 - **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`
@@ -182,8 +182,8 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **External links**: intercept clicks in preview, `e.preventDefault()`, open via `@tauri-apps/plugin-shell` (requires `shell:default` capability)
 - **Window title**: shows `文件名 ● - VividMark` (● = unsaved), set via `@tauri-apps/api/window`
 - **主题约定**: globals.css 顶部 `@custom-variant dark (&:where(.dark, .dark *))` — `dark:` 变体跟随应用内 `.dark` class（挂 documentElement），不再是系统媒体查询；颜色一律走 CSS 变量（`--hover-bg`/`--active-bg`/`--color-text-muted` 等，:root 与 .dark 双定义），新组件禁止 Tailwind 灰色硬编码
-- **菜单原语**: 下拉/右键菜单统一用 `src/components/Menu/`（Dropdown / ContextMenu / MenuPanel），禁止再复制 outside-click 模式；ContextMenu 的 `onClose` 必须 useCallback 稳定化
-- **编辑器右键菜单**: 三区域（Source/Preview/WYSIWYG）均已接入。菜单项构建是纯函数（`src/lib/contextMenu.ts`，id/文案/disabled/快捷键标注），状态用 `src/hooks/useContextMenu.ts`；动作按 id 前缀分发——`format:*` 转发 editor-format 事件总线，剪贴板走 `src/lib/clipboard.ts`（桌面端 `@tauri-apps/plugin-clipboard-manager`，浏览器降级 navigator.clipboard），WYSIWYG 上下文动作（表格行列增删/链接/图片/代码块）在 `wysiwygContextMenu.ts`（表格删除是自实现 PM transaction，不走 milkdown selectRow/deleteSelectedCells 的 index 语义；表头行禁删）
+- **菜单原语**: 下拉/右键菜单统一用 `src/components/Menu/`（Dropdown / ContextMenu / MenuPanel），禁止再复制 outside-click 模式；ContextMenu 的 `onClose` 必须 useCallback 稳定化；MenuPanel 支持一层子菜单（`MenuSubmenuItem.children`，hover/点击展开，右缘翻左、底部上收）
+- **编辑器右键菜单**: 三区域（Source/Preview/WYSIWYG）均已接入，结构对齐 Typora（剪贴板组 + 段落▸/格式▸/插入▸ 子菜单）。菜单项构建是纯函数（`src/lib/contextMenu.ts`，id/文案/disabled/快捷键标注），状态用 `src/hooks/useContextMenu.ts`；动作按 id 前缀分发——`format:*` 转发 editor-format 事件总线，剪贴板走 `src/lib/clipboard.ts`（桌面端 `@tauri-apps/plugin-clipboard-manager`，浏览器降级 navigator.clipboard），WYSIWYG 上下文动作（表格行列增删/链接/图片/代码块/`insert:*`/`block:paragraph`）在 `wysiwygContextMenu.ts`（表格删除是自实现 PM transaction，不走 milkdown selectRow/deleteSelectedCells 的 index 语义；表头行禁删；「在上方/下方插入段落」= 在当前顶层块前后插空段落并落入光标）。**WebKit 右键抢选**：WKWebView 在 mousedown→contextmenu 之间抢先写 DOM 词/行选择（不可取消），必须 contextmenu 时折叠选区 + `getSelection().collapse(domAtPos)` 把 DOM 选择压回光标（细节见 implementation-notes）
 - **macOS 融合标题栏**: tauri.conf.json `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS 生效）；App 给 documentElement 加 `is-macos` class（判定走 `src/lib/platform.ts`）；Toolbar 根 `data-tauri-drag-region` + macOS 下 `pl-[78px]`（traffic light 预留）+ 自绘居中标题（<760px 隐藏）
 - **Logging**: use `createLogger('Module')` from `src/lib/logger.ts` (frontend) and `tauri-plugin-log` (backend); logs at `~/Library/Logs/com.vividmark.app/` on macOS
 

@@ -32,7 +32,7 @@ test.describe('Context Menu — Source mode', () => {
   test('right-click shows edit menu with disabled states; Escape closes', async ({ page }) => {
     await page.locator('.cm-content').click({ button: 'right' })
 
-    const menu = page.locator('[role="menu"]')
+    const menu = page.locator('[role="menu"]').first()
     await expect(menu).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Undo' })).toBeDisabled()
     await expect(page.getByRole('menuitem', { name: 'Cut' })).toBeDisabled()
@@ -40,18 +40,22 @@ test.describe('Context Menu — Source mode', () => {
     await expect(page.getByRole('menuitem', { name: 'Paste' })).toBeEnabled()
     await expect(page.getByRole('menuitem', { name: 'Select All' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Find' })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: 'Bold' })).toBeVisible()
+    // Typora 结构：段落 / 格式为子菜单
+    await expect(page.getByRole('menuitem', { name: 'Paragraph' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Format' })).toBeVisible()
 
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
   })
 
-  test('Bold menu item applies bold format to editor', async ({ page }) => {
+  test('Bold submenu item applies bold format to editor', async ({ page }) => {
     await page.locator('.cm-content').click()
     await page.keyboard.press('ControlOrMeta+a')
     await page.keyboard.press('Backspace')
 
     await page.locator('.cm-content').click({ button: 'right' })
+    // 格式项在「Format ▸」子菜单内
+    await page.getByRole('menuitem', { name: 'Format' }).hover()
     await page.getByRole('menuitem', { name: 'Bold' }).click()
 
     // 无选区时插入占位符并选中（与工具栏 editor-format 行为一致）
@@ -106,11 +110,30 @@ test.describe('Context Menu — WYSIWYG mode', () => {
   test('right-click shows menu without Find (known limitation)', async ({ page }) => {
     await page.locator('.ProseMirror').click({ button: 'right' })
 
-    const menu = page.locator('[role="menu"]')
+    const menu = page.locator('[role="menu"]').first()
     await expect(menu).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Undo' })).toBeVisible()
-    await expect(page.getByRole('menuitem', { name: 'Bold' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Paragraph' })).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Insert' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Find' })).toHaveCount(0)
+  })
+
+  test('Insert submenu inserts paragraph below current block', async ({ page }) => {
+    const proseMirror = page.locator('.ProseMirror')
+    await proseMirror.click()
+    await page.keyboard.press('ControlOrMeta+a')
+    await page.keyboard.type('# Title')
+
+    await expect(proseMirror.locator('h1')).toHaveText('Title')
+
+    // 光标在标题上，右键 → Insert ▸ → Insert Paragraph Below
+    await proseMirror.locator('h1').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Insert', exact: true }).hover()
+    await page.getByRole('menuitem', { name: 'Insert Paragraph Below' }).click()
+
+    // 标题后出现新段落，光标可直接输入
+    await page.keyboard.type('new paragraph')
+    await expect(proseMirror.locator('p')).toContainText('new paragraph')
   })
 
   test('table context group adds a row below', async ({ page }) => {

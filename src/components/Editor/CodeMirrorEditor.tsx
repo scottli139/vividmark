@@ -218,6 +218,22 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
   const handleContextMenu = (e: React.MouseEvent) => {
     const view = editorViewRef.current
     if (!view) return
+    // 右键落点在选区外时，光标先落到右键位置（编辑器标准行为），并把 DOM 选择
+    // 压回光标——WebKit/WKWebView 会在 mousedown→contextmenu 之间抢先写入词/行
+    // 选择（不可取消），CM 随后经 selectionchange 采纳 DOM 选择，必须覆盖
+    const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+    if (pos !== null) {
+      const { from, to } = view.state.selection.main
+      if (from === to || pos < from || pos > to) {
+        view.dispatch({ selection: { anchor: pos } })
+        try {
+          const domPos = view.domAtPos(view.state.selection.main.head)
+          window.getSelection()?.collapse(domPos.node, domPos.offset)
+        } catch {
+          // domAtPos 在极端位置可能抛错；忽略，CM 侧选区仍正确
+        }
+      }
+    }
     openMenu(e, { hasSelection: !view.state.selection.main.empty })
   }
 

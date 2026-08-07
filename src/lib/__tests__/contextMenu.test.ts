@@ -65,7 +65,7 @@ describe('buildBaseEditItems', () => {
 })
 
 describe('buildSourceMenuItems', () => {
-  it('contains base edit group + find + inline formats', () => {
+  it('contains base edit group + find + paragraph/format submenus', () => {
     const items = buildSourceMenuItems(t, mac, {
       canUndo: true,
       canRedo: false,
@@ -82,14 +82,32 @@ describe('buildSourceMenuItems', () => {
       'select-all',
       'find',
       '|',
+      'submenu:paragraph',
+      'submenu:format',
+    ])
+
+    const paragraph = getItem(items, 'submenu:paragraph')
+    const format = getItem(items, 'submenu:format')
+    expect(paragraph && 'children' in paragraph && itemIds(paragraph.children)).toEqual([
+      'format:h1',
+      'format:h2',
+      'format:h3',
+      '|',
+      'format:quote',
+      'format:list',
+      'format:tasklist',
+      'format:codeblock',
+    ])
+    expect(format && 'children' in format && itemIds(format.children)).toEqual([
       'format:bold',
       'format:italic',
       'format:strike',
       'format:code',
       'format:link',
     ])
-    expect(getItem(items, 'format:bold')).toMatchObject({ shortcut: '⌘B' })
-    expect(getItem(items, 'format:strike')).toMatchObject({ shortcut: undefined })
+    // 快捷键标注挂在子菜单内的格式项上
+    const bold = format && 'children' in format && getItem(format.children, 'format:bold')
+    expect(bold).toMatchObject({ shortcut: '⌘B' })
   })
 })
 
@@ -97,12 +115,38 @@ describe('buildWysiwygMenuItems', () => {
   const state = { canUndo: true, canRedo: true, hasSelection: false }
   const plain = { inTable: false, onImage: false, inCodeBlock: false }
 
-  it('plain paragraph context: no context group, no find', () => {
+  it('plain paragraph context: no context group, no find; Typora-style submenus at tail', () => {
     const items = buildWysiwygMenuItems(t, mac, state, plain)
     const ids = itemIds(items)
     expect(ids[0]).toBe('undo')
     expect(ids).not.toContain('find')
-    expect(ids).toContain('format:bold')
+    expect(ids.slice(-4)).toEqual(['|', 'submenu:paragraph', 'submenu:format', 'submenu:insert'])
+  })
+
+  it('paragraph submenu leads with Normal; insert submenu has paragraph-above/below', () => {
+    const items = buildWysiwygMenuItems(t, mac, state, plain)
+    const paragraph = getItem(items, 'submenu:paragraph')
+    const insert = getItem(items, 'submenu:insert')
+    expect(paragraph && 'children' in paragraph && itemIds(paragraph.children)).toEqual([
+      'block:paragraph',
+      'format:h1',
+      'format:h2',
+      'format:h3',
+      '|',
+      'format:quote',
+      'format:list',
+      'format:tasklist',
+      'format:codeblock',
+    ])
+    expect(insert && 'children' in insert && itemIds(insert.children)).toEqual([
+      'insert:image',
+      'insert:table',
+      'insert:codeblock',
+      'insert:hr',
+      '|',
+      'insert:paragraph-above',
+      'insert:paragraph-below',
+    ])
   })
 
   it('table context prepends table group with single dividers', () => {

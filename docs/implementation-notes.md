@@ -1200,3 +1200,24 @@ if (lang === 'typst') {
 - **表格**：行/列**新增**复用 milkdown gfm 命令（`addRowBeforeCommand` 等，作用于当前选区）；行/列/整表**删除**是自实现 PM transaction（按 `$from.index(tableDepth)` 算行 index、逐行收集单元格删除区间后从后往前删）——不走 milkdown `selectRowCommand` + `deleteSelectedCellsCommand` 的 index 语义组合。schema 注意：表头是独立节点类型 `table_header_row`，markdown 表格必须有表头 → 表头行禁删行（菜单 disabled + 动作层双保险）；仅剩一列时删列退化为删整表。
 - **图片**：atom 节点无内部光标，右键时 `nodeBefore/nodeAfter` 判定与删除。
 - **E2E 坑**：Preview 的 `.markdown-body` 选择器会命中常驻挂载但隐藏的 `.markdown-body.wysiwyg-editor`，测试里要用 `.markdown-body.p-8` 区分。
+
+### 右键菜单 Typora 化重组与插入段落（2026-08-07 补充）
+
+- **MenuPanel 子菜单**：`MenuSubmenuItem { children: MenuItem[] }`（一层嵌套）。子菜单面板挂在触发行的 relative 容器内（`left-full -ml-1` 轻微重叠，hover 平移无间隙不断开）；展开时按触发行 `getBoundingClientRect` 修正：右缘放不下翻到左侧（`right-full`），底部溢出向上收拢。普通项/分隔线 hover 收起已展开子菜单；子菜单触发行的 click 只展开不下发 id。
+- **菜单结构对齐 Typora**：Source = 基础组 + 段落▸（format:h1-h3/quote/list/tasklist/codeblock，全部复用既有 formatTransaction）+ 格式▸；WYSIWYG = 上下文组 + 基础组 + 段落▸（多「正文」`block:paragraph` = setBlockType paragraph）+ 格式▸ + 插入▸（图像/表格/代码块/水平分割线 + 在上方/下方插入段落）。
+- **insert:\* 动作**：`insertWysiwygSnippet`  markdown 解析插入（表格片段复用 `generateTable(2,2)`）；注意 Milkdown 序列化水平分割线为 `***`。
+- **在上方/下方插入段落**：`$from.before(1)` / `$from.after(1)` 定位当前**顶层块**边界，插空段落 + `TextSelection.near(pos+1)` 落入光标——解决表格/代码块紧贴文档边缘或彼此相邻时无法插出新段落的问题。
+
+### 空段落序列化为 `<br />` 的问题（2026-08-07）
+
+- **现象**：WYSIWYG 下块级元素（代码块/表格）之间残留的空段落，序列化成独立 `<br />` 行，源码被污染。
+- **根因**：Milkdown commonmark 预设自带 `remark-preserve-empty-line`——paragraph 序列化器对空段落（非文档末节点）输出 `<br />` html 节点（见 preset-commonmark `paragraphSchema.toMarkdown` 的 `shouldPreserveEmptyLine(ctx)` 检查）；解析侧 `visitEmptyLine` 把独立 `<br />` 行从 mdast 摘除。这是 Milkdown 的「空行无损」设计，但对用户是垃圾行。
+- **修法**：`wysiwygPlugins.ts` 按二元组引用比较从 commonmark 预设中剔除该插件（`commonmark.filter(p => !preserveEmptyLineParts.has(p))`）。剔除后：空段落序列化为普通空行（markdown 渲染本来就会折叠，重载时自然消失）；源码已有的 `<br />` 行解析为 html 节点保留不丢；空表格单元格序列化为 `|  |`（GFM 合法）。
+- **注意**：`$remark` 返回 `[pluginCtx, plugin]` 二元组，commonmark 数组里是两个独立条目，过滤时两个都要剔除。
+
+### 右键 WebKit 抢选问题（2026-08-07，探针定位）
+
+- **现象**：WYSIWYG/Source 右键点击行首会选中相邻第一个词、空行选中整行（菜单动作随之作用于错误选区）。
+- **探针结论**（`save_file` 写 /tmp 日志，事件级时序）：WebKit/WKWebView 在右键 `mousedown`→`contextmenu` 之间把词/行选择写入 DOM——**不可取消的内部步骤**（`mousedown`/`contextmenu` 的 preventDefault 都无效）；此刻编辑器内核（PM/CM）状态尚未被污染，但随后经 `selectionchange` 采纳 DOM 选择，污染固化。
+- **修法（覆盖而非拦截）**：`contextmenu` 时 `posAtCoords` 求落点 → 落点在选区外则 dispatch 折叠选区到落点 → **再直接 `window.getSelection().collapse(view.domAtPos(head))` 把 DOM 选择压回光标**。内核随后同步到的就是光标。mousedown 快照/preventDefault 均无效已移除。
+- **注意**：`TextSelection.near` 找不到文本位置时会退回 NodeSelection；`domAtPos` 极端位置可能抛错（try/catch 忽略即可，内核侧选区仍正确）。

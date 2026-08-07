@@ -819,6 +819,13 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 - ✅ **测试**：lib 构建器 12 例 + wysiwyg 上下文 14 例（真实 Milkdown 编辑器验证表格删除等 PM transaction 的 markdown 往返）；E2E `context-menu.spec.ts` 7 例（三区域弹出/disabled 态/格式动作/表格与链接上下文组）
 - **机制与坑**：`docs/implementation-notes.md`「2026-08-06 编辑器右键菜单」
 
+**2026-08-07 补充（Typora 化重组）**：
+
+- ✅ **MenuPanel 子菜单能力**：`MenuSubmenuItem.children`（一层嵌套，hover 展开、右缘翻左、底部上收）
+- ✅ **菜单结构对齐 Typora**：段落▸（WYSIWYG 含「正文」）/ 格式▸ / 插入▸（图像/表格/代码块/水平分割线）
+- ✅ **在上方/下方插入段落**：当前顶层块前后插空段落并落入光标，解决表格/代码块贴边时 WYSIWYG 难以分段
+- ✅ 测试：MenuPanel 子菜单 5 例 + 插入段落/正文/分割线动作 5 例；E2E 更新为子菜单交互 + 新增插入段落用例（8/8）
+
 ---
 
 ## 注意事项

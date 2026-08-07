@@ -4,6 +4,9 @@ import type { FormatType } from './markdownEditing'
 /**
  * 编辑器右键菜单的纯函数构建器（Source / WYSIWYG / Preview 共用）。
  *
+ * 结构对齐 Typora：剪贴板组 +「段落 ▸ / 格式 ▸ / 插入 ▸」子菜单
+ * （WYSIWYG 另有上下文组排在最前）。
+ *
  * 只负责「菜单项长什么样」——id、文案、快捷键标注、disabled、分隔线；
  * 动作执行由各编辑器组件按 id 分发（format:* 转发 editor-format 事件总线，
  * 剪贴板走 lib/clipboard.ts，WYSIWYG 上下文动作走 wysiwygContextMenu.ts）。
@@ -12,7 +15,7 @@ import type { FormatType } from './markdownEditing'
 
 export type TranslateFn = (key: string) => string
 
-/** 行内格式菜单项（id 为 format:<FormatType>，点击后转发 editor-format） */
+/** 行内格式（id 为 format:<FormatType>，点击后转发 editor-format） */
 const INLINE_FORMATS: FormatType[] = ['bold', 'italic', 'strike', 'code', 'link']
 
 const FORMAT_LABEL_KEYS: Record<string, string> = {
@@ -21,6 +24,13 @@ const FORMAT_LABEL_KEYS: Record<string, string> = {
   strike: 'contextMenu.strikethrough',
   code: 'contextMenu.inlineCode',
   link: 'contextMenu.link',
+  h1: 'contextMenu.heading1',
+  h2: 'contextMenu.heading2',
+  h3: 'contextMenu.heading3',
+  quote: 'contextMenu.quote',
+  list: 'contextMenu.bulletList',
+  tasklist: 'contextMenu.taskList',
+  codeblock: 'contextMenu.codeBlock',
 }
 
 /** 快捷键标注（仅展示；桌面端带 accelerator 的键由原生菜单/OS 处理） */
@@ -35,6 +45,9 @@ export interface ShortcutLabels {
   bold: string
   italic: string
   link: string
+  heading1: string
+  heading2: string
+  heading3: string
 }
 
 export function getShortcutLabels(isMac: boolean): ShortcutLabels {
@@ -50,6 +63,9 @@ export function getShortcutLabels(isMac: boolean): ShortcutLabels {
       bold: '⌘B',
       italic: '⌘I',
       link: '⌘K',
+      heading1: '⌘1',
+      heading2: '⌘2',
+      heading3: '⌘3',
     }
   }
   return {
@@ -63,6 +79,36 @@ export function getShortcutLabels(isMac: boolean): ShortcutLabels {
     bold: 'Ctrl+B',
     italic: 'Ctrl+I',
     link: 'Ctrl+K',
+    heading1: 'Ctrl+1',
+    heading2: 'Ctrl+2',
+    heading3: 'Ctrl+3',
+  }
+}
+
+function formatShortcut(format: FormatType, shortcuts: ShortcutLabels): string | undefined {
+  switch (format) {
+    case 'bold':
+      return shortcuts.bold
+    case 'italic':
+      return shortcuts.italic
+    case 'link':
+      return shortcuts.link
+    case 'h1':
+      return shortcuts.heading1
+    case 'h2':
+      return shortcuts.heading2
+    case 'h3':
+      return shortcuts.heading3
+    default:
+      return undefined
+  }
+}
+
+function formatItem(t: TranslateFn, shortcuts: ShortcutLabels, format: FormatType): MenuItem {
+  return {
+    id: `format:${format}`,
+    label: t(FORMAT_LABEL_KEYS[format]),
+    shortcut: formatShortcut(format, shortcuts),
   }
 }
 
@@ -116,22 +162,36 @@ export function buildBaseEditItems(
   ]
 }
 
-/** 行内格式组（前置分隔线）：加粗/斜体/删除线/行内代码/链接 */
-export function buildFormatItems(t: TranslateFn, shortcuts: ShortcutLabels): MenuItem[] {
-  const shortcutOf = (format: FormatType): string | undefined => {
-    if (format === 'bold') return shortcuts.bold
-    if (format === 'italic') return shortcuts.italic
-    if (format === 'link') return shortcuts.link
-    return undefined
+/** 「格式 ▸」子菜单（Typora 结构）：加粗/斜体/删除线/行内代码/链接 */
+function buildFormatSubmenu(t: TranslateFn, shortcuts: ShortcutLabels): MenuItem {
+  return {
+    id: 'submenu:format',
+    label: t('contextMenu.format'),
+    children: INLINE_FORMATS.map((format) => formatItem(t, shortcuts, format)),
   }
-  return [
+}
+
+/** 「段落 ▸」子菜单：块级格式；includeParagraph 时带「正文」（WYSIWYG 专有） */
+function buildParagraphSubmenu(
+  t: TranslateFn,
+  shortcuts: ShortcutLabels,
+  options: { includeParagraph: boolean }
+): MenuItem {
+  const children: MenuItem[] = []
+  if (options.includeParagraph) {
+    children.push({ id: 'block:paragraph', label: t('contextMenu.normalText') })
+  }
+  children.push(
+    formatItem(t, shortcuts, 'h1'),
+    formatItem(t, shortcuts, 'h2'),
+    formatItem(t, shortcuts, 'h3'),
     { divider: true },
-    ...INLINE_FORMATS.map((format) => ({
-      id: `format:${format}`,
-      label: t(FORMAT_LABEL_KEYS[format]),
-      shortcut: shortcutOf(format),
-    })),
-  ]
+    formatItem(t, shortcuts, 'quote'),
+    formatItem(t, shortcuts, 'list'),
+    formatItem(t, shortcuts, 'tasklist'),
+    formatItem(t, shortcuts, 'codeblock')
+  )
+  return { id: 'submenu:paragraph', label: t('contextMenu.paragraph'), children }
 }
 
 /** Source 模式（CodeMirror）右键菜单 */
@@ -142,7 +202,9 @@ export function buildSourceMenuItems(
 ): MenuItem[] {
   return [
     ...buildBaseEditItems(t, shortcuts, { ...state, includeFind: true }),
-    ...buildFormatItems(t, shortcuts),
+    { divider: true },
+    buildParagraphSubmenu(t, shortcuts, { includeParagraph: false }),
+    buildFormatSubmenu(t, shortcuts),
   ]
 }
 
@@ -157,7 +219,24 @@ export interface WysiwygMenuContext {
   inCodeBlock: boolean
 }
 
-/** WYSIWYG 上下文感知菜单：上下文组（表格/链接/图片/代码块）+ 基础编辑组 + 格式组 */
+/** 「插入 ▸」子菜单（Typora 结构，WYSIWYG 专有）：块插入 + 在上方/下方插入段落 */
+function buildInsertSubmenu(t: TranslateFn): MenuItem {
+  return {
+    id: 'submenu:insert',
+    label: t('contextMenu.insert'),
+    children: [
+      { id: 'insert:image', label: t('contextMenu.insertImage') },
+      { id: 'insert:table', label: t('contextMenu.insertTable') },
+      { id: 'insert:codeblock', label: t('contextMenu.codeBlock') },
+      { id: 'insert:hr', label: t('contextMenu.horizontalRule') },
+      { divider: true },
+      { id: 'insert:paragraph-above', label: t('contextMenu.insertParagraphAbove') },
+      { id: 'insert:paragraph-below', label: t('contextMenu.insertParagraphBelow') },
+    ],
+  }
+}
+
+/** WYSIWYG 上下文感知菜单：上下文组（表格/链接/图片/代码块）+ 基础编辑组 + 段落/格式/插入子菜单 */
 export function buildWysiwygMenuItems(
   t: TranslateFn,
   shortcuts: ShortcutLabels,
@@ -213,7 +292,10 @@ export function buildWysiwygMenuItems(
     ...contextItems,
     ...(contextItems.length > 0 ? [{ divider: true } as MenuItem] : []),
     ...buildBaseEditItems(t, shortcuts, { ...state, includeFind: false }),
-    ...buildFormatItems(t, shortcuts),
+    { divider: true },
+    buildParagraphSubmenu(t, shortcuts, { includeParagraph: true }),
+    buildFormatSubmenu(t, shortcuts),
+    buildInsertSubmenu(t),
   ]
 }
 

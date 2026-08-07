@@ -122,6 +122,45 @@ describe('wysiwyg markdown round-trip', () => {
     expect(second).toBe(first)
   })
 
+  describe('空段落序列化（preserve-empty-line 已剔除）', () => {
+    it('empty paragraph between blocks serializes as blank lines, not <br />', async () => {
+      const ed = await createEditor('```js\na\n```\n\n```js\nb\n```')
+      const view = ed.action((ctx) => ctx.get(editorViewCtx))
+      // 两代码块之间插一个空段落（如「在下方插入段落」后未输入）
+      const pos = view.state.doc.firstChild!.nodeSize
+      view.dispatch(view.state.tr.insert(pos, view.state.schema.nodes.paragraph.create()))
+
+      const out = ed.action(getMarkdown())
+      expect(out).not.toContain('<br')
+      expect(out).toContain('```js')
+    })
+
+    it('existing standalone <br /> line in source parses to html node and round-trips', async () => {
+      const ed = await createEditor('```js\na\n```\n\n<br />\n\n```js\nb\n```')
+      const out = ed.action(getMarkdown())
+
+      // 已有 <br /> 不丢失（解析为 html 节点，序列化保留）
+      expect(out).toContain('<br />')
+      expect(out.match(/```js/g)?.length).toBe(2)
+    })
+
+    it('empty table cell serializes without <br /> and stays a valid table', async () => {
+      const ed = await createEditor('| A | B |\n| --- | --- |\n| 1 | 2 |')
+      const view = ed.action((ctx) => ctx.get(editorViewCtx))
+      // 清空一个单元格
+      let cellPos = -1
+      view.state.doc.descendants((node, nodePos) => {
+        if (cellPos < 0 && node.isText && node.text === '2') cellPos = nodePos
+        return true
+      })
+      view.dispatch(view.state.tr.delete(cellPos, cellPos + 1))
+
+      const out = ed.action(getMarkdown())
+      expect(out).not.toContain('<br')
+      expect(out).toMatch(/\|\s*A\s*\|\s*B\s*\|/)
+    })
+  })
+
   describe('input rules（输入即时渲染）', () => {
     function typeText(view: EditorView, text: string, from: number, to: number) {
       // 模拟 ProseMirror 文本输入路径，触发 input rules

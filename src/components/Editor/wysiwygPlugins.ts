@@ -1,5 +1,5 @@
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
-import { commonmark } from '@milkdown/kit/preset/commonmark'
+import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { listener } from '@milkdown/kit/plugin/listener'
@@ -17,11 +17,25 @@ import { wysiwygHistoryPlugin } from './wysiwygHistoryPlugin'
 import { wysiwygActiveHeadingPlugin } from './wysiwygActiveHeadingPlugin'
 import { wysiwygEnterPlugin, wysiwygShortcutPlugin } from './wysiwygFormat'
 
+/**
+ * commonmark 预设剔除 remark-preserve-empty-line（二元组引用比较）。
+ *
+ * 该插件把空段落序列化为独立 `<br />` html 行——用户视其为垃圾行
+ * （Typora 直接丢弃空段落；markdown 渲染时空行本来就会折叠）。
+ * 剔除后：空段落序列化为普通空行（重新加载时自然折叠）；
+ * 源码中已有的独立 `<br />` 行解析为 html 节点，保留不丢。
+ */
+const preserveEmptyLineParts = new Set<unknown>([
+  remarkPreserveEmptyLinePlugin[0],
+  remarkPreserveEmptyLinePlugin[1],
+])
+const commonmarkPreset = commonmark.filter((plugin) => !preserveEmptyLineParts.has(plugin))
+
 /** WYSIWYG 使用的 Milkdown 插件集合（导出供测试复用，保持与组件一致） */
 export const wysiwygPlugins: MilkdownPlugin[] = [
   // Enter 键位（软换行模型）必须排在 commonmark 之前以获得 handleKeyDown 优先级
   wysiwygEnterPlugin,
-  ...commonmark,
+  ...commonmarkPreset,
   ...gfm,
   ...history,
   listener,
