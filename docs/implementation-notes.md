@@ -1247,6 +1247,7 @@ if (lang === 'typst') {
 
 - `tauri.conf.json` `bundle.fileAssociations`（md/markdown/mdown/mkd，role=Editor）→ 打包生成 macOS `CFBundleDocumentTypes`（Open With 列表出现，非默认 handler）、Windows 注册表项、Linux mime。**仅打包安装的 .app 生效**（LaunchServices 在安装/首次启动注册），`pnpm tauri:dev` 验证不了。
 - 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `lib.rs` 改 `build().run(|app, event|)`：路径入队（`PENDING_OPEN_FILES`）+ emit `file-open-request`。前端 `openWith.ts` 先注册监听、再 `take_pending_open_files` 取冷启动积压；热打开走 payload 并顺手清空队列。Windows/Linux 是拉起新进程传 argv（无 Opened 事件），argv/single-instance 留后续。
+- **平台门控坑（v0.2.3 CI 实踩）**：`RunEvent::Opened` 变体本身是 `#[cfg(any(target_os = "macos", target_os = "ios"))]`，Windows/Linux 编译直接 E0599——macOS 本机打包发现不了。事件分支与 `handle_opened_urls` 都需 `#[cfg(target_os = "macos")]` 门控（闭包参数改 `_app/_event` 避免其他平台 unused 警告）。新增平台专属 API 时先在 registry 源码确认其 cfg 条件。
 
 ### 2026-08-07 追加修复（右键误触 resize / 视图菜单混淆项）
 
