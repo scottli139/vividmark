@@ -140,6 +140,8 @@ Defined in `src-tauri/src/lib.rs`:
 | `create_folder`         | `path`                | `null`            | Create directory                          |
 | `rename_path`           | `oldPath, newPath`    | `null`            | Rename/move file or folder                |
 | `delete_path`           | `path`                | `null`            | Delete (folder: recursive)                |
+| `copy_path`             | `oldPath, newPath`    | `null`            | Copy (folder: recursive)                  |
+| `reveal_in_folder`      | `path`                | `null`            | Reveal in system file manager             |
 | `export_pdf`            | html content, title   | `ExportPdfResult` | Temp HTML → system browser                |
 | `print_pdf`             | `fileName`            | `ExportPdfResult` | Native print dialog                       |
 | `rebuild_menu`          | `lang, recentFiles`   | `null`            | Rebuild native menu (i18n / recent files) |

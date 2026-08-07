@@ -64,6 +64,7 @@ export interface EditorState {
   addRecentFile: (path: string, name: string) => void
   renameRecentFile: (oldPath: string, newPath: string, newName: string) => void
   clearRecentFiles: () => void
+  removeRecentFile: (path: string) => void
   toggleDarkMode: () => void
   setThemeMode: (mode: ThemeMode) => void
   setSystemDark: (systemDark: boolean) => void
@@ -221,6 +222,12 @@ export const useEditorStore = create<EditorState>()(
         }),
 
       clearRecentFiles: () => set({ recentFiles: [] }),
+
+      // 最近文件右键菜单「从列表移除」（不删文件本身）
+      removeRecentFile: (path) =>
+        set((state) => ({
+          recentFiles: state.recentFiles.filter((f) => f.path !== path),
+        })),
 
       // 文件树重命名当前文件时同步最近文件条目
       renameRecentFile: (oldPath, newPath, newName) =>

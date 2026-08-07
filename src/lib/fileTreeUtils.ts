@@ -104,6 +104,61 @@ export async function deletePath(path: string): Promise<void> {
 }
 
 /**
+ * 检查路径是否存在
+ */
+export async function pathExists(path: string): Promise<boolean> {
+  try {
+    return await invoke<boolean>('file_exists', { path })
+  } catch (error) {
+    fileOpsLogger.error('Failed to check file existence:', error)
+    throw error
+  }
+}
+
+/**
+ * 复制文件或文件夹（文件夹递归复制；目标已存在时后端报错）
+ */
+export async function copyPath(oldPath: string, newPath: string): Promise<void> {
+  fileOpsLogger.debug('Copying path:', { oldPath, newPath })
+
+  try {
+    await invoke('copy_path', { oldPath, newPath })
+    fileOpsLogger.info('Path copied:', { oldPath, newPath })
+  } catch (error) {
+    fileOpsLogger.error('Failed to copy path:', error)
+    throw error
+  }
+}
+
+/**
+ * 在系统文件管理器中显示（macOS Finder 选中该项）
+ */
+export async function revealInFolder(path: string): Promise<void> {
+  fileOpsLogger.debug('Revealing in folder:', { path })
+
+  try {
+    await invoke('reveal_in_folder', { path })
+    fileOpsLogger.info('Revealed in folder:', { path })
+  } catch (error) {
+    fileOpsLogger.error('Failed to reveal in folder:', error)
+    throw error
+  }
+}
+
+/**
+ * 生成副本文件名（第 n 个候选，纯函数）：
+ * 文件 `a.md` → `a copy.md` / `a copy 2.md`；文件夹 `docs` → `docs copy`。
+ * 扩展名按最后一个 `.` 切分（点开头的隐藏文件 `.x` 视为无扩展名）。
+ */
+export function copyNameCandidate(name: string, isDirectory: boolean, n: number): string {
+  const suffix = n <= 1 ? ' copy' : ` copy ${n}`
+  if (isDirectory) return `${name}${suffix}`
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0) return `${name}${suffix}`
+  return `${name.slice(0, dot)}${suffix}${name.slice(dot)}`
+}
+
+/**
  * 展开/折叠文件夹
  */
 export function toggleFolder(items: FileTreeItem[], targetPath: string): FileTreeItem[] {

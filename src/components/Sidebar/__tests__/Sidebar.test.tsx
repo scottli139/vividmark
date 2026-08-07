@@ -244,6 +244,63 @@ describe('Sidebar', () => {
       expect(screen.getByText('Open Folder')).toBeInTheDocument()
     })
 
+    it('should show context menu on recent file right-click', async () => {
+      useEditorStore.getState().addRecentFile('/path/to/file.md', 'file.md')
+      render(<Sidebar />)
+
+      fireEvent.contextMenu(screen.getByText('file.md'))
+
+      expect(await screen.findByRole('menu')).toBeInTheDocument()
+      expect(screen.getByText('Open')).toBeInTheDocument()
+      expect(screen.getByText('Copy File Path')).toBeInTheDocument()
+      expect(screen.getByText('Reveal in Finder')).toBeInTheDocument()
+      expect(screen.getByText('Remove from List')).toBeInTheDocument()
+    })
+
+    it('should open recent file from context menu', async () => {
+      mockOpenFileByPath.mockResolvedValue(true)
+      useEditorStore.getState().addRecentFile('/path/to/file.md', 'file.md')
+      render(<Sidebar />)
+
+      fireEvent.contextMenu(screen.getByText('file.md'))
+      fireEvent.click(await screen.findByText('Open'))
+
+      await waitFor(() => {
+        expect(mockOpenFileByPath).toHaveBeenCalledWith('/path/to/file.md')
+      })
+    })
+
+    it('should copy path from context menu', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      })
+      useEditorStore.getState().addRecentFile('/path/to/file.md', 'file.md')
+      render(<Sidebar />)
+
+      fireEvent.contextMenu(screen.getByText('file.md'))
+      fireEvent.click(await screen.findByText('Copy File Path'))
+
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith('/path/to/file.md')
+      })
+    })
+
+    it('should remove entry from list without deleting the file', async () => {
+      useEditorStore.getState().addRecentFile('/path/to/a.md', 'a.md')
+      useEditorStore.getState().addRecentFile('/path/to/b.md', 'b.md')
+      render(<Sidebar />)
+
+      fireEvent.contextMenu(screen.getByText('a.md'))
+      fireEvent.click(await screen.findByText('Remove from List'))
+
+      const paths = useEditorStore.getState().recentFiles.map((f) => f.path)
+      expect(paths).toEqual(['/path/to/b.md'])
+      // 只动列表，不碰文件（无任何文件删除调用）
+      expect(screen.queryByText('a.md')).not.toBeInTheDocument()
+    })
+
     it('should open folder dialog when open folder button is clicked', async () => {
       mockOpenDialog.mockResolvedValue('/test/folder')
 

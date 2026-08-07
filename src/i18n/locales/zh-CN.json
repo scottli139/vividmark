@@ -67,7 +67,8 @@
     "expand": "展开",
     "words": "字数：",
     "chars": "字符：",
-    "stats": "统计"
+    "stats": "统计",
+    "removeFromRecent": "从列表移除"
   },
   "statusBar": {
     "words": "字数：{{count}}",
@@ -88,7 +89,13 @@
     "filterPlaceholder": "过滤文件...",
     "noMatches": "无匹配文件",
     "confirmDeleteFile": "删除「{{name}}」？",
-    "confirmDeleteFolder": "删除文件夹「{{name}}」及其全部内容？"
+    "confirmDeleteFolder": "删除文件夹「{{name}}」及其全部内容？",
+    "open": "打开",
+    "duplicate": "创建副本",
+    "duplicateFailed": "创建副本失败：\"{{name}}\" 的副本过多",
+    "copyPath": "复制文件路径",
+    "revealFinder": "在 Finder 中显示",
+    "revealFileManager": "在文件管理器中显示"
   },
   "contextMenu": {
     "undo": "撤销",

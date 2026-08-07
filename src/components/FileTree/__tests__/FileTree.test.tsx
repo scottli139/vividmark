@@ -190,6 +190,118 @@ describe('FileTree', () => {
       expect(screen.queryByText('Delete')).not.toBeInTheDocument()
     })
 
+    it('item menu shows Typora-style extras (open/duplicate/copy path/reveal)', async () => {
+      render(<FileTree />)
+      await screen.findByText('README.md')
+
+      fireEvent.contextMenu(screen.getByText('README.md'))
+
+      expect(await screen.findByRole('menu')).toBeInTheDocument()
+      expect(screen.getByText('Open')).toBeInTheDocument()
+      expect(screen.getByText('Duplicate')).toBeInTheDocument()
+      expect(screen.getByText('Copy File Path')).toBeInTheDocument()
+      // 测试环境 navigator.platform = MacIntel → Finder 文案
+      expect(screen.getByText('Reveal in Finder')).toBeInTheDocument()
+    })
+
+    it('folder item menu has no Open entry', async () => {
+      render(<FileTree />)
+      await screen.findByText('docs')
+
+      fireEvent.contextMenu(screen.getByText('docs'))
+
+      expect(await screen.findByRole('menu')).toBeInTheDocument()
+      expect(screen.queryByText('Open')).not.toBeInTheDocument()
+      expect(screen.getByText('Duplicate')).toBeInTheDocument()
+    })
+
+    it('duplicate copies file with " copy" suffix next to the target', async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: string) => {
+        if (cmd === 'read_directory') return mockTree
+        if (cmd === 'file_exists') return false
+        if (cmd === 'copy_path') return null
+        return null
+      })
+      render(<FileTree />)
+      await screen.findByText('README.md')
+
+      fireEvent.contextMenu(screen.getByText('README.md'))
+      fireEvent.click(await screen.findByText('Duplicate'))
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith('copy_path', {
+          oldPath: '/root/README.md',
+          newPath: '/root/README copy.md',
+        })
+      })
+    })
+
+    it('duplicate bumps suffix when the first candidate exists', async () => {
+      vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => {
+        if (cmd === 'read_directory') return mockTree
+        if (cmd === 'file_exists') {
+          const path = (args as { path: string }).path
+          return path === '/root/README copy.md' // 第一个候选被占用
+        }
+        if (cmd === 'copy_path') return null
+        return null
+      })
+      render(<FileTree />)
+      await screen.findByText('README.md')
+
+      fireEvent.contextMenu(screen.getByText('README.md'))
+      fireEvent.click(await screen.findByText('Duplicate'))
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith('copy_path', {
+          oldPath: '/root/README.md',
+          newPath: '/root/README copy 2.md',
+        })
+      })
+    })
+
+    it('copy path writes the absolute path to clipboard', async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      })
+      render(<FileTree />)
+      await screen.findByText('README.md')
+
+      fireEvent.contextMenu(screen.getByText('README.md'))
+      fireEvent.click(await screen.findByText('Copy File Path'))
+
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith('/root/README.md')
+      })
+    })
+
+    it('reveal invokes backend with the target path', async () => {
+      render(<FileTree />)
+      await screen.findByText('README.md')
+
+      fireEvent.contextMenu(screen.getByText('README.md'))
+      fireEvent.click(await screen.findByText('Reveal in Finder'))
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith('reveal_in_folder', { path: '/root/README.md' })
+      })
+    })
+
+    it('blank-area reveal acts on the opened folder', async () => {
+      render(<FileTree />)
+      await screen.findByText('README.md')
+
+      const scrollArea = document.querySelector('.overflow-y-auto')!
+      fireEvent.contextMenu(scrollArea)
+      fireEvent.click(await screen.findByText('Reveal in Finder'))
+
+      await waitFor(() => {
+        expect(invoke).toHaveBeenCalledWith('reveal_in_folder', { path: '/root' })
+      })
+    })
+
     it('should open folder from blank-area menu', async () => {
       render(<FileTree />)
       await screen.findByText('README.md')

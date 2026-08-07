@@ -430,6 +430,124 @@ fn delete_path(path: String) -> Result<(), String> {
     Ok(())
 }
 
+// 复制文件或目录（目录递归复制；目标已存在时报错，副本命名由前端避让）
+#[tauri::command]
+fn copy_path(old_path: String, new_path: String) -> Result<(), String> {
+    fn copy_dir_recursive(src: &PathBuf, dst: &PathBuf) -> std::io::Result<()> {
+        fs::create_dir_all(dst)?;
+        for entry in fs::read_dir(src)? {
+            let entry = entry?;
+            let target = dst.join(entry.file_name());
+            if entry.file_type()?.is_dir() {
+                copy_dir_recursive(&entry.path(), &target)?;
+            } else {
+                fs::copy(entry.path(), &target)?;
+            }
+        }
+        Ok(())
+    }
+
+    let src = PathBuf::from(&old_path);
+    let dst = PathBuf::from(&new_path);
+
+    if !src.exists() {
+        log::error!("[copy_path] Source path does not exist: {}", old_path);
+        return Err(format!("Source path does not exist: {}", old_path));
+    }
+    if dst.exists() {
+        log::error!("[copy_path] Target path already exists: {}", new_path);
+        return Err(format!("Target path already exists: {}", new_path));
+    }
+
+    let is_dir = src.is_dir();
+    let result = if is_dir {
+        copy_dir_recursive(&src, &dst)
+    } else {
+        fs::copy(&src, &dst).map(|_| ())
+    };
+
+    result.map_err(|e| {
+        let error_msg = format_error_with_context("copy_path", &old_path, &e);
+        log::error!("[copy_path] Operation failed: {}", error_msg);
+        format!(
+            "Failed to copy {}: {}",
+            if is_dir { "folder" } else { "file" },
+            e
+        )
+    })?;
+
+    log::info!(
+        "[copy_path] ✓ Success: {} -> {} ({})",
+        old_path,
+        new_path,
+        if is_dir { "folder" } else { "file" }
+    );
+    Ok(())
+}
+
+// 在系统文件管理器中显示（macOS Finder 选中该文件/夹；Linux 打开父目录）
+#[tauri::command]
+fn reveal_in_folder(path: String) -> Result<(), String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        log::error!("[reveal_in_folder] Path does not exist: {}", path);
+        return Err(format!("Path does not exist: {}", path));
+    }
+
+    #[cfg(target_os = "macos")]
+    let result = std::process::Command::new("open")
+        .arg("-R")
+        .arg(&path)
+        .status()
+        .map_err(|e| e.to_string())
+        .and_then(|s| {
+            if s.success() {
+                Ok(())
+            } else {
+                Err(format!("open -R exited with {}", s))
+            }
+        });
+
+    #[cfg(target_os = "windows")]
+    let result = std::process::Command::new("explorer")
+        .arg(format!("/select,{}", path.replace('/', "\\")))
+        .status()
+        .map_err(|e| e.to_string())
+        .and_then(|s| {
+            // explorer 选中文件时退出码可能非 0，但操作已成功
+            if s.success() || s.code() == Some(1) {
+                Ok(())
+            } else {
+                Err(format!("explorer exited with {}", s))
+            }
+        });
+
+    #[cfg(target_os = "linux")]
+    let result = {
+        // xdg-open 无法选中文件，打开父目录
+        let dir = p.parent().map(|d| d.to_path_buf()).unwrap_or(p.clone());
+        std::process::Command::new("xdg-open")
+            .arg(&dir)
+            .status()
+            .map_err(|e| e.to_string())
+            .and_then(|s| {
+                if s.success() {
+                    Ok(())
+                } else {
+                    Err(format!("xdg-open exited with {}", s))
+                }
+            })
+    };
+
+    result.map_err(|e| {
+        log::error!("[reveal_in_folder] Failed: {} ({})", path, e);
+        format!("Failed to reveal in folder: {}", e)
+    })?;
+
+    log::info!("[reveal_in_folder] ✓ Success: {}", path);
+    Ok(())
+}
+
 // 导出 PDF - 使用系统打印对话框
 #[tauri::command]
 async fn export_pdf(
@@ -997,7 +1115,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, create_file, create_folder, rename_path, delete_path, export_pdf, print_pdf, rebuild_menu, set_menu_item_enabled, set_menu_item_checked])
+        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, create_file, create_folder, rename_path, delete_path, copy_path, reveal_in_folder, export_pdf, print_pdf, rebuild_menu, set_menu_item_enabled, set_menu_item_checked])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

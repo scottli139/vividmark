@@ -94,7 +94,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Theme modes** - Light, Dark, or Auto (follows system appearance)
 - **Settings panel** - Appearance, language, and sidebar preferences in one place
 - **Sidebar with outline navigation** - Collapsible outline tree with active-position highlighting and click-to-navigate (works in all view modes)
-- **File tree with file management** - Browse folders, filter by name, and create/rename/delete files via the context menu
+- **File tree with file management** - Browse folders, filter by name, and open/create/duplicate/rename/delete files, copy paths, or reveal in Finder via the context menu
 - **Clean UI** - Minimalist design for focused writing
 - **Sync scrolling** - Split mode with bidirectional scroll synchronization
 

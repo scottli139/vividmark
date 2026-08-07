@@ -8,6 +8,11 @@ import {
 } from '../../stores/editorStore'
 import { openFileByPath } from '../../lib/fileOps'
 import { confirmDialog } from '../../lib/dialog'
+import { revealInFolder } from '../../lib/fileTreeUtils'
+import { writeClipboardText } from '../../lib/clipboard'
+import { isMacOS } from '../../lib/platform'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { ContextMenu, type MenuItem } from '../Menu'
 import {
   buildOutlineTree,
   extractOutline,
@@ -41,6 +46,28 @@ export function Sidebar() {
 
   // 最近文件过滤关键字（本地状态）
   const [recentFilter, setRecentFilter] = useState('')
+
+  // 最近文件右键菜单（打开/复制路径/在 Finder 中显示/从列表移除）
+  const {
+    menu: recentMenu,
+    openMenu: openRecentMenu,
+    closeMenu: closeRecentMenu,
+  } = useContextMenu<RecentFile>()
+  const removeRecentFile = useEditorStore((state) => state.removeRecentFile)
+
+  const recentMenuItems = useMemo<MenuItem[]>(
+    () => [
+      { id: 'open', label: t('fileTree.open') },
+      { id: 'copy-path', label: t('fileTree.copyPath') },
+      {
+        id: 'reveal',
+        label: t(isMacOS() ? 'fileTree.revealFinder' : 'fileTree.revealFileManager'),
+      },
+      { divider: true },
+      { id: 'remove', label: t('sidebar.removeFromRecent') },
+    ],
+    [t]
+  )
 
   // 大纲折叠状态：存已折叠项的 OutlineItem.index，默认全展开；
   // 内容变化（防抖后）时集合自然保留，index 漂移可接受，不做过期清理
@@ -111,6 +138,28 @@ export function Sidebar() {
       await openFileByPath(file.path)
     },
     [isDirty, t]
+  )
+
+  const handleRecentMenuSelect = useCallback(
+    (id: string) => {
+      const file = recentMenu?.data
+      if (!file) return
+      switch (id) {
+        case 'open':
+          void handleRecentFileClick(file)
+          break
+        case 'copy-path':
+          void writeClipboardText(file.path)
+          break
+        case 'reveal':
+          void revealInFolder(file.path).catch(() => {})
+          break
+        case 'remove':
+          removeRecentFile(file.path)
+          break
+      }
+    },
+    [recentMenu, removeRecentFile, handleRecentFileClick]
   )
 
   // 打开文件夹（与 FileTree 未打开状态的入口一致）
@@ -257,6 +306,7 @@ export function Sidebar() {
                   <li
                     key={file.path}
                     onClick={() => handleRecentFileClick(file)}
+                    onContextMenu={(e) => openRecentMenu(e, file)}
                     className="text-sm text-[var(--color-text)] hover:text-[var(--accent-color)] cursor-pointer truncate flex items-center gap-1"
                     title={file.path}
                   >
@@ -281,6 +331,17 @@ export function Sidebar() {
           </div>
         )}
       </div>
+
+      {/* 最近文件右键菜单 */}
+      {recentMenu && (
+        <ContextMenu
+          x={recentMenu.x}
+          y={recentMenu.y}
+          items={recentMenuItems}
+          onSelect={handleRecentMenuSelect}
+          onClose={closeRecentMenu}
+        />
+      )}
 
       {/* 拖拽调整宽度的 handle */}
       <div

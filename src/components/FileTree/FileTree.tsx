@@ -19,8 +19,14 @@ import {
   createFolder,
   renamePath,
   deletePath,
+  copyPath,
+  revealInFolder,
+  pathExists,
+  copyNameCandidate,
 } from '../../lib/fileTreeUtils'
 import { openFileByPath } from '../../lib/fileOps'
+import { writeClipboardText } from '../../lib/clipboard'
+import { isMacOS } from '../../lib/platform'
 import { confirmDialog, alertDialog } from '../../lib/dialog'
 import { useEditorStore } from '../../stores/editorStore'
 import { ContextMenu, type MenuItem } from '../Menu'
@@ -178,6 +184,28 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
     [t, refreshTree]
   )
 
+  // 创建副本：`a.md` → `a copy.md`（重名递增 ` copy N`），与目标同目录
+  const handleDuplicate = useCallback(
+    async (item: FileTreeItem) => {
+      const parentPath = getParentPath(item.path)
+      for (let n = 1; n < 100; n++) {
+        const candidate = `${parentPath}/${copyNameCandidate(item.name, item.isDirectory, n)}`
+        try {
+          if (!(await pathExists(candidate))) {
+            await copyPath(item.path, candidate)
+            await refreshTree(candidate)
+            return
+          }
+        } catch (err) {
+          await alertDialog(errorMessage(err))
+          return
+        }
+      }
+      await alertDialog(t('fileTree.duplicateFailed', { name: item.name }))
+    },
+    [refreshTree, t]
+  )
+
   // 右键菜单
   const handleItemContextMenu = useCallback((item: FileTreeItem, e: React.MouseEvent) => {
     e.preventDefault()
@@ -194,19 +222,32 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
 
   const contextMenuItems = useMemo<MenuItem[]>(() => {
     if (!contextMenu) return []
+    const revealLabel = t(isMacOS() ? 'fileTree.revealFinder' : 'fileTree.revealFileManager')
     if (contextMenu.target) {
+      const target = contextMenu.target
+      // 结构对齐 Typora：打开 — 新建 — 副本/重命名 — 删除 — 路径/访达
       return [
+        ...(!target.isDirectory
+          ? ([{ id: 'open', label: t('fileTree.open') }, { divider: true }] as MenuItem[])
+          : []),
         { id: 'new-file', label: t('fileTree.newFile') },
         { id: 'new-folder', label: t('fileTree.newFolder') },
+        { divider: true },
+        { id: 'duplicate', label: t('fileTree.duplicate') },
         { id: 'rename', label: t('fileTree.rename') },
         { divider: true },
         { id: 'delete', label: t('fileTree.delete') },
+        { divider: true },
+        { id: 'copy-path', label: t('fileTree.copyPath') },
+        { id: 'reveal', label: revealLabel },
       ]
     }
     return [
       { id: 'new-file', label: t('fileTree.newFile') },
       { id: 'new-folder', label: t('fileTree.newFolder') },
       { id: 'open-folder', label: t('fileTree.openFolder') },
+      { divider: true },
+      { id: 'reveal', label: revealLabel },
     ]
   }, [contextMenu, t])
 
@@ -227,23 +268,45 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
           }
           break
         }
+        case 'open':
+          if (target) void handleSelect(target)
+          break
         case 'rename':
           if (target) {
             setCreating(null)
             setEditingPath(target.path)
           }
           break
+        case 'duplicate':
+          if (target) void handleDuplicate(target)
+          break
         case 'delete':
           if (target) {
             void handleDelete(target)
           }
           break
+        case 'copy-path':
+          if (target) void writeClipboardText(target.path)
+          break
+        case 'reveal': {
+          const path = target?.path ?? openedFolder
+          if (path) void revealInFolder(path).catch((err) => alertDialog(errorMessage(err)))
+          break
+        }
         case 'open-folder':
           void handleOpenFolder()
           break
       }
     },
-    [contextMenu, openedFolder, startCreating, handleDelete, handleOpenFolder]
+    [
+      contextMenu,
+      openedFolder,
+      startCreating,
+      handleSelect,
+      handleDuplicate,
+      handleDelete,
+      handleOpenFolder,
+    ]
   )
 
   // 重命名提交：同步 store（当前打开文件）并刷新定位

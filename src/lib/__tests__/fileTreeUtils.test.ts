@@ -5,6 +5,7 @@ import {
   createFolder,
   renamePath,
   deletePath,
+  copyNameCandidate,
   toggleFolder,
   findTreeItem,
   expandParentPaths,
@@ -516,6 +517,29 @@ describe('fileTreeUtils', () => {
     it('should return null for root-level path', () => {
       expect(getParentPath('/file.md')).toBeNull()
       expect(getParentPath('file.md')).toBeNull()
+    })
+  })
+
+  describe('copyNameCandidate', () => {
+    it('file: inserts " copy" before the extension', () => {
+      expect(copyNameCandidate('a.md', false, 1)).toBe('a copy.md')
+      expect(copyNameCandidate('a.md', false, 2)).toBe('a copy 2.md')
+      expect(copyNameCandidate('notes.tar.gz', false, 1)).toBe('notes.tar copy.gz')
+    })
+
+    it('file without extension: appends suffix', () => {
+      expect(copyNameCandidate('README', false, 1)).toBe('README copy')
+    })
+
+    it('dotfile: leading dot is not treated as extension', () => {
+      expect(copyNameCandidate('.gitignore', false, 1)).toBe('.gitignore copy')
+    })
+
+    it('directory: appends suffix without extension handling', () => {
+      expect(copyNameCandidate('docs', true, 1)).toBe('docs copy')
+      expect(copyNameCandidate('docs', true, 3)).toBe('docs copy 3')
+      // 文件夹名里的点不当扩展名
+      expect(copyNameCandidate('my.docs', true, 1)).toBe('my.docs copy')
     })
   })
 

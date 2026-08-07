@@ -67,7 +67,8 @@
     "expand": "Expand",
     "words": "Words:",
     "chars": "Chars:",
-    "stats": "Statistics"
+    "stats": "Statistics",
+    "removeFromRecent": "Remove from List"
   },
   "statusBar": {
     "words": "Words: {{count}}",
@@ -88,7 +89,13 @@
     "filterPlaceholder": "Filter files...",
     "noMatches": "No matching files",
     "confirmDeleteFile": "Delete \"{{name}}\"?",
-    "confirmDeleteFolder": "Delete folder \"{{name}}\" and all its contents?"
+    "confirmDeleteFolder": "Delete folder \"{{name}}\" and all its contents?",
+    "open": "Open",
+    "duplicate": "Duplicate",
+    "duplicateFailed": "Failed to duplicate \"{{name}}\": too many copies",
+    "copyPath": "Copy File Path",
+    "revealFinder": "Reveal in Finder",
+    "revealFileManager": "Reveal in File Manager"
   },
   "contextMenu": {
     "undo": "Undo",

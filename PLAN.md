@@ -826,6 +826,15 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 - ✅ **在上方/下方插入段落**：当前顶层块前后插空段落并落入光标，解决表格/代码块贴边时 WYSIWYG 难以分段
 - ✅ 测试：MenuPanel 子菜单 5 例 + 插入段落/正文/分割线动作 5 例；E2E 更新为子菜单交互 + 新增插入段落用例（8/8）
 
+### 2026-08-07 文件树右键菜单 Typora 化扩展
+
+参考 Typora 文件树菜单，新增四项能力（跳过不适用项：多窗口/文档列表/显示简介/自动填充）：
+
+- ✅ **打开**（仅文件）/ **创建副本**（`a.md` → `a copy.md`，重名递增 ` copy N`，文件夹递归复制）/ **复制文件路径**（clipboard 封装）/ **在 Finder 中显示**（非 macOS 文案为「在文件管理器中显示」）
+- ✅ **Rust 新命令**：`copy_path`（目录递归复制）、`reveal_in_folder`（macOS `open -R`；Windows `explorer /select,`；Linux xdg-open 父目录）
+- ✅ 空白区菜单补「在 Finder 中显示」（作用于根目录）；i18n `fileTree.*` 6 键三处同步
+- ✅ 测试：`copyNameCandidate` 纯函数 5 例 + FileTree 菜单/副本/复制路径/reveal 7 例
+
 ---
 
 ## 注意事项
