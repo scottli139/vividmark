@@ -23,6 +23,7 @@ Key features:
 | ------------------------------------------------------------------ | ------------------------------------------------------ |
 | `PLAN.md`                                                          | 开发计划与任务进度（唯一的任务看板，不在本文件重复）   |
 | `docs/implementation-notes.md`                                     | 实现细节知识库：已知问题、架构要点、发布流程、Git 规范 |
+| `docs/session-log.md`                                              | 历史开发日志（Session 记录，自 PLAN.md 归档）          |
 | `docs/REQUIREMENTS.md`                                             | 需求文档                                               |
 | `docs/ux-improvement-plan.md`                                      | Typora 对标体验差距分析与 P0–P3 改进方案               |
 | `docs/wysiwyg-research.md` + `docs/wysiwyg-implementation-plan.md` | WYSIWYG 模式调研与实现计划（自研路线，已被 P2 取代）   |
@@ -134,50 +135,50 @@ Main store: `src/stores/editorStore.ts`.
 
 Defined in `src-tauri/src/lib.rs`:
 
-| Command                 | Parameters            | Returns           | Description                               |
-| ----------------------- | --------------------- | ----------------- | ----------------------------------------- |
-| `read_file`             | `path`                | `FileInfo`        | Read file content                         |
-| `save_file`             | `path, content`       | `SaveResult`      | Write file content                        |
-| `file_exists`           | `path`                | `bool`            | Check existence                           |
-| `read_directory`        | `ReadDirectoryParams` | `FileTreeItem[]`  | File tree data                            |
-| `create_file`           | `path`                | `null`            | Create empty file                         |
-| `create_folder`         | `path`                | `null`            | Create directory                          |
-| `rename_path`           | `oldPath, newPath`    | `null`            | Rename/move file or folder                |
-| `delete_path`           | `path`                | `null`            | Delete (folder: recursive)                |
-| `copy_path`             | `oldPath, newPath`    | `null`            | Copy (folder: recursive)                  |
-| `reveal_in_folder`      | `path`                | `null`            | Reveal in system file manager             |
-| `export_pdf`            | html content, title   | `ExportPdfResult` | Temp HTML → system browser                |
-| `print_pdf`             | `fileName`            | `ExportPdfResult` | Native print dialog                       |
-| `rebuild_menu`          | `lang, recentFiles`   | `null`            | Rebuild native menu (i18n / recent files) |
-| `set_menu_item_enabled` | `id, enabled`         | `null`            | Native menu item enabled state            |
-| `set_menu_item_checked` | `id, checked`         | `null`            | Native menu check item state              |
-| `update_dock_menu`      | `lang, recentFiles`   | `null`            | Rebuild macOS Dock menu（其他平台 no-op） |
-| `take_pending_open_files` | —                   | `String[]`        | 取走文件关联打开的路径队列（冷启动积压）  |
+| Command                   | Parameters            | Returns           | Description                               |
+| ------------------------- | --------------------- | ----------------- | ----------------------------------------- |
+| `read_file`               | `path`                | `FileInfo`        | Read file content                         |
+| `save_file`               | `path, content`       | `SaveResult`      | Write file content                        |
+| `file_exists`             | `path`                | `bool`            | Check existence                           |
+| `read_directory`          | `ReadDirectoryParams` | `FileTreeItem[]`  | File tree data                            |
+| `create_file`             | `path`                | `null`            | Create empty file                         |
+| `create_folder`           | `path`                | `null`            | Create directory                          |
+| `rename_path`             | `oldPath, newPath`    | `null`            | Rename/move file or folder                |
+| `delete_path`             | `path`                | `null`            | Delete (folder: recursive)                |
+| `copy_path`               | `oldPath, newPath`    | `null`            | Copy (folder: recursive)                  |
+| `reveal_in_folder`        | `path`                | `null`            | Reveal in system file manager             |
+| `export_pdf`              | html content, title   | `ExportPdfResult` | Temp HTML → system browser                |
+| `print_pdf`               | `fileName`            | `ExportPdfResult` | Native print dialog                       |
+| `rebuild_menu`            | `lang, recentFiles`   | `null`            | Rebuild native menu (i18n / recent files) |
+| `set_menu_item_enabled`   | `id, enabled`         | `null`            | Native menu item enabled state            |
+| `set_menu_item_checked`   | `id, checked`         | `null`            | Native menu check item state              |
+| `update_dock_menu`        | `lang, recentFiles`   | `null`            | Rebuild macOS Dock menu（其他平台 no-op） |
+| `take_pending_open_files` | —                     | `String[]`        | 取走文件关联打开的路径队列（冷启动积压）  |
 
 Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `generate_handler![]`, invoke via `@tauri-apps/api/core`. Struct fields cross the bridge as camelCase (`#[serde(rename = "isDirectory")]`).
 
 ## Keyboard Shortcuts
 
-| Shortcut                         | Action                             | Implementation                                                                              |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------- |
-| `Cmd/Ctrl + O / S / Shift+S / N` | Open / Save / Save As / New        | 原生菜单（桌面端）/ `useKeyboardShortcuts.ts`（浏览器）                                     |
-| `Cmd/Ctrl + Shift+O`             | 打开文件夹                         | 原生菜单（文件菜单）                                                                        |
-| `Cmd/Ctrl + /`                   | WYSIWYG ⇄ Source 切换              | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview） |
-| `Cmd/Ctrl + B / I / K`           | Bold / Italic / Link               | 原生菜单（格式菜单，桌面端）→ editor-format；浏览器走 CM keymap / Milkdown keymap           |
-| `Cmd/Ctrl + 0`                   | 正文（剥掉块级前缀）               | 原生菜单（段落菜单，桌面端）                                                                |
-| `Cmd/Ctrl + 1 ~ 6`               | Heading 1 ~ 6                      | 原生菜单（段落菜单，桌面端）→ editor-format；浏览器走 CM keymap / `wysiwygShortcutPlugin`（仅 1~3） |
-| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（段落菜单，桌面端）→ editor-format                                             |
-| `Cmd/Ctrl + Shift+V`             | 粘贴为纯文本                       | 原生菜单（编辑菜单）→ clipboard 读文本 → editor-insert                                      |
-| `Cmd/Ctrl + Z / Shift+Z`         | Undo / Redo                        | 原生菜单 → editor-undo/redo；CM / Milkdown history                                          |
-| `Cmd/Ctrl + F`                   | Find & replace                     | 原生菜单 → editor-find → `@codemirror/search`                                               |
-| `Cmd/Ctrl + =/+ / -`             | Zoom in / out                      | 原生菜单 / `Editor.tsx`                                                                     |
-| `Cmd/Ctrl + Shift+0`             | Zoom reset（⌘0 已让位「正文」）    | 原生菜单 / `Editor.tsx`                                                                     |
-| `Cmd/Ctrl + ,`                   | Settings                           | 原生菜单（App/File 菜单）                                                                   |
-| `Cmd/Ctrl + Shift+B`             | Toggle Sidebar                     | 原生菜单（View 菜单）                                                                       |
-| `Ctrl+Cmd + 1 / 2`（仅 macOS）   | 侧栏 文件 / 大纲 tab               | 原生菜单（View 菜单 check 项）                                                              |
-| `Cmd/Ctrl + Alt+1~4`             | WYSIWYG / Source / Split / Preview | 原生菜单（View 菜单 check 项）                                                              |
-| `Cmd/Ctrl + P`                   | Export PDF                         | 原生菜单 / `MoreMenu`                                                                       |
-| `Escape`                         | Exit edit mode                     | `Editor.tsx`                                                                                |
+| Shortcut                           | Action                                 | Implementation                                                                                                            |
+| ---------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Cmd/Ctrl + O / S / Shift+S / N`   | Open / Save / Save As / New            | 原生菜单（桌面端）/ `useKeyboardShortcuts.ts`（浏览器）                                                                   |
+| `Cmd/Ctrl + Shift+O`               | 打开文件夹                             | 原生菜单（文件菜单）                                                                                                      |
+| `Cmd/Ctrl + /`                     | WYSIWYG ⇄ Source 切换                  | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview） |
+| `Cmd/Ctrl + B / I / K`             | Bold / Italic / Link                   | 原生菜单（格式菜单，桌面端）→ editor-format；浏览器走 CM keymap / Milkdown keymap                                         |
+| `Cmd/Ctrl + 0`                     | 正文（剥掉块级前缀）                   | 原生菜单（段落菜单，桌面端）                                                                                              |
+| `Cmd/Ctrl + 1 ~ 6`                 | Heading 1 ~ 6                          | 原生菜单（段落菜单，桌面端）→ editor-format；浏览器走 CM keymap / `wysiwygShortcutPlugin`（仅 1~3）                       |
+| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（段落菜单，桌面端）→ editor-format                                                                               |
+| `Cmd/Ctrl + Shift+V`               | 粘贴为纯文本                           | 原生菜单（编辑菜单）→ clipboard 读文本 → editor-insert                                                                    |
+| `Cmd/Ctrl + Z / Shift+Z`           | Undo / Redo                            | 原生菜单 → editor-undo/redo；CM / Milkdown history                                                                        |
+| `Cmd/Ctrl + F`                     | Find & replace                         | 原生菜单 → editor-find → `@codemirror/search`                                                                             |
+| `Cmd/Ctrl + =/+ / -`               | Zoom in / out                          | 原生菜单 / `Editor.tsx`                                                                                                   |
+| `Cmd/Ctrl + Shift+0`               | Zoom reset（⌘0 已让位「正文」）        | 原生菜单 / `Editor.tsx`                                                                                                   |
+| `Cmd/Ctrl + ,`                     | Settings                               | 原生菜单（App/File 菜单）                                                                                                 |
+| `Cmd/Ctrl + Shift+B`               | Toggle Sidebar                         | 原生菜单（View 菜单）                                                                                                     |
+| `Ctrl+Cmd + 1 / 2`（仅 macOS）     | 侧栏 文件 / 大纲 tab                   | 原生菜单（View 菜单 check 项）                                                                                            |
+| `Cmd/Ctrl + Alt+1~4`               | WYSIWYG / Source / Split / Preview     | 原生菜单（View 菜单 check 项）                                                                                            |
+| `Cmd/Ctrl + P`                     | Export PDF                             | 原生菜单 / `MoreMenu`                                                                                                     |
+| `Escape`                           | Exit edit mode                         | `Editor.tsx`                                                                                                              |
 
 ## Architecture Notes & Gotchas
 
@@ -191,7 +192,7 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（菜单/工具栏 → 编辑器），`editor-scroll-to-heading` (outline nav), `editor-request-html` (PDF export), `editor-find` (原生菜单 Find), `app-open-dialog` (原生菜单 → Toolbar 的表格/提示框对话框), `file-open-request` (文件关联打开)
 - **WYSIWYG Enter 模型**: 普通段落 Enter = 行内软换行（源码单换行、行间无空行），Enter×2 = 新段落；列表/标题/代码块行为不变（`wysiwygEnterCommand`，IME 回车补偿共用）。CM 的 defaultKeymap 已移除 `Mod-/`（toggleComment 会把内容注释成 `<!-- -->`，与模式切换冲突）。中文 IME（WKWebView）的幻影节点/回车吞键有专门插件链，细节见 implementation-notes「中文 IME 组合输入系列问题」
 - **原生菜单事件流**: `src-tauri/src/menu.rs` 构建系统菜单（macOS App/文件/编辑/段落/格式/视图/窗口；Windows/Linux 适配）→ `on_menu_event` emit `native-menu-event` → `src/lib/nativeMenu.ts` `handleMenuAction` 分发。带 accelerator 的键在桌面端被 OS 拦截，webview 收不到 keydown —— 桌面端快捷键由菜单事件驱动，`useKeyboardShortcuts` 仅浏览器 dev/E2E 生效，互不重迭。**id 约定与右键菜单同源**：`format:<FormatType>` → editor-format 事件总线（FormatType 含 h1-h6/ol/paragraph 等，`markdownEditing.ts` 与 `wysiwygFormat.ts` 双端实现）；`insert:image` 走 `editorActions.ts` 共享流程、`insert:table|admonition` 经 `app-open-dialog` 打开 Toolbar 挂载的对话框、`insert:hr` 走 editor-insert。菜单 check/enabled 态与语言/最近文件由 store 订阅经 `set_menu_item_checked/enabled`/`rebuild_menu` 同步（**`Menu::get` 只查顶层项，子菜单内的项必须走 lib.rs 的 `find_menu_item` 递归查找；muda CheckMenuItem 点击会原生自动翻转勾选，最终态以同步为准；菜单重建后 check/enabled 回到构建默认值，必须重新同步一轮**）；Edit 的 Undo/Redo 用自定义项（系统级 undo 会绕过 CM/Milkdown history）
-- **macOS Dock 右键菜单**: `src-tauri/src/dock_menu.rs`（仅 macOS）——Tauri/muda/tao 均无 API，用 objc2 运行时给 tao AppDelegate 类 `class_addMethod(applicationDockMenu:)`，菜单项动作复用 `native-menu-event` 通道（file-new/file-open/open-recent:*/clear-recent）；前端在 rebuild_menu 的同订阅点调 `update_dock_menu` 重建。**tao 升级需回归验证**
+- **macOS Dock 右键菜单**: `src-tauri/src/dock_menu.rs`（仅 macOS）——Tauri/muda/tao 均无 API，用 objc2 运行时给 tao AppDelegate 类 `class_addMethod(applicationDockMenu:)`，菜单项动作复用 `native-menu-event` 通道（file-new/file-open/open-recent:\*/clear-recent）；前端在 rebuild_menu 的同订阅点调 `update_dock_menu` 重建。**tao 升级需回归验证**
 - **文件关联（Open With）**: `tauri.conf.json` `bundle.fileAssociations` 声明 md/markdown 等扩展（仅打包安装后生效，LaunchServices 注册）；macOS 双击/打开方式 → `RunEvent::Opened` → 排队 + emit `file-open-request` → `src/lib/openWith.ts`（冷启动积压由 `take_pending_open_files` 补取）；Windows/Linux 关联已生成但 argv 打开未接（后续项）
 - **Task list checkboxes**: with `dangerouslySetInnerHTML`, never read `checkbox.checked` — use the `data-task-status` attribute and re-sync DOM state in a `useEffect` after each render
 - **Windows paths**: normalize `\` → `/` before any path math (`imageUtils.getRelativePath`, `parser.resolveRelativePath`, Editor `baseDir`)
