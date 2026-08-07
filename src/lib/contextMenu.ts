@@ -27,8 +27,13 @@ const FORMAT_LABEL_KEYS: Record<string, string> = {
   h1: 'contextMenu.heading1',
   h2: 'contextMenu.heading2',
   h3: 'contextMenu.heading3',
+  h4: 'contextMenu.heading4',
+  h5: 'contextMenu.heading5',
+  h6: 'contextMenu.heading6',
+  paragraph: 'contextMenu.normalText',
   quote: 'contextMenu.quote',
   list: 'contextMenu.bulletList',
+  ol: 'contextMenu.orderedList',
   tasklist: 'contextMenu.taskList',
   codeblock: 'contextMenu.codeBlock',
 }
@@ -48,6 +53,10 @@ export interface ShortcutLabels {
   heading1: string
   heading2: string
   heading3: string
+  heading4: string
+  heading5: string
+  heading6: string
+  paragraph: string
 }
 
 export function getShortcutLabels(isMac: boolean): ShortcutLabels {
@@ -66,6 +75,10 @@ export function getShortcutLabels(isMac: boolean): ShortcutLabels {
       heading1: '⌘1',
       heading2: '⌘2',
       heading3: '⌘3',
+      heading4: '⌘4',
+      heading5: '⌘5',
+      heading6: '⌘6',
+      paragraph: '⌘0',
     }
   }
   return {
@@ -82,6 +95,10 @@ export function getShortcutLabels(isMac: boolean): ShortcutLabels {
     heading1: 'Ctrl+1',
     heading2: 'Ctrl+2',
     heading3: 'Ctrl+3',
+    heading4: 'Ctrl+4',
+    heading5: 'Ctrl+5',
+    heading6: 'Ctrl+6',
+    paragraph: 'Ctrl+0',
   }
 }
 
@@ -99,6 +116,14 @@ function formatShortcut(format: FormatType, shortcuts: ShortcutLabels): string |
       return shortcuts.heading2
     case 'h3':
       return shortcuts.heading3
+    case 'h4':
+      return shortcuts.heading4
+    case 'h5':
+      return shortcuts.heading5
+    case 'h6':
+      return shortcuts.heading6
+    case 'paragraph':
+      return shortcuts.paragraph
     default:
       return undefined
   }
@@ -171,27 +196,27 @@ function buildFormatSubmenu(t: TranslateFn, shortcuts: ShortcutLabels): MenuItem
   }
 }
 
-/** 「段落 ▸」子菜单：块级格式；includeParagraph 时带「正文」（WYSIWYG 专有） */
-function buildParagraphSubmenu(
-  t: TranslateFn,
-  shortcuts: ShortcutLabels,
-  options: { includeParagraph: boolean }
-): MenuItem {
-  const children: MenuItem[] = []
-  if (options.includeParagraph) {
-    children.push({ id: 'block:paragraph', label: t('contextMenu.normalText') })
+/** 「段落 ▸」子菜单（Typora 结构）：正文 + 标题 1-6 + 引用/列表/任务/代码块（两模式通用） */
+function buildParagraphSubmenu(t: TranslateFn, shortcuts: ShortcutLabels): MenuItem {
+  return {
+    id: 'submenu:paragraph',
+    label: t('contextMenu.paragraph'),
+    children: [
+      formatItem(t, shortcuts, 'paragraph'),
+      formatItem(t, shortcuts, 'h1'),
+      formatItem(t, shortcuts, 'h2'),
+      formatItem(t, shortcuts, 'h3'),
+      formatItem(t, shortcuts, 'h4'),
+      formatItem(t, shortcuts, 'h5'),
+      formatItem(t, shortcuts, 'h6'),
+      { divider: true },
+      formatItem(t, shortcuts, 'quote'),
+      formatItem(t, shortcuts, 'list'),
+      formatItem(t, shortcuts, 'ol'),
+      formatItem(t, shortcuts, 'tasklist'),
+      formatItem(t, shortcuts, 'codeblock'),
+    ],
   }
-  children.push(
-    formatItem(t, shortcuts, 'h1'),
-    formatItem(t, shortcuts, 'h2'),
-    formatItem(t, shortcuts, 'h3'),
-    { divider: true },
-    formatItem(t, shortcuts, 'quote'),
-    formatItem(t, shortcuts, 'list'),
-    formatItem(t, shortcuts, 'tasklist'),
-    formatItem(t, shortcuts, 'codeblock')
-  )
-  return { id: 'submenu:paragraph', label: t('contextMenu.paragraph'), children }
 }
 
 /** Source 模式（CodeMirror）右键菜单 */
@@ -203,7 +228,7 @@ export function buildSourceMenuItems(
   return [
     ...buildBaseEditItems(t, shortcuts, { ...state, includeFind: true }),
     { divider: true },
-    buildParagraphSubmenu(t, shortcuts, { includeParagraph: false }),
+    buildParagraphSubmenu(t, shortcuts),
     buildFormatSubmenu(t, shortcuts),
   ]
 }
@@ -293,7 +318,7 @@ export function buildWysiwygMenuItems(
     ...(contextItems.length > 0 ? [{ divider: true } as MenuItem] : []),
     ...buildBaseEditItems(t, shortcuts, { ...state, includeFind: false }),
     { divider: true },
-    buildParagraphSubmenu(t, shortcuts, { includeParagraph: true }),
+    buildParagraphSubmenu(t, shortcuts),
     buildFormatSubmenu(t, shortcuts),
     buildInsertSubmenu(t),
   ]

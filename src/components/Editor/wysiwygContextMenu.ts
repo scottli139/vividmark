@@ -6,8 +6,6 @@ import {
   addRowAfterCommand,
   addRowBeforeCommand,
 } from '@milkdown/kit/preset/gfm'
-import { paragraphSchema } from '@milkdown/kit/preset/commonmark'
-import { setBlockType } from '@milkdown/kit/prose/commands'
 import { AllSelection, Selection, TextSelection } from '@milkdown/kit/prose/state'
 import type { Node as ProseNode, ResolvedPos } from '@milkdown/kit/prose/model'
 import type { EditorView } from '@milkdown/kit/prose/view'
@@ -251,11 +249,6 @@ export function applyWysiwygContextAction(ctx: Ctx, id: string): boolean {
       default:
         return false
     }
-  }
-
-  // 段落子菜单的「正文」：当前文本块还原为段落
-  if (id === 'block:paragraph') {
-    return setBlockType(paragraphSchema.type(ctx))(view.state, view.dispatch)
   }
 
   switch (id) {

@@ -80,6 +80,9 @@ name = "app"
 version = "0.2.2"
 dependencies = [
  "log",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
  "serde",
  "serde_json",
  "tauri",

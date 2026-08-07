@@ -89,7 +89,7 @@
 ### Phase 7: 打磨优化 (待开始)
 
 - [ ] 性能优化 (大文件处理)
-- [ ] 原生菜单集成
+- [x] 原生菜单集成 ✅（2026-08-07 补全段落/格式菜单，见 P5）
 - [ ] 系统托盘
 - [ ] 快捷键自定义
 - [ ] 偏好设置面板
@@ -152,7 +152,7 @@
 
 - [x] 信息架构精简 ✅：低频操作（导出 PDF、语言、缩放）已移入自绘 MoreMenu（缩放/导出/语言/设置）与设置面板，常驻控件大幅收敛
 - [x] 语言选择器原生 `<select>` 已移除 ✅：语言切换并入 MoreMenu（自绘 Dropdown，带勾选态）
-- [ ] 关联任务：**原生菜单** ✅（已落地，承载迁出的低频操作）、**macOS 融合标题栏**（工具栏与标题栏一体化布局，P3）、**主题系统**（控件样式收编到主题变量，P3）、**设置面板**（工具栏可见性可配置，P3）、**slash menu/悬浮格式条**（WYSIWYG 补全，落地后工具栏可进一步弱化）
+- [ ] 关联任务：**原生菜单** ✅（已落地，承载迁出的低频操作）、**macOS 融合标题栏**（工具栏与标题栏一体化布局，P3）、**主题系统**（控件样式收编到主题变量，P3）、**设置面板**（工具栏可见性可配置，P3）、**slash menu/悬浮格式条**（WYSIWYG 补全；工具栏已于 P5 先行弱化，slash menu 仍为独立后续项）
 
 **侧边栏**：
 
@@ -161,6 +161,18 @@
 - [x] 文件树增强 ✅：搜索过滤、新建/重命名/删除、右键菜单（自绘 ContextMenu 已落地，不等原生菜单）、第一层目录 + 当前文件父链展开策略
 - [x] 侧栏宽度持久化 ✅（persisted `sidebarWidth`，默认 224，clamp 180-400）
 - [ ] 关联任务：**多标签页**（标签栏与侧栏信息架构联动，P3）、**设置面板**（侧栏默认显隐/宽度，P3）
+
+#### P5 — Typora 对标第二梯队 ✅ (已完成，2026-08-07)
+
+> 用户反馈：侧边栏不够精致（对标 Typora）、Dock 无右键菜单、菜单不全、标题栏无法拖动、Finder「打开方式」无 VividMark。
+
+- [x] **标题栏拖拽修复** ✅：capabilities 补 `core:window:allow-start-dragging`（tauri 2.10 起非默认权限）+ Toolbar 分组容器补 `data-tauri-drag-region`（drag.js 只查 e.target 无上溯）；双击最大化顺带恢复
+- [x] **原生菜单补全（Typora 结构）** ✅：新增段落（标题 1-6 ⌘1-6/正文 ⌘0/引用/无序/有序/任务/代码块/分割线/表格/图像/提示框）与格式（加粗 ⌘B/斜体 ⌘I/删除线/行内代码/链接 ⌘K/图像）顶级菜单；文件菜单加打开文件夹 ⇧⌘O/在 Finder 中显示；编辑菜单加粘贴为纯文本 ⇧⌘V；视图菜单加侧栏 tab ⌃⌘1/2 与源码切换 ⌘/；实际大小改 ⇧⌘0（⌘0 让位正文）
+- [x] **格式能力补齐** ✅：FormatType 增加 h4-h6/ol/paragraph（CM 纯函数 + Milkdown 双端实现），原生菜单/右键菜单/快捷键三入口同源
+- [x] **工具栏二轮精简** ✅：只留侧边栏切换/撤销重做/视图切换/暗色/⋮更多；文件操作与格式化入口全部由菜单+右键菜单+快捷键覆盖；表格/提示框对话框改由 `app-open-dialog` 事件触发
+- [x] **macOS Dock 右键菜单** ✅：objc2 运行时给 tao AppDelegate 追加 `applicationDockMenu:`（新建/打开/最近文件/清空），点击复用 native-menu-event 通道
+- [x] **文件关联（Open With）** ✅：`bundle.fileAssociations` 声明 md/markdown/mdown/mkd；`RunEvent::Opened` → 排队 + `file-open-request` 事件 → 前端打开（冷启动队列补偿）；仅打包安装后生效
+- [x] **侧边栏精致化** ✅：实心「打开文件夹」按钮、最近文件行 hover 底色/圆角/大图标、过滤框内嵌搜索图标、空态居中插画、大纲行 hover 底色、文件树选中态改 accent 淡底圆角行
 
 ---
 
@@ -834,6 +846,30 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 - ✅ **Rust 新命令**：`copy_path`（目录递归复制）、`reveal_in_folder`（macOS `open -R`；Windows `explorer /select,`；Linux xdg-open 父目录）
 - ✅ 空白区菜单补「在 Finder 中显示」（作用于根目录）；i18n `fileTree.*` 6 键三处同步
 - ✅ 测试：`copyNameCandidate` 纯函数 5 例 + FileTree 菜单/副本/复制路径/reveal 7 例
+
+### 2026-08-07 P5：Typora 对标第二梯队（菜单/Dock/文件关联/拖拽/侧栏/工具栏）
+
+**完成工作：**
+
+- ✅ **标题栏拖拽修复**（根因双重）：① capabilities 缺 `core:window:allow-start-dragging`（tauri 2.10 的 PLUGINS 表中 `start_dragging` 非默认权限，`internal_toggle_maximize` 是默认——所以此前双击放大可用、拖动不行）；② Tauri 注入的 drag.js 只查 `e.target.getAttribute`（无 closest 上溯），Toolbar 子元素覆盖区域全部不触发 → 分组容器补挂 `data-tauri-drag-region`
+- ✅ **原生菜单补全**：menu.rs 重构为 App/文件/编辑/段落/格式/视图/窗口（Typora 结构）；`format:*`/`insert:*` id 与右键菜单同源，前端统一转发 editor-format/editor-insert 事件总线；⌘B/I/K/1-6 桌面端改由菜单事件驱动（浏览器仍走 CM/Milkdown keymap，互不重迭）；⌘0 让位「正文」，实际大小改 ⇧⌘0；新增 Rust 命令无（复用 rebuild/checked/enabled），状态同步扩 sidebarTab check 与 file-reveal enabled
+- ✅ **格式能力补齐**：`FormatType` + h4/h5/h6/ol/paragraph；CM 侧新增 `matchBlockPrefix`（标题/引用/任务/无序/有序统一识别，顺带修了任务项转其他格式残留 `[ ] ` 的旧 quirk）与 `applyParagraphFormat`（剥前缀）；Milkdown 侧 applyParagraph（列表 liftListItem / 引用 lift / 其他 setBlockType）
+- ✅ **工具栏二轮精简**：删除新建/打开/保存/B/I/标题下拉/列表/插入菜单/格式菜单（FormatMenu/HeadingDropdown/InsertMenu 组件文件删除）；图片插入流程抽为 `src/lib/editorActions.ts`（菜单与工具栏共用）；表格/提示框对话框改由 `app-open-dialog` 事件触发
+- ✅ **macOS Dock 右键菜单**：新增 `src-tauri/src/dock_menu.rs`——objc2 `class_addMethod` 给 tao AppDelegate 追加 `applicationDockMenu:`（tao/muda/tauri 均无 API；已防御性检测 respondsToSelector 防未来冲突）；菜单项经 tag 索引映射路径，动作 emit `native-menu-event` 复用前端分发；新命令 `update_dock_menu`（非 macOS 为 no-op 桩）；依赖版本与 tao 0.34 对齐（objc2 0.6 / app-kit 0.3）
+- ✅ **文件关联**：`bundle.fileAssociations`（md/markdown/mdown/mkd，role=Editor）；`lib.rs` 改 `build().run()` 处理 `RunEvent::Opened` → 排队（`Mutex<Vec>`，防冷启动竞态）+ emit `file-open-request`；新命令 `take_pending_open_files`；前端 `src/lib/openWith.ts`（监听 + 取积压 + 脏文档确认）
+- ✅ **侧边栏精致化**：对标 Typora——实心 accent「打开文件夹」按钮；最近文件行 hover 底色 + 圆角 + w-4 图标；过滤框内嵌搜索图标 + rounded-md；空态居中图标文案；大纲行 hover 底色 + 圆角；文件树行 `mx-1 rounded-md`、选中态由实心 accent 白字改为 `accent/15` 淡底 + accent 文字
+- ✅ **E2E/单测改写**：app.spec（高频按钮断言 + MoreMenu 断言）、table-editing.spec（app-open-dialog 路径）、wysiwyg.spec（⌘B 键盘路径）；Toolbar.test 重写（23 例）；nativeMenu.test +14 例；markdownEditing +9 例；openWith 4 例
+
+**测试规模：** 全套 46 文件 732 用例通过；E2E 相关 24 例通过；tsc/lint/format/clippy 全绿；`pnpm tauri:dev` 实测菜单/Dock 安装日志正常
+
+**新增文件**：`src-tauri/src/dock_menu.rs`、`src/lib/editorActions.ts`、`src/lib/openWith.ts`（+ 各自测试）
+
+**机制详解**：`docs/implementation-notes.md`「2026-08-07 P5」一节
+
+**当日追加修复（实测反馈）**：
+
+- ✅ 右键打开文件树/最近文件菜单时不再误触分隔条调宽（`useResizable` 补左键判定）；「拖拽调整宽度」tooltip 走 i18n
+- ✅ 视图菜单删除「源代码模式」切换项（与四模式 check 项并列易混淆）；⌘/ 仍由 useKeyboardShortcuts 全局处理
 
 ---
 

@@ -19,6 +19,20 @@ vi.mock('../dialog', () => ({
   confirmDialog: vi.fn(),
 }))
 
+vi.mock('../editorActions', () => ({
+  insertImageFromPicker: vi.fn(),
+  openFolderFromPicker: vi.fn(),
+}))
+
+vi.mock('../fileTreeUtils', () => ({
+  revealInFolder: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../clipboard', () => ({
+  readClipboardText: vi.fn(),
+  writeClipboardText: vi.fn(),
+}))
+
 describe('nativeMenu handleMenuAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -142,6 +156,106 @@ describe('nativeMenu handleMenuAction', () => {
       expect(newFile).not.toHaveBeenCalled()
     })
   })
+
+  describe('段落/格式菜单（format:* / insert:*）', () => {
+    it('format:* 转发 editor-format 事件并携带格式', async () => {
+      const spy = vi.spyOn(window, 'dispatchEvent')
+      await handleMenuAction('format:h4')
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'editor-format',
+          detail: { format: 'h4' },
+        })
+      )
+      spy.mockRestore()
+    })
+
+    it('insert:hr 派发 editor-insert 分割线文本', async () => {
+      const spy = vi.spyOn(window, 'dispatchEvent')
+      await handleMenuAction('insert:hr')
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'editor-insert', detail: { text: '\n\n---\n\n' } })
+      )
+      spy.mockRestore()
+    })
+
+    it('insert:table / insert:admonition 派发 app-open-dialog', async () => {
+      const spy = vi.spyOn(window, 'dispatchEvent')
+      await handleMenuAction('insert:table')
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'app-open-dialog', detail: { dialog: 'table' } })
+      )
+      await handleMenuAction('insert:admonition')
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'app-open-dialog', detail: { dialog: 'admonition' } })
+      )
+      spy.mockRestore()
+    })
+
+    it('insert:image 走图片选择器共享流程', async () => {
+      const { insertImageFromPicker } = await import('../editorActions')
+      await handleMenuAction('insert:image')
+      expect(insertImageFromPicker).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('文件/编辑新增项', () => {
+    it('file-open-folder 走文件夹选择器共享流程', async () => {
+      const { openFolderFromPicker } = await import('../editorActions')
+      await handleMenuAction('file-open-folder')
+      expect(openFolderFromPicker).toHaveBeenCalledOnce()
+    })
+
+    it('file-reveal：有文件路径时在文件管理器中显示', async () => {
+      const { revealInFolder } = await import('../fileTreeUtils')
+      useEditorStore.setState({ filePath: '/a/note.md' })
+      await handleMenuAction('file-reveal')
+      expect(revealInFolder).toHaveBeenCalledWith('/a/note.md')
+    })
+
+    it('file-reveal：无文件路径时静默忽略', async () => {
+      const { revealInFolder } = await import('../fileTreeUtils')
+      useEditorStore.setState({ filePath: null })
+      await handleMenuAction('file-reveal')
+      expect(revealInFolder).not.toHaveBeenCalled()
+    })
+
+    it('edit-paste-plain：剪贴板文本经 editor-insert 插入', async () => {
+      const { readClipboardText } = await import('../clipboard')
+      vi.mocked(readClipboardText).mockResolvedValue('plain text')
+      const spy = vi.spyOn(window, 'dispatchEvent')
+      await handleMenuAction('edit-paste-plain')
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'editor-insert', detail: { text: 'plain text' } })
+      )
+      spy.mockRestore()
+    })
+
+    it('edit-paste-plain：剪贴板为空时不派发', async () => {
+      const { readClipboardText } = await import('../clipboard')
+      vi.mocked(readClipboardText).mockResolvedValue(null)
+      const spy = vi.spyOn(window, 'dispatchEvent')
+      await handleMenuAction('edit-paste-plain')
+      expect(spy).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'editor-insert' }))
+      spy.mockRestore()
+    })
+  })
+
+  describe('视图新增项', () => {
+    it('view-sidebar-files：切换 tab；侧栏隐藏时一并展开', async () => {
+      useEditorStore.setState({ sidebarTab: 'outline', showSidebar: false })
+      await handleMenuAction('view-sidebar-files')
+      expect(useEditorStore.getState().sidebarTab).toBe('files')
+      expect(useEditorStore.getState().showSidebar).toBe(true)
+    })
+
+    it('view-sidebar-outline：侧栏已显示时只切 tab', async () => {
+      useEditorStore.setState({ sidebarTab: 'files', showSidebar: true })
+      await handleMenuAction('view-sidebar-outline')
+      expect(useEditorStore.getState().sidebarTab).toBe('outline')
+      expect(useEditorStore.getState().showSidebar).toBe(true)
+    })
+  })
 })
 
 describe('initNativeMenu 状态同步', () => {
@@ -224,6 +338,47 @@ describe('initNativeMenu 状态同步', () => {
       expect(mockInvoke).toHaveBeenCalledWith('set_menu_item_checked', {
         id: 'view-mode-source',
         checked: false,
+      })
+    })
+    cleanup()
+  })
+
+  it('初始化同步侧边栏 tab 勾选与 file-reveal 可用态', async () => {
+    useEditorStore.setState({ sidebarTab: 'files', filePath: '/a/note.md' })
+    const cleanup = await initNativeMenu()
+    expect(mockInvoke).toHaveBeenCalledWith('set_menu_item_checked', {
+      id: 'view-sidebar-files',
+      checked: true,
+    })
+    expect(mockInvoke).toHaveBeenCalledWith('set_menu_item_checked', {
+      id: 'view-sidebar-outline',
+      checked: false,
+    })
+    expect(mockInvoke).toHaveBeenCalledWith('set_menu_item_enabled', {
+      id: 'file-reveal',
+      enabled: true,
+    })
+    cleanup()
+  })
+
+  it('sidebarTab / filePath 变化触发增量同步', async () => {
+    useEditorStore.setState({ sidebarTab: 'outline', filePath: null })
+    const cleanup = await initNativeMenu()
+    vi.clearAllMocks()
+
+    useEditorStore.setState({ sidebarTab: 'files' })
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('set_menu_item_checked', {
+        id: 'view-sidebar-files',
+        checked: true,
+      })
+    })
+
+    useEditorStore.setState({ filePath: '/a/x.md' })
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('set_menu_item_enabled', {
+        id: 'file-reveal',
+        enabled: true,
       })
     })
     cleanup()

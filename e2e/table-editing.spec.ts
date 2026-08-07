@@ -11,10 +11,11 @@ async function editorText(page: Page): Promise<string> {
   return (await editorLocator(page).innerText()).trimEnd()
 }
 
-// 通过工具栏 Insert 菜单打开插入表格对话框
+// 通过 app-open-dialog 事件打开插入表格对话框（与原生菜单 insert:table 同路径）
 async function openTableDialog(page: Page) {
-  await page.click('button[title="Insert"]')
-  await page.click('button:has-text("Insert Table")')
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent('app-open-dialog', { detail: { dialog: 'table' } }))
+  })
 }
 
 test.describe('Table Editing', () => {
@@ -25,8 +26,8 @@ test.describe('Table Editing', () => {
     await page.waitForSelector('.cm-content')
   })
 
-  test('should open table dialog from toolbar', async ({ page }) => {
-    // Click the table button
+  test('should open table dialog via app-open-dialog event', async ({ page }) => {
+    // 原生菜单「段落 → 表格…」在桌面端触发同一事件
     await openTableDialog(page)
 
     // Dialog should appear

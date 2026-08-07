@@ -20,6 +20,9 @@ export function useResizable({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      // 仅响应左键：右键（contextmenu）按下不应触发拖拽调宽
+      // （否则侧栏边缘右键打开菜单时会同时进入 resize 状态）
+      if (e.button !== 0) return
       e.preventDefault()
       setIsResizing(true)
       startXRef.current = e.clientX

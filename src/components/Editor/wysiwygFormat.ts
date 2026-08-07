@@ -143,6 +143,21 @@ function applyCodeBlock(ctx: Ctx) {
   }
 }
 
+/** 正文（段落）：列表内 → 提升出列表；引用内 → lift；标题/代码块等 → setBlockType 段落 */
+function applyParagraph(ctx: Ctx) {
+  const view = ctx.get(editorViewCtx)
+  const $from = view.state.selection.$from
+  if (hasAncestorOfType($from, 'list_item')) {
+    liftListItem(listItemSchema.type(ctx))(view.state, view.dispatch)
+    return
+  }
+  if (hasAncestorOfType($from, 'blockquote')) {
+    lift(view.state, view.dispatch)
+    return
+  }
+  setBlockType(paragraphSchema.type(ctx))(view.state, view.dispatch)
+}
+
 /** 工具栏 editor-format 事件入口（调用方已做 viewMode 分流） */
 export function applyWysiwygFormat(ctx: Ctx, format: FormatType) {
   switch (format) {
@@ -174,11 +189,26 @@ export function applyWysiwygFormat(ctx: Ctx, format: FormatType) {
     case 'h3':
       applyHeading(ctx, 3)
       break
+    case 'h4':
+      applyHeading(ctx, 4)
+      break
+    case 'h5':
+      applyHeading(ctx, 5)
+      break
+    case 'h6':
+      applyHeading(ctx, 6)
+      break
+    case 'paragraph':
+      applyParagraph(ctx)
+      break
     case 'quote':
       applyQuote(ctx)
       break
     case 'list':
       applyList(ctx, false)
+      break
+    case 'ol':
+      applyList(ctx, true)
       break
     case 'tasklist':
       applyTaskList(ctx)

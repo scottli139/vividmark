@@ -6,10 +6,24 @@ use tauri::{Emitter, Manager, WebviewWindow};
 
 mod menu;
 
+#[cfg(target_os = "macos")]
+mod dock_menu;
+
+#[cfg(target_os = "macos")]
+use dock_menu::update_dock_menu;
+
+/// 非 macOS 平台的 no-op 桩（Dock 右键菜单仅 macOS 实现）
+#[cfg(not(target_os = "macos"))]
+#[tauri::command]
+fn update_dock_menu(
+    _lang: String,
+    _recent_files: Vec<menu::RecentFilePayload>,
+) -> Result<(), String> {
+    Ok(())
+}
+
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-
-
 
 /// 文件树项
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,8 +127,14 @@ fn read_file(path: String) -> Result<FileInfo, String> {
 
     log::info!("[read_file] Starting file read operation");
     log::debug!("[read_file] Target path: {}", path);
-    log::debug!("[read_file] Path absolute: {:?}", path_buf.canonicalize().ok());
-    log::debug!("[read_file] Parent directory: {:?}", path_buf.parent().and_then(|p| p.to_str()));
+    log::debug!(
+        "[read_file] Path absolute: {:?}",
+        path_buf.canonicalize().ok()
+    );
+    log::debug!(
+        "[read_file] Parent directory: {:?}",
+        path_buf.parent().and_then(|p| p.to_str())
+    );
 
     // 读取前记录元数据
     if let Some(meta) = get_file_metadata(&path_buf) {
@@ -132,7 +152,7 @@ fn read_file(path: String) -> Result<FileInfo, String> {
     let content = fs::read_to_string(&path_buf).map_err(|e| {
         let error_msg = format_error_with_context("read_file", &path, &e);
         log::error!("[read_file] Operation failed: {}", error_msg);
-        
+
         // 额外诊断：检查父目录是否存在
         if let Some(parent) = path_buf.parent() {
             if !parent.exists() {
@@ -141,7 +161,7 @@ fn read_file(path: String) -> Result<FileInfo, String> {
                 log::debug!("[read_file] Parent directory exists: {:?}", parent);
             }
         }
-        
+
         format!("Failed to read file: {}", e)
     })?;
 
@@ -153,7 +173,7 @@ fn read_file(path: String) -> Result<FileInfo, String> {
 
     let size = content.len();
     let elapsed = start.elapsed();
-    
+
     log::info!(
         "[read_file] ✓ Success: {} ({} bytes, {} chars) in {:?} (~{:.2} MB/s)",
         path,
@@ -167,7 +187,11 @@ fn read_file(path: String) -> Result<FileInfo, String> {
         }
     );
 
-    Ok(FileInfo { path, content, name })
+    Ok(FileInfo {
+        path,
+        content,
+        name,
+    })
 }
 
 // 保存文件
@@ -180,13 +204,23 @@ fn save_file(path: String, content: String) -> Result<SaveResult, String> {
 
     log::info!("[save_file] Starting file save operation");
     log::debug!("[save_file] Target path: {}", path);
-    log::debug!("[save_file] Content size: {} bytes, {} characters", content_size, content_chars);
-    log::debug!("[save_file] Path absolute: {:?}", path_buf.canonicalize().ok());
+    log::debug!(
+        "[save_file] Content size: {} bytes, {} characters",
+        content_size,
+        content_chars
+    );
+    log::debug!(
+        "[save_file] Path absolute: {:?}",
+        path_buf.canonicalize().ok()
+    );
 
     // 检查父目录
     if let Some(parent) = path_buf.parent() {
         if !parent.exists() {
-            log::warn!("[save_file] Parent directory does not exist, will attempt to create: {:?}", parent);
+            log::warn!(
+                "[save_file] Parent directory does not exist, will attempt to create: {:?}",
+                parent
+            );
             if let Err(e) = fs::create_dir_all(parent) {
                 log::error!("[save_file] Failed to create parent directories: {}", e);
                 return Err(format!("Failed to create directory: {}", e));
@@ -213,15 +247,15 @@ fn save_file(path: String, content: String) -> Result<SaveResult, String> {
     fs::write(&path, &content).map_err(|e| {
         let error_msg = format_error_with_context("save_file", &path, &e);
         log::error!("[save_file] Write operation failed: {}", error_msg);
-        
+
         // 诊断磁盘空间
         if e.kind() == std::io::ErrorKind::Other {
             log::error!("[save_file] Possible causes: insufficient disk space or filesystem error");
         }
-        
+
         format!("Failed to save file: {}", e)
     })?;
-    
+
     let write_elapsed = write_start.elapsed();
     let total_elapsed = start.elapsed();
 
@@ -232,7 +266,7 @@ fn save_file(path: String, content: String) -> Result<SaveResult, String> {
             meta.size,
             meta.permissions
         );
-        
+
         if meta.size as usize != content_size {
             log::warn!(
                 "[save_file] Size mismatch! Expected {} bytes, found {} bytes",
@@ -557,15 +591,20 @@ async fn export_pdf(
     let start = Instant::now();
     log::info!("[export_pdf] Starting PDF export operation");
     log::debug!("[export_pdf] Title: {:?}", params.title);
-    log::debug!("[export_pdf] HTML content size: {} bytes", params.html_content.len());
+    log::debug!(
+        "[export_pdf] HTML content size: {} bytes",
+        params.html_content.len()
+    );
 
     // 创建临时 HTML 文件
     let temp_dir = std::env::temp_dir();
     let timestamp = start.elapsed().as_millis();
     let temp_html_path = temp_dir.join(format!("vividmark_export_{}.html", timestamp));
-    
+
     // 构建完整的 HTML 文档
-    let title = params.title.unwrap_or_else(|| "VividMark Export".to_string());
+    let title = params
+        .title
+        .unwrap_or_else(|| "VividMark Export".to_string());
     let full_html = format!(
         r#"<!DOCTYPE html>
 <html>
@@ -683,25 +722,26 @@ async fn export_pdf(
 
     // 使用系统命令打开 HTML 文件进行打印
     let path_str = temp_html_path.to_string_lossy().to_string();
-    
+
     #[cfg(target_os = "macos")]
-    let result = std::process::Command::new("open")
-        .arg(&path_str)
-        .spawn();
-    
+    let result = std::process::Command::new("open").arg(&path_str).spawn();
+
     #[cfg(target_os = "windows")]
     let result = std::process::Command::new("cmd")
         .args(["/C", "start", "", &path_str])
         .spawn();
-    
+
     #[cfg(target_os = "linux")]
     let result = std::process::Command::new("xdg-open")
         .arg(&path_str)
         .spawn();
-    
+
     match result {
         Ok(_) => {
-            log::info!("[export_pdf] ✓ Success: opened HTML for printing in {:?}", start.elapsed());
+            log::info!(
+                "[export_pdf] ✓ Success: opened HTML for printing in {:?}",
+                start.elapsed()
+            );
             Ok(ExportPdfResult {
                 success: true,
                 error: None,
@@ -746,8 +786,7 @@ fn rebuild_menu(
     lang: String,
     recent_files: Vec<menu::RecentFilePayload>,
 ) -> Result<(), String> {
-    let native_menu =
-        menu::build_menu(&app, &lang, &recent_files).map_err(|e| e.to_string())?;
+    let native_menu = menu::build_menu(&app, &lang, &recent_files).map_err(|e| e.to_string())?;
     app.set_menu(native_menu).map_err(|e| e.to_string())?;
     log::info!(
         "[menu] Menu rebuilt (lang={}, recent={})",
@@ -802,7 +841,7 @@ fn set_menu_item_checked(app: tauri::AppHandle, id: String, checked: bool) -> Re
 #[tauri::command]
 async fn print_pdf(window: WebviewWindow, file_name: String) -> Result<ExportPdfResult, String> {
     log::info!("[print_pdf] Opening native print dialog for: {}", file_name);
-    
+
     // 注入 CSS 进行打印准备
     let prepare_print = r#"
         (function() {
@@ -943,24 +982,30 @@ async fn print_pdf(window: WebviewWindow, file_name: String) -> Result<ExportPdf
             return true;
         })()
     "#;
-    
+
     if let Err(e) = window.eval(prepare_print) {
         log::warn!("[print_pdf] Failed to prepare print: {}", e);
     }
-    
+
     // 注意：macOS 的打印对话框默认使用应用 bundle 名称作为 PDF 文件名
     // 这是系统行为，无法通过标准 API 修改
     // 用户需要在打印对话框中手动更改文件名
-    
+
     // 使用 WebView 的 print 方法
     match window.print() {
         Ok(_) => {
             log::info!("[print_pdf] ✓ Print dialog opened");
-            Ok(ExportPdfResult { success: true, error: None })
+            Ok(ExportPdfResult {
+                success: true,
+                error: None,
+            })
         }
         Err(e) => {
             log::error!("[print_pdf] Failed: {}", e);
-            Ok(ExportPdfResult { success: false, error: Some(e.to_string()) })
+            Ok(ExportPdfResult {
+                success: false,
+                error: Some(e.to_string()),
+            })
         }
     }
 }
@@ -974,7 +1019,10 @@ fn read_directory_recursive(
     const MAX_DEPTH: usize = 10;
 
     if depth > MAX_DEPTH {
-        log::warn!("[read_directory] Maximum recursion depth reached: {}", path.display());
+        log::warn!(
+            "[read_directory] Maximum recursion depth reached: {}",
+            path.display()
+        );
         return Ok(vec![]);
     }
 
@@ -1005,7 +1053,11 @@ fn read_directory_recursive(
         }
 
         let children = if is_directory && recursive {
-            Some(read_directory_recursive(&entry.path(), recursive, depth + 1)?)
+            Some(read_directory_recursive(
+                &entry.path(),
+                recursive,
+                depth + 1,
+            )?)
         } else {
             None
         };
@@ -1026,10 +1078,10 @@ fn log_system_info() {
     log::info!("[System] ============================================");
     log::info!("[System] VividMark Backend Starting");
     log::info!("[System] ============================================");
-    
+
     // Rust 版本信息
     log::info!("[System] Rust version: {}", env!("CARGO_PKG_RUST_VERSION"));
-    
+
     // 操作系统信息
     #[cfg(target_os = "macos")]
     log::info!("[System] Platform: macOS");
@@ -1037,26 +1089,59 @@ fn log_system_info() {
     log::info!("[System] Platform: Windows");
     #[cfg(target_os = "linux")]
     log::info!("[System] Platform: Linux");
-    
+
     log::info!("[System] Architecture: {}", std::env::consts::ARCH);
-    
+
     // 当前工作目录
     if let Ok(cwd) = std::env::current_dir() {
         log::info!("[System] Working directory: {:?}", cwd);
     }
-    
+
     // 临时目录
     if let Ok(tmp) = std::env::temp_dir().canonicalize() {
         log::info!("[System] Temp directory: {:?}", tmp);
     }
-    
+
     // 内存信息（如果可用）
     #[cfg(target_os = "macos")]
     {
         log::debug!("[System] Memory info available via system_profiler");
     }
-    
+
     log::info!("[System] ============================================");
+}
+
+/// 「打开方式」/ 双击关联文件的路径队列：RunEvent::Opened 可能早于前端监听器
+/// 注册（冷启动），先入队；前端就绪后调用 take_pending_open_files 取走
+static PENDING_OPEN_FILES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// 取走并清空待打开文件队列
+#[tauri::command]
+fn take_pending_open_files() -> Vec<String> {
+    std::mem::take(&mut *PENDING_OPEN_FILES.lock().unwrap())
+}
+
+/// 处理 macOS 文件打开事件（Finder「打开方式」/ 双击 .md）：入队 + 广播
+fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
+    let paths: Vec<String> = urls
+        .iter()
+        .filter_map(|u| u.to_file_path().ok())
+        .map(|p| p.to_string_lossy().to_string())
+        .collect();
+    if paths.is_empty() {
+        return;
+    }
+    log::info!(
+        "[open-with] Opened {} file(s) via file association",
+        paths.len()
+    );
+    PENDING_OPEN_FILES
+        .lock()
+        .unwrap()
+        .extend(paths.iter().cloned());
+    if let Err(e) = app.emit("file-open-request", &paths) {
+        log::warn!("[open-with] Failed to emit file-open-request: {}", e);
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -1095,7 +1180,7 @@ pub fn run() {
 
             // Log system information
             log_system_info();
-            
+
             // Log log file location
             match app.path().app_log_dir() {
                 Ok(log_dir) => {
@@ -1113,9 +1198,37 @@ pub fn run() {
             app.set_menu(native_menu)?;
             log::info!("[menu] Native menu installed");
 
+            // macOS Dock 右键菜单（前端 rebuild_menu 时同步重建）
+            #[cfg(target_os = "macos")]
+            dock_menu::install(app.handle());
+
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![read_file, save_file, file_exists, read_directory, create_file, create_folder, rename_path, delete_path, copy_path, reveal_in_folder, export_pdf, print_pdf, rebuild_menu, set_menu_item_enabled, set_menu_item_checked])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .invoke_handler(tauri::generate_handler![
+            read_file,
+            save_file,
+            file_exists,
+            read_directory,
+            create_file,
+            create_folder,
+            rename_path,
+            delete_path,
+            copy_path,
+            reveal_in_folder,
+            export_pdf,
+            print_pdf,
+            rebuild_menu,
+            set_menu_item_enabled,
+            set_menu_item_checked,
+            update_dock_menu,
+            take_pending_open_files
+        ])
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // macOS Finder「打开方式」/ 双击关联文件（Windows/Linux 走 argv，暂不支持）
+            if let tauri::RunEvent::Opened { urls } = event {
+                handle_opened_urls(app, urls);
+            }
+        });
 }

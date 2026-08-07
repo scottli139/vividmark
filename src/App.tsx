@@ -9,6 +9,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useFileDragDrop } from './hooks/useFileDragDrop'
 import { useAutoSave } from './hooks/useAutoSave'
 import { initNativeMenu } from './lib/nativeMenu'
+import { initOpenWith } from './lib/openWith'
 import { Dialog } from './components/Dialog'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
 import { isMacOSDesktop } from './lib/platform'
@@ -53,6 +54,15 @@ function App() {
   useEffect(() => {
     let cleanup: (() => void) | undefined
     void initNativeMenu().then((fn) => {
+      cleanup = fn
+    })
+    return () => cleanup?.()
+  }, [])
+
+  // 文件关联「打开方式」（仅 Tauri 桌面端；浏览器 dev 环境为 no-op）
+  useEffect(() => {
+    let cleanup: (() => void) | undefined
+    void initOpenWith().then((fn) => {
       cleanup = fn
     })
     return () => cleanup?.()

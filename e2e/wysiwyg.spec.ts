@@ -39,7 +39,7 @@ test.describe('WYSIWYG Mode', () => {
     await expect(proseMirror.locator('.task-checkbox')).toHaveCount(1)
   })
 
-  test('toolbar Bold button applies strong mark in wysiwyg', async ({ page }) => {
+  test('Cmd+B applies strong mark in wysiwyg', async ({ page }) => {
     await page.click('[title="WYSIWYG"]')
 
     const proseMirror = page.locator('.ProseMirror')
@@ -47,9 +47,9 @@ test.describe('WYSIWYG Mode', () => {
     await page.keyboard.press('ControlOrMeta+a')
     await page.keyboard.type('bold text')
 
-    // 选中全部文本后点工具栏 Bold
+    // 选中全部文本后按 Cmd/Ctrl+B（浏览器下走 Milkdown 自带 keymap；桌面端由格式菜单驱动）
     await page.keyboard.press('ControlOrMeta+a')
-    await page.click('[title="Bold (Cmd+B)"]')
+    await page.keyboard.press('ControlOrMeta+b')
 
     await expect(proseMirror.locator('strong')).toHaveText('bold text')
   })
@@ -68,7 +68,7 @@ test.describe('WYSIWYG Mode', () => {
 
     // 全选后 Bold：两段都加上 strong
     await page.keyboard.press('ControlOrMeta+a')
-    await page.click('[title="Bold (Cmd+B)"]')
+    await page.keyboard.press('ControlOrMeta+b')
     await expect(proseMirror.locator('strong')).toHaveCount(2)
 
     // Cmd+/ 切回 source，断言源码内容一致

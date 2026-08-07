@@ -98,7 +98,8 @@ export function Editor() {
       const isMod = e.metaKey || e.ctrlKey
       const store = useEditorStore.getState()
 
-      // 缩放快捷键
+      // 缩放快捷键（浏览器 dev/E2E 路径；桌面端这些键由原生菜单 accelerator 拦截）
+      // ⌘0 在桌面端是段落菜单的「正文」，浏览器无菜单占用故保留缩放重置；⇧⌘0 与桌面端一致
       if (isMod && (e.code === 'Equal' || e.code === 'NumpadAdd')) {
         e.preventDefault()
         store.zoomIn()

@@ -470,8 +470,8 @@ describe('Sidebar', () => {
       const filesTab = screen.getByText('Files')
 
       // Both tabs should have base styling
-      expect(outlineTab).toHaveClass('flex-1', 'px-3', 'py-2', 'text-xs', 'font-medium')
-      expect(filesTab).toHaveClass('flex-1', 'px-3', 'py-2', 'text-xs', 'font-medium')
+      expect(outlineTab).toHaveClass('flex-1', 'px-3', 'py-2.5', 'text-xs', 'font-medium')
+      expect(filesTab).toHaveClass('flex-1', 'px-3', 'py-2.5', 'text-xs', 'font-medium')
     })
   })
 

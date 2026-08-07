@@ -89,12 +89,17 @@ describe('buildSourceMenuItems', () => {
     const paragraph = getItem(items, 'submenu:paragraph')
     const format = getItem(items, 'submenu:format')
     expect(paragraph && 'children' in paragraph && itemIds(paragraph.children)).toEqual([
+      'format:paragraph',
       'format:h1',
       'format:h2',
       'format:h3',
+      'format:h4',
+      'format:h5',
+      'format:h6',
       '|',
       'format:quote',
       'format:list',
+      'format:ol',
       'format:tasklist',
       'format:codeblock',
     ])
@@ -128,13 +133,17 @@ describe('buildWysiwygMenuItems', () => {
     const paragraph = getItem(items, 'submenu:paragraph')
     const insert = getItem(items, 'submenu:insert')
     expect(paragraph && 'children' in paragraph && itemIds(paragraph.children)).toEqual([
-      'block:paragraph',
+      'format:paragraph',
       'format:h1',
       'format:h2',
       'format:h3',
+      'format:h4',
+      'format:h5',
+      'format:h6',
       '|',
       'format:quote',
       'format:list',
+      'format:ol',
       'format:tasklist',
       'format:codeblock',
     ])

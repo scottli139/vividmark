@@ -1221,3 +1221,35 @@ if (lang === 'typst') {
 - **探针结论**（`save_file` 写 /tmp 日志，事件级时序）：WebKit/WKWebView 在右键 `mousedown`→`contextmenu` 之间把词/行选择写入 DOM——**不可取消的内部步骤**（`mousedown`/`contextmenu` 的 preventDefault 都无效）；此刻编辑器内核（PM/CM）状态尚未被污染，但随后经 `selectionchange` 采纳 DOM 选择，污染固化。
 - **修法（覆盖而非拦截）**：`contextmenu` 时 `posAtCoords` 求落点 → 落点在选区外则 dispatch 折叠选区到落点 → **再直接 `window.getSelection().collapse(view.domAtPos(head))` 把 DOM 选择压回光标**。内核随后同步到的就是光标。mousedown 快照/preventDefault 均无效已移除。
 - **注意**：`TextSelection.near` 找不到文本位置时会退回 NodeSelection；`domAtPos` 极端位置可能抛错（try/catch 忽略即可，内核侧选区仍正确）。
+
+## 2026-08-07 P5：菜单补全 / Dock 菜单 / 文件关联 / 拖拽修复
+
+### 标题栏无法拖拽的根因（双重）
+
+1. **ACL 缺权限**：tauri 2.10 的窗口插件权限表中 `start_dragging` **不在** `core:default` 默认集（`build.rs` PLUGINS 里 `("start_dragging", false)`；而 `internal_toggle_maximize` 是 `true`——这解释了「双击能放大、按住拖不动」）。Tauri 注入的 `drag.js` 调 `plugin:window|start_dragging` 被 ACL 静默拒绝。修复：`capabilities/default.json` 显式加 `"core:window:allow-start-dragging"`。
+2. **drag.js 无上溯**：`e.target.getAttribute('data-tauri-drag-region')` 只查目标元素自身（无 `closest()`）。Toolbar 根节点带属性但被子元素（按钮组/分隔条）大面积覆盖，命中子元素即不拖。修复：左/右分组容器也挂 `data-tauri-drag-region`（按钮/SVG 无属性，点击不受影响）。
+
+### 段落/格式菜单与快捷键路由
+
+- 菜单 id 与右键菜单同源：`format:<FormatType>` → `editor-format` 事件总线；`insert:image` 走 `editorActions.insertImageFromPicker`、`insert:table|admonition` → `app-open-dialog` 事件（Toolbar 挂载对话框）、`insert:hr` → `editor-insert`。
+- **⌘B/I/K/1-6/⌘0 桌面端改由菜单事件驱动**（accelerator 被 OS 拦截，webview 收不到 keydown）；浏览器 dev/E2E 无原生菜单，CM keymap / Milkdown keymap / useKeyboardShortcuts 照旧——「互不重迭」模式同 ⌘O/S/N。
+- ⌘0 让位给段落菜单「正文」（剥块级前缀）；实际大小改 ⇧⌘0（MoreMenu 标注同步；Editor.tsx 浏览器侧两个组合都接）。
+- `FormatType` 扩 h4-h6/ol/paragraph：CM 侧 `matchBlockPrefix` 统一识别标题/`> `/`- [ ] `/`- `/`\d+. ` 前缀（修复任务项转格式残留 `[ ] ` 的旧 quirk；ol 按实际编号 toggle）；paragraph = 剥前缀专用路径（`formatTransaction` 前置分支，不经 isBlockFormat）。Milkdown 侧 `applyParagraph`：list_item→liftListItem、blockquote→lift、其他→setBlockType(paragraph)。
+
+### macOS Dock 右键菜单（objc2）
+
+- Tauri 2.10 / muda 0.17 / tao 0.34 均无 Dock 菜单 API（仅 `set_dock_visibility`）。实现：setup 时取 `NSApplication.sharedApplication().delegate()`（tao 的 AppDelegate 实例）→ `class_addMethod(applicationDockMenu:, "@@:@")` 注入 IMP，返回全局缓存的 `NSMenu`（`Mutex<Option<Retained<NSMenu>>>`，unsafe Send/Sync 包装，全部主线程访问）。
+- 菜单项 target 是 `define_class!` 的 `VividMarkDockMenuTarget`（NSObject 子类，newDocument:/openDocument:/openRecent:/clearRecent:），点击 emit `native-menu-event` **复用前端全部分发**；最近文件路径不经 representedObject（避免 downcast），用 `NSMenuItem.tag` 索引全局路径表。
+- 防御：`class_respondsToSelector` 先检测，tao 未来若自带该方法则跳过不覆盖。**tao/tauri 升级需回归验证此点**。
+- 重建：前端 `rebuildMenu` 同订阅点调 `update_dock_menu`（非 macOS 注册 no-op 桩 command）；依赖版本与 tao 0.34 对齐（objc2 0.6 / objc2-app-kit 0.3 / objc2-foundation 0.3），避免双主版本。
+
+### 文件关联（Open With）
+
+- `tauri.conf.json` `bundle.fileAssociations`（md/markdown/mdown/mkd，role=Editor）→ 打包生成 macOS `CFBundleDocumentTypes`（Open With 列表出现，非默认 handler）、Windows 注册表项、Linux mime。**仅打包安装的 .app 生效**（LaunchServices 在安装/首次启动注册），`pnpm tauri:dev` 验证不了。
+- 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `lib.rs` 改 `build().run(|app, event|)`：路径入队（`PENDING_OPEN_FILES`）+ emit `file-open-request`。前端 `openWith.ts` 先注册监听、再 `take_pending_open_files` 取冷启动积压；热打开走 payload 并顺手清空队列。Windows/Linux 是拉起新进程传 argv（无 Opened 事件），argv/single-instance 留后续。
+
+### 2026-08-07 追加修复（右键误触 resize / 视图菜单混淆项）
+
+- **右键触发侧栏调宽**：`useResizable.handleMouseDown` 未检查 `e.button`，右键（button=2）按下也会进入 resize 态（contextmenu 与 mousedown 同序列）——侧栏右缘 4px 热区上右键打开菜单时同时开始调宽。修复：仅 `e.button === 0` 响应。同序问题：分隔条 `title` 硬编码英文 → 走 i18n（`sidebar.dragToResize`）。
+- **视图菜单「源代码模式」移除**：⌘/ 切换项与四个视图模式 check 项（所见即所得/源码/分屏/预览）并列引发歧义。Typora 只有双态所以没有这个问题；VividMark 四模式组的显式项已是权威入口。菜单项删除后 ⌘/ 桌面端无 accelerator 占用，keydown 直达 webview 由 `useKeyboardShortcuts` 处理（与改造前行为一致）。
+- **WYSIWYG 表格行高虚高**：Milkdown 表格单元格内容被 `<p>` 包裹，`.markdown-body p` 的 1em 段落下边距计入行高（58px vs 预览 47px）。修复：`th/td > p { margin: 0 }`（预览无 p 包裹不受影响），修后 44px。

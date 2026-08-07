@@ -117,6 +117,42 @@ describe('wysiwyg event wiring', () => {
     expect(editor.action(getMarkdown())).toMatch(/[*-] \[ \] hello world/)
   })
 
+  it('editor-format h4 turns paragraph into level-4 heading', async () => {
+    const editor = await waitForEditor(setup().editorRef)
+    setSelection(editor, 2)
+
+    fireFormat('h4')
+
+    expect(editor.action(getMarkdown())).toMatch(/^#### hello world/)
+  })
+
+  it('editor-format ol wraps paragraph into an ordered list', async () => {
+    const editor = await waitForEditor(setup().editorRef)
+    setSelection(editor, 2)
+
+    fireFormat('ol')
+
+    expect(editor.action(getMarkdown())).toMatch(/^1\. +hello world/)
+  })
+
+  it('editor-format paragraph converts heading back to plain text', async () => {
+    const editor = await waitForEditor(setup('## title\n').editorRef)
+    setSelection(editor, 2)
+
+    fireFormat('paragraph')
+
+    expect(editor.action(getMarkdown())).toBe('title\n')
+  })
+
+  it('editor-format paragraph lifts list item out of the list', async () => {
+    const editor = await waitForEditor(setup('- item one\n').editorRef)
+    setSelection(editor, 3)
+
+    fireFormat('paragraph')
+
+    expect(editor.action(getMarkdown())).toBe('item one\n')
+  })
+
   it('editor-insert parses table markdown into a table node and focuses first cell', async () => {
     const editor = await waitForEditor(setup('').editorRef)
 

@@ -55,7 +55,7 @@ export function MoreMenu() {
   const menuItems: MenuItem[] = [
     { id: 'zoom-in', label: t('toolbar.tooltip.zoomIn', { shortcut: `${cmdKey}+=` }) },
     { id: 'zoom-out', label: t('toolbar.tooltip.zoomOut', { shortcut: `${cmdKey}+-` }) },
-    { id: 'zoom-reset', label: t('toolbar.tooltip.zoomReset', { shortcut: `${cmdKey}+0` }) },
+    { id: 'zoom-reset', label: t('toolbar.tooltip.zoomReset', { shortcut: `${cmdKey}+Shift+0` }) },
     { divider: true },
     { id: 'export-pdf', label: t('toolbar.tooltip.exportPdf', { shortcut: `${cmdKey}+P` }) },
     { divider: true },

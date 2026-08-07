@@ -19,7 +19,7 @@ interface OutlineTreeProps {
  */
 export function OutlineTree(props: OutlineTreeProps) {
   return (
-    <ul className="space-y-1">
+    <ul className="space-y-0.5">
       {props.nodes.map((node) => (
         <OutlineTreeNode key={node.index} node={node} {...props} />
       ))}
@@ -46,11 +46,12 @@ function OutlineTreeNode({
         ref={isActive ? activeItemRef : undefined}
         onClick={() => onHeadingClick(node)}
         className={`
-          flex items-center rounded border-l-2 text-sm transition-colors duration-150
+          flex items-center rounded-md border-l-2 text-sm transition-colors duration-150
+          py-0.5 pr-1 cursor-pointer
           ${
             isActive
               ? 'bg-[var(--active-bg)] border-[var(--accent-color)]'
-              : 'border-transparent text-[var(--color-text)] hover:text-[var(--accent-color)]'
+              : 'border-transparent text-[var(--color-text)] hover:bg-[var(--hover-bg)]'
           }
         `}
         style={{ paddingLeft: `${(node.level - 1) * 12}px` }}
@@ -86,7 +87,7 @@ function OutlineTreeNode({
         </span>
       </div>
       {hasChildren && !isCollapsed && (
-        <ul className="space-y-1 mt-1">
+        <ul className="space-y-0.5 mt-0.5">
           {node.children.map((child) => (
             <OutlineTreeNode
               key={child.index}

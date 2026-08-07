@@ -43,7 +43,9 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Drag & drop** - Drop Markdown files to open instantly
 - **Auto-save** - Automatic saving after 2 seconds of inactivity
 - **Recent files** - Quick access to recently opened files
-- **Native menus** - System menu bar with localized labels, dynamic Open Recent, and OS-level shortcuts
+- **Native menus** - Full system menu bar (File/Edit/Paragraph/Format/View) with localized labels, dynamic Open Recent, and OS-level shortcuts
+- **macOS Dock menu** - Right-click the Dock icon for New/Open and recent files
+- **File associations** - Open .md files via Finder "Open With" or double-click (installed app)
 - **Context menus** - Right-click in file tree and all editor areas; WYSIWYG menus are context-aware (table row/column editing, link, image, code block)
 - **Undo/Redo** - Full history support with Cmd/Ctrl + Z / Shift+Z
 
@@ -51,9 +53,9 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 
 - **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links (Cmd/Ctrl + B / I / K)
 - **Block formatting** - Headings (H1-H6), Quote, List, Code block
-- **Image insertion** - Toolbar, paste, or drag & drop with automatic asset management
+- **Image insertion** - Menu, paste, or drag & drop with automatic asset management
 - **Table editing** - Visual table creation with customizable rows and columns
-- **Admonition insertion** - Insert callout boxes (tip, warning, note, etc.) from the toolbar with an optional custom title
+- **Admonition insertion** - Insert callout boxes (tip, warning, note, etc.) from the Paragraph menu with an optional custom title
 
 ### MkDocs-Ready: Extended Markdown Support
 

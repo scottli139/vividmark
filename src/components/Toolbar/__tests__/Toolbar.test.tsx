@@ -1,21 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { act, render, screen, fireEvent } from '@testing-library/react'
 import { Toolbar } from '../Toolbar'
 import { useEditorStore } from '../../../stores/editorStore'
-import { useDialogStore } from '../../../stores/dialogStore'
-
-// Mock fileOps module
-vi.mock('../../../lib/fileOps', () => ({
-  openFile: vi.fn(),
-  saveFile: vi.fn(),
-  newFile: vi.fn(),
-}))
-
-// Import mocked functions
-import { openFile, saveFile, newFile } from '../../../lib/fileOps'
-const mockOpenFile = vi.mocked(openFile)
-const mockSaveFile = vi.mocked(saveFile)
-const mockNewFile = vi.mocked(newFile)
 
 describe('Toolbar', () => {
   beforeEach(() => {
@@ -34,6 +20,8 @@ describe('Toolbar', () => {
       language: 'en',
       zoomLevel: 100,
       isSettingsOpen: false,
+      canUndo: false,
+      canRedo: false,
     })
   })
 
@@ -42,86 +30,46 @@ describe('Toolbar', () => {
   })
 
   describe('rendering', () => {
-    // 文件名现在显示在窗口标题栏，不再在工具栏中
-    it('should render toolbar', () => {
+    // 精简后的工具栏：只保留高频操作，文件/格式化入口在原生菜单与右键菜单
+    it('should render high-frequency controls only', () => {
       render(<Toolbar />)
-      // 检查关键元素存在
-      expect(screen.getByTitle('Open File (Cmd+O)')).toBeInTheDocument()
-      expect(screen.getByTitle('Save (Cmd+S)')).toBeInTheDocument()
+      expect(screen.getByTitle('Toggle Sidebar')).toBeInTheDocument()
+      expect(screen.getByTitle('Undo (Cmd+Z)')).toBeInTheDocument()
+      expect(screen.getByTitle('Redo (Cmd+Shift+Z)')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'WYSIWYG' })).toBeInTheDocument()
+      expect(screen.getByTitle('Toggle Dark Mode')).toBeInTheDocument()
+      expect(screen.getByTitle('More')).toBeInTheDocument()
+
+      // 已移除的入口
+      expect(screen.queryByTitle('Open File (Cmd+O)')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Save (Cmd+S)')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('New File (Cmd+N)')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Bold (Cmd+B)')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Insert')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('More Formatting')).not.toBeInTheDocument()
     })
   })
 
-  describe('file operations', () => {
-    it('should call openFile when open button is clicked', async () => {
-      mockOpenFile.mockResolvedValue(undefined)
+  describe('undo / redo', () => {
+    it('should dispatch editor-undo / editor-redo events', () => {
+      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+      useEditorStore.setState({ canUndo: true, canRedo: true })
       render(<Toolbar />)
 
-      const openButton = screen.getByTitle('Open File (Cmd+O)')
-      fireEvent.click(openButton)
+      fireEvent.click(screen.getByTitle('Undo (Cmd+Z)'))
+      fireEvent.click(screen.getByTitle('Redo (Cmd+Shift+Z)'))
 
-      await waitFor(() => {
-        expect(mockOpenFile).toHaveBeenCalledTimes(1)
-      })
+      const types = dispatchEventSpy.mock.calls.map((call) => (call[0] as CustomEvent).type)
+      expect(types).toContain('editor-undo')
+      expect(types).toContain('editor-redo')
+
+      dispatchEventSpy.mockRestore()
     })
 
-    it('should call saveFile when save button is clicked', async () => {
-      mockSaveFile.mockResolvedValue(true)
+    it('should disable undo/redo buttons per store state', () => {
       render(<Toolbar />)
-
-      const saveButton = screen.getByTitle('Save (Cmd+S)')
-      fireEvent.click(saveButton)
-
-      await waitFor(() => {
-        expect(mockSaveFile).toHaveBeenCalledTimes(1)
-      })
-    })
-
-    it('should call newFile when new button is clicked and document is clean', () => {
-      render(<Toolbar />)
-
-      const newButton = screen.getByTitle('New File (Cmd+N)')
-      fireEvent.click(newButton)
-
-      expect(mockNewFile).toHaveBeenCalledTimes(1)
-    })
-
-    it('should confirm before creating new file when document is dirty', async () => {
-      useEditorStore.getState().setDirty(true)
-      render(<Toolbar />)
-
-      const newButton = screen.getByTitle('New File (Cmd+N)')
-      fireEvent.click(newButton)
-
-      // 自绘弹窗出现（替代原生 confirm）
-      expect(useDialogStore.getState().current?.message).toBe('Discard unsaved changes?')
-      expect(useDialogStore.getState().current?.kind).toBe('confirm')
-
-      act(() => {
-        useDialogStore.getState().answer(true)
-      })
-
-      await waitFor(() => {
-        expect(mockNewFile).toHaveBeenCalledTimes(1)
-      })
-    })
-
-    it('should not create new file if user cancels confirmation', async () => {
-      useEditorStore.getState().setDirty(true)
-      render(<Toolbar />)
-
-      const newButton = screen.getByTitle('New File (Cmd+N)')
-      fireEvent.click(newButton)
-
-      expect(useDialogStore.getState().current?.message).toBe('Discard unsaved changes?')
-
-      act(() => {
-        useDialogStore.getState().answer(false)
-      })
-
-      await waitFor(() => {
-        expect(useDialogStore.getState().current).toBeNull()
-      })
-      expect(mockNewFile).not.toHaveBeenCalled()
+      expect(screen.getByTitle('Undo (Cmd+Z)')).toBeDisabled()
+      expect(screen.getByTitle('Redo (Cmd+Shift+Z)')).toBeDisabled()
     })
   })
 
@@ -200,49 +148,6 @@ describe('Toolbar', () => {
       fireEvent.click(sidebarButton)
 
       expect(useEditorStore.getState().showSidebar).toBe(true)
-    })
-  })
-
-  describe('format buttons', () => {
-    it('should dispatch editor-format event when format button is clicked', () => {
-      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
-
-      render(<Toolbar />)
-
-      const boldButton = screen.getByTitle('Bold (Cmd+B)')
-      fireEvent.click(boldButton)
-
-      expect(dispatchEventSpy).toHaveBeenCalled()
-      const call = dispatchEventSpy.mock.calls.find((call) => {
-        const event = call[0] as CustomEvent
-        return event.type === 'editor-format' && event.detail?.format === 'bold'
-      })
-      expect(call).toBeTruthy()
-
-      dispatchEventSpy.mockRestore()
-    })
-
-    it('should dispatch editor-format event from format menu', () => {
-      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
-
-      render(<Toolbar />)
-
-      // 打开更多格式化菜单
-      const moreButton = screen.getByTitle('More Formatting')
-      fireEvent.click(moreButton)
-
-      // 点击任务列表选项（现在在下拉菜单中）
-      const tasklistOption = screen.getByText('Task List')
-      fireEvent.click(tasklistOption)
-
-      expect(dispatchEventSpy).toHaveBeenCalled()
-      const call = dispatchEventSpy.mock.calls.find((call) => {
-        const event = call[0] as CustomEvent
-        return event.type === 'editor-format' && event.detail?.format === 'tasklist'
-      })
-      expect(call).toBeTruthy()
-
-      dispatchEventSpy.mockRestore()
     })
   })
 
@@ -328,7 +233,7 @@ describe('Toolbar', () => {
         useEditorStore.getState().setZoomLevel(150)
       })
       fireEvent.click(screen.getByTitle('More'))
-      fireEvent.click(screen.getByText('Reset Zoom (Cmd+0)'))
+      fireEvent.click(screen.getByText('Reset Zoom (Cmd+Shift+0)'))
       expect(useEditorStore.getState().zoomLevel).toBe(100)
     })
 
@@ -344,20 +249,20 @@ describe('Toolbar', () => {
     })
   })
 
-  describe('insert menu', () => {
-    it('should open table dialog from insert menu', () => {
+  describe('insert dialogs (app-open-dialog 事件驱动)', () => {
+    function openDialog(dialog: 'table' | 'admonition') {
+      act(() => {
+        window.dispatchEvent(new CustomEvent('app-open-dialog', { detail: { dialog } }))
+      })
+    }
+
+    it('should open table dialog via app-open-dialog event', () => {
       render(<Toolbar />)
 
       // Initially, dialog should not be visible
       expect(screen.queryByText('Insert Table')).not.toBeInTheDocument()
 
-      // 打开插入菜单
-      const insertButton = screen.getByTitle('Insert')
-      fireEvent.click(insertButton)
-
-      // 点击表格选项
-      const tableOption = screen.getByText('Insert Table')
-      fireEvent.click(tableOption)
+      openDialog('table')
 
       // Dialog should now be visible
       expect(screen.getByText('Insert Table')).toBeInTheDocument()
@@ -366,11 +271,7 @@ describe('Toolbar', () => {
     it('should close table dialog when Cancel is clicked', () => {
       render(<Toolbar />)
 
-      // Open dialog
-      fireEvent.click(screen.getByTitle('Insert'))
-      fireEvent.click(screen.getByText('Insert Table'))
-
-      // Dialog should be visible
+      openDialog('table')
       expect(screen.getByText('Insert Table')).toBeInTheDocument()
 
       // Click cancel
@@ -384,16 +285,12 @@ describe('Toolbar', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       render(<Toolbar />)
-
-      // Open dialog
-      fireEvent.click(screen.getByTitle('Insert'))
-      fireEvent.click(screen.getByText('Insert Table'))
+      openDialog('table')
 
       // Insert table
       fireEvent.click(screen.getByText('Insert'))
 
       // Should dispatch insert event with table markdown
-      expect(dispatchEventSpy).toHaveBeenCalled()
       const call = dispatchEventSpy.mock.calls.find((call) => {
         const event = call[0] as CustomEvent
         return event.type === 'editor-insert' && event.detail?.text?.includes('Column 1')
@@ -407,10 +304,7 @@ describe('Toolbar', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       render(<Toolbar />)
-
-      // Open dialog
-      fireEvent.click(screen.getByTitle('Insert'))
-      fireEvent.click(screen.getByText('Insert Table'))
+      openDialog('table')
 
       // Change dimensions
       const rowInput = screen.getAllByRole('spinbutton')[0]
@@ -442,10 +336,7 @@ describe('Toolbar', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       render(<Toolbar />)
-
-      // 打开插入菜单 → 点击提示框选项
-      fireEvent.click(screen.getByTitle('Insert'))
-      fireEvent.click(screen.getByText('Admonition'))
+      openDialog('admonition')
 
       // 对话框可见，默认选中 Note
       expect(screen.getByText('Insert Admonition')).toBeInTheDocument()
@@ -475,9 +366,7 @@ describe('Toolbar', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       render(<Toolbar />)
-
-      fireEvent.click(screen.getByTitle('Insert'))
-      fireEvent.click(screen.getByText('Admonition'))
+      openDialog('admonition')
       fireEvent.click(screen.getByText('Insert'))
 
       const call = dispatchEventSpy.mock.calls.find((call) => {

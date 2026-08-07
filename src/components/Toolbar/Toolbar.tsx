@@ -1,44 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEditorStore } from '../../stores/editorStore'
-import { openFile, saveFile, newFile } from '../../lib/fileOps'
-import { confirmDialog } from '../../lib/dialog'
-import { selectLocalImage, createImageMarkdown } from '../../lib/imageUtils'
 import { generateTable } from '../../lib/tableUtils'
 import { TableDialog } from '../TableDialog'
 import { AdmonitionDialog } from '../AdmonitionDialog'
-import { FormatMenu } from './FormatMenu'
-import { HeadingDropdown } from './HeadingDropdown'
-import { InsertMenu } from './InsertMenu'
 import { MoreMenu } from './MoreMenu'
-import type { FormatType } from '../../lib/markdownEditing'
 import { isMacOSDesktop } from '../../lib/platform'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-
-// 格式化按钮组件
-function FormatButton({
-  format,
-  title,
-  children,
-}: {
-  format: FormatType
-  title: string
-  children: React.ReactNode
-}) {
-  const handleFormatClick = () => {
-    window.dispatchEvent(new CustomEvent('editor-format', { detail: { format } }))
-  }
-
-  return (
-    <button
-      onClick={handleFormatClick}
-      className="p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors"
-      title={title}
-    >
-      {children}
-    </button>
-  )
-}
 
 // 操作按钮组件
 function ActionButton({
@@ -89,6 +57,12 @@ function ViewModeButton({
   )
 }
 
+/**
+ * 工具栏（精简后）：只保留高频操作——侧边栏切换、撤销/重做、视图模式切换、
+ * 暗色切换、更多菜单。文件操作与格式化/插入全部由原生菜单（文件/编辑/段落/
+ * 格式）+ 编辑器右键菜单 + 快捷键覆盖。表格/提示框对话框仍挂载在此，
+ * 由 app-open-dialog 事件触发（原生菜单 insert:table / insert:admonition）。
+ */
 export function Toolbar() {
   const [isTableDialogOpen, setIsTableDialogOpen] = useState(false)
   const [isAdmonitionDialogOpen, setIsAdmonitionDialogOpen] = useState(false)
@@ -96,7 +70,6 @@ export function Toolbar() {
 
   const {
     fileName,
-    filePath,
     isDirty,
     isDarkMode,
     viewMode,
@@ -123,23 +96,16 @@ export function Toolbar() {
     updateTitle()
   }, [fileName, isDirty, t])
 
-  const handleSave = useCallback(async () => {
-    await saveFile()
-  }, [])
-
-  const handleOpen = useCallback(async () => {
-    await openFile()
-  }, [])
-
-  const handleNew = useCallback(async () => {
-    if (isDirty) {
-      if (await confirmDialog(t('dialog.confirmDiscard'))) {
-        newFile()
-      }
-    } else {
-      newFile()
+  // 原生菜单/其他入口经事件打开插入对话框
+  useEffect(() => {
+    const handleOpenDialog = (e: Event) => {
+      const { dialog } = (e as CustomEvent<{ dialog: string }>).detail
+      if (dialog === 'table') setIsTableDialogOpen(true)
+      else if (dialog === 'admonition') setIsAdmonitionDialogOpen(true)
     }
-  }, [isDirty, t])
+    window.addEventListener('app-open-dialog', handleOpenDialog)
+    return () => window.removeEventListener('app-open-dialog', handleOpenDialog)
+  }, [])
 
   const handleUndo = useCallback(() => {
     window.dispatchEvent(new CustomEvent('editor-undo'))
@@ -149,43 +115,9 @@ export function Toolbar() {
     window.dispatchEvent(new CustomEvent('editor-redo'))
   }, [])
 
-  const handleImage = useCallback(async () => {
-    const imagePath = await selectLocalImage()
-    if (imagePath) {
-      const fileName = imagePath.split(/[/\\]/).pop() || 'image'
-      const altText = fileName.replace(/\.[^/.]+$/, '')
-      const markdown = await createImageMarkdown(altText, imagePath, filePath, {
-        copyToAssets: true,
-        useBase64: false,
-      })
-      window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: markdown } }))
-    }
-  }, [filePath])
-
-  const handleTable = useCallback(() => {
-    setIsTableDialogOpen(true)
-  }, [])
-
   const handleInsertTable = useCallback((rows: number, cols: number) => {
     const tableMarkdown = generateTable(rows, cols)
     window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: tableMarkdown } }))
-  }, [])
-
-  const handleFormat = useCallback((format: FormatType) => {
-    window.dispatchEvent(new CustomEvent('editor-format', { detail: { format } }))
-  }, [])
-
-  const handleHeadingSelect = useCallback((level: 1 | 2 | 3) => {
-    const format: FormatType = `h${level}` as FormatType
-    window.dispatchEvent(new CustomEvent('editor-format', { detail: { format } }))
-  }, [])
-
-  const handleCodeBlock = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('editor-format', { detail: { format: 'codeblock' } }))
-  }, [])
-
-  const handleAdmonition = useCallback(() => {
-    setIsAdmonitionDialogOpen(true)
   }, [])
 
   const handleInsertAdmonition = useCallback((type: string, title: string) => {
@@ -209,8 +141,8 @@ export function Toolbar() {
         macFusion ? 'pl-[78px]' : ''
       }`}
     >
-      {/* 左侧 - 文件操作和基础工具 */}
-      <div className="flex items-center gap-1">
+      {/* 左侧 - 侧边栏切换与撤销/重做 */}
+      <div data-tauri-drag-region className="flex items-center gap-1">
         {/* 侧边栏切换 */}
         <button
           onClick={toggleSidebar}
@@ -230,49 +162,6 @@ export function Toolbar() {
             />
           </svg>
         </button>
-
-        <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
-
-        {/* 文件操作 */}
-        <ActionButton
-          onClick={handleNew}
-          title={t('toolbar.tooltip.newFile', { shortcut: `${cmdKey}+N` })}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
-        </ActionButton>
-        <ActionButton
-          onClick={handleOpen}
-          title={t('toolbar.tooltip.openFile', { shortcut: `${cmdKey}+O` })}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H5a2 2 0 00-2 2v5a2 2 0 002 2z"
-            />
-          </svg>
-        </ActionButton>
-        <ActionButton
-          onClick={handleSave}
-          title={t('toolbar.tooltip.save', { shortcut: `${cmdKey}+S` })}
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-            />
-          </svg>
-        </ActionButton>
 
         <div className="w-px h-6 bg-[var(--editor-border)] mx-1" />
 
@@ -307,76 +196,16 @@ export function Toolbar() {
         </ActionButton>
       </div>
 
-      {/* 中间 - 格式化工具 */}
-      <div className="flex items-center gap-0.5">
-        {/* 基础格式化 */}
-        <div className="flex items-center gap-0.5 bg-[var(--editor-border)]/20 rounded-lg p-0.5">
-          <FormatButton
-            format="bold"
-            title={t('toolbar.tooltip.bold', { shortcut: `${cmdKey}+B` })}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"
-              />
-            </svg>
-          </FormatButton>
-          <FormatButton
-            format="italic"
-            title={t('toolbar.tooltip.italic', { shortcut: `${cmdKey}+I` })}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M15 4h-2l-4 16h2"
-              />
-            </svg>
-          </FormatButton>
-
-          <div className="w-px h-4 bg-[var(--editor-border)] mx-0.5" />
-
-          {/* 标题下拉 */}
-          <HeadingDropdown onSelect={handleHeadingSelect} />
-
-          {/* 列表 */}
-          <FormatButton format="list" title={t('toolbar.tooltip.list')}>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 6h.01M8 12h.01M8 18h.01"
-              />
-            </svg>
-          </FormatButton>
+      {/* macOS 融合标题栏：自绘文件名（弹性占位 + 截断防重叠，窄窗口隐藏） */}
+      {macFusion && (
+        <div className="flex-1 min-w-0 truncate text-center text-xs font-medium text-[var(--color-text-secondary)] pointer-events-none select-none hidden min-[760px]:block">
+          {displayTitle}
+          {isDirty ? ' ●' : ''}
         </div>
+      )}
 
-        <div className="w-px h-6 bg-[var(--editor-border)] mx-2" />
-
-        {/* 插入菜单 */}
-        <InsertMenu
-          onImage={handleImage}
-          onTable={handleTable}
-          onCodeBlock={handleCodeBlock}
-          onAdmonition={handleAdmonition}
-        />
-
-        {/* 更多格式化 */}
-        <FormatMenu onFormat={handleFormat} />
-
-        <div className="w-px h-6 bg-[var(--editor-border)] mx-2" />
-
+      {/* 右侧 - 视图切换、暗色切换和更多菜单 */}
+      <div data-tauri-drag-region className="flex items-center gap-2">
         {/* 视图切换 */}
         <div className="flex items-center gap-0.5 bg-[var(--editor-border)]/30 rounded-lg p-0.5">
           <ViewModeButton
@@ -400,19 +229,7 @@ export function Toolbar() {
             onClick={() => setViewMode('preview')}
           />
         </div>
-      </div>
 
-      {/* macOS 融合标题栏：自绘文件名（弹性占位 + 截断防重叠，窄窗口隐藏） */}
-      {macFusion && (
-        <div className="flex-1 min-w-0 truncate text-center text-xs font-medium text-[var(--color-text-secondary)] pointer-events-none select-none hidden min-[760px]:block">
-          {displayTitle}
-          {isDirty ? ' ●' : ''}
-        </div>
-      )}
-
-      {/* 右侧 - 暗色切换和更多菜单 */}
-      <div className="flex items-center gap-2">
-        {' '}
         {/* 暗黑模式切换 */}
         <button
           onClick={toggleDarkMode}

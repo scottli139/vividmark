@@ -361,6 +361,13 @@ body {
   text-align: left;
 }
 
+/* 单元格内的段落去掉段距——WYSIWYG（Milkdown）的单元格内容被 <p> 包裹，
+   段落下边距会让行高虚高；预览渲染无 p 包裹，此规则对其无影响 */
+.markdown-body th > p,
+.markdown-body td > p {
+  margin: 0;
+}
+
 .markdown-body th {
   background-color: var(--sidebar-bg);
   font-weight: 600;

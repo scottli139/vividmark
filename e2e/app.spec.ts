@@ -70,27 +70,24 @@ test.describe('VividMark Application', () => {
     await expect(page.locator('text=/Chars:/i')).toBeVisible()
   })
 
-  test('should have format toolbar buttons', async ({ page }) => {
-    await expect(page.locator('button[title="Bold (Cmd+B)"]')).toBeVisible()
-    await expect(page.locator('button[title="Italic (Cmd+I)"]')).toBeVisible()
+  test('should have high-frequency toolbar buttons only', async ({ page }) => {
+    // 精简后的工具栏：侧边栏切换 / 撤销重做 / 视图切换 / 暗色 / 更多菜单
+    await expect(page.locator('button[title="Toggle Sidebar"]')).toBeVisible()
+    await expect(page.locator('button[title="Undo (Cmd+Z)"]')).toBeVisible()
+    await expect(page.locator('button[title="Redo (Cmd+Shift+Z)"]')).toBeVisible()
+    await expect(page.locator('button[title="Toggle Dark Mode"]')).toBeVisible()
+    await expect(page.locator('button[title="More"]')).toBeVisible()
 
-    // 删除线/行内代码在「更多格式」菜单内
-    await page.click('button[title="More Formatting"]')
-    await expect(page.locator('button:has-text("Strikethrough")')).toBeVisible()
-    await expect(page.locator('button:has-text("Inline Code")')).toBeVisible()
+    // 文件操作与格式化按钮已移到原生菜单/右键菜单
+    await expect(page.locator('button[title="Bold (Cmd+B)"]')).not.toBeVisible()
+    await expect(page.locator('button[title="New File (Cmd+N)"]')).not.toBeVisible()
+    await expect(page.locator('button[title="Save (Cmd+S)"]')).not.toBeVisible()
   })
 
-  test('should have heading format buttons', async ({ page }) => {
-    // 标题按钮在 Heading 下拉菜单内
-    await page.click('button[title="Heading"]')
-    await expect(page.locator('button:has-text("Heading 1")')).toBeVisible()
-    await expect(page.locator('button:has-text("Heading 2")')).toBeVisible()
-    await expect(page.locator('button:has-text("Heading 3")')).toBeVisible()
-  })
-
-  test('should have file operation buttons', async ({ page }) => {
-    await expect(page.locator('button[title="New File (Cmd+N)"]')).toBeVisible()
-    await expect(page.locator('button[title="Open File (Cmd+O)"]')).toBeVisible()
-    await expect(page.locator('button[title="Save (Cmd+S)"]')).toBeVisible()
+  test('should expose zoom and settings via more menu', async ({ page }) => {
+    await page.click('button[title="More"]')
+    await expect(page.locator('button:has-text("Zoom In")')).toBeVisible()
+    await expect(page.locator('button:has-text("Export PDF")')).toBeVisible()
+    await expect(page.locator('button:has-text("Settings")')).toBeVisible()
   })
 })

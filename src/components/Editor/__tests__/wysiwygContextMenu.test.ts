@@ -269,17 +269,6 @@ describe('wysiwyg context menu', () => {
       expect(view.state.doc.lastChild?.type.name).toBe('paragraph')
     })
 
-    it('block:paragraph turns a heading back into a paragraph', async () => {
-      const ed = await createEditor('# Title')
-      const view = getView(ed)
-      cursorOnText(view, 'Title')
-
-      expect(act(ed, 'block:paragraph')).toBe(true)
-
-      expect(view.state.doc.firstChild?.type.name).toBe('paragraph')
-      expect(ed.action(getMarkdown())).not.toContain('#')
-    })
-
     it('insert:hr inserts a thematic break', async () => {
       const ed = await createEditor('text')
       const view = getView(ed)

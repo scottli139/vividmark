@@ -23,8 +23,12 @@ describe('isBlockFormat', () => {
     expect(isBlockFormat('h1')).toBe(true)
     expect(isBlockFormat('h2')).toBe(true)
     expect(isBlockFormat('h3')).toBe(true)
+    expect(isBlockFormat('h4')).toBe(true)
+    expect(isBlockFormat('h5')).toBe(true)
+    expect(isBlockFormat('h6')).toBe(true)
     expect(isBlockFormat('quote')).toBe(true)
     expect(isBlockFormat('list')).toBe(true)
+    expect(isBlockFormat('ol')).toBe(true)
     expect(isBlockFormat('tasklist')).toBe(true)
   })
 
@@ -36,6 +40,8 @@ describe('isBlockFormat', () => {
     expect(isBlockFormat('link')).toBe(false)
     expect(isBlockFormat('image')).toBe(false)
     expect(isBlockFormat('codeblock')).toBe(false)
+    // paragraph 既非行内也非前缀 toggle，走专属前缀剥离路径
+    expect(isBlockFormat('paragraph')).toBe(false)
   })
 })
 
@@ -197,6 +203,84 @@ describe('formatTransaction', () => {
     const state = stateWith('hi', 0)
     const next = applySpec(state, formatTransaction(state, 'h3'))
     expect(next.doc.toString()).toBe('### hi')
+  })
+
+  it('should dispatch paragraph format', () => {
+    const state = stateWith('## hi', 0)
+    const next = applySpec(state, formatTransaction(state, 'paragraph'))
+    expect(next.doc.toString()).toBe('hi')
+  })
+})
+
+describe('extended block formats (h4-h6 / ol)', () => {
+  it('should add h4-h6 prefixes', () => {
+    expect(
+      applySpec(stateWith('t', 0), toggleBlockFormat(stateWith('t', 0), 'h4')).doc.toString()
+    ).toBe('#### t')
+    expect(
+      applySpec(stateWith('t', 0), toggleBlockFormat(stateWith('t', 0), 'h5')).doc.toString()
+    ).toBe('##### t')
+    expect(
+      applySpec(stateWith('t', 0), toggleBlockFormat(stateWith('t', 0), 'h6')).doc.toString()
+    ).toBe('###### t')
+  })
+
+  it('should replace h2 prefix with h5', () => {
+    const state = stateWith('## Hello', 3)
+    const next = applySpec(state, toggleBlockFormat(state, 'h5'))
+    expect(next.doc.toString()).toBe('##### Hello')
+  })
+
+  it('should add ordered list prefix', () => {
+    const state = stateWith('item', 0)
+    const next = applySpec(state, toggleBlockFormat(state, 'ol'))
+    expect(next.doc.toString()).toBe('1. item')
+  })
+
+  it('should toggle off ordered list with any number', () => {
+    const doc = '1. a\n2. b\n3. c'
+    const state = stateWith(doc, 0, doc.length)
+    const next = applySpec(state, toggleBlockFormat(state, 'ol'))
+    expect(next.doc.toString()).toBe('a\nb\nc')
+  })
+
+  it('should replace ordered list prefix with quote', () => {
+    const state = stateWith('12. item', 4)
+    const next = applySpec(state, toggleBlockFormat(state, 'quote'))
+    expect(next.doc.toString()).toBe('> item')
+  })
+
+  it('should replace tasklist prefix with heading (no residue)', () => {
+    const state = stateWith('- [ ] task', 5)
+    const next = applySpec(state, toggleBlockFormat(state, 'h1'))
+    expect(next.doc.toString()).toBe('# task')
+  })
+
+  it('should replace checked tasklist prefix with bullet list', () => {
+    const state = stateWith('- [x] done', 5)
+    const next = applySpec(state, toggleBlockFormat(state, 'list'))
+    expect(next.doc.toString()).toBe('- done')
+  })
+})
+
+describe('applyParagraphFormat (via formatTransaction)', () => {
+  it('should strip heading prefix', () => {
+    const state = stateWith('### title', 4)
+    const next = applySpec(state, formatTransaction(state, 'paragraph'))
+    expect(next.doc.toString()).toBe('title')
+  })
+
+  it('should strip quote/list/task/ol prefixes across selection', () => {
+    const doc = '> q\n- l\n- [ ] t\n1. o'
+    const state = stateWith(doc, 0, doc.length)
+    const next = applySpec(state, formatTransaction(state, 'paragraph'))
+    expect(next.doc.toString()).toBe('q\nl\nt\no')
+  })
+
+  it('should leave plain lines unchanged (empty transaction)', () => {
+    const state = stateWith('plain', 2)
+    const spec = formatTransaction(state, 'paragraph')
+    expect(spec.changes).toBeUndefined()
   })
 })
 

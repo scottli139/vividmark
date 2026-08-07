@@ -143,11 +143,11 @@ export const FileTreeItem = memo(function FileTreeItem({
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         className={`
-          flex items-center gap-1 px-2 py-1 cursor-pointer text-sm
+          flex items-center gap-1 px-2 py-1 mx-1 rounded-md cursor-pointer text-sm
           transition-colors duration-150
           ${
             isSelected
-              ? 'bg-[var(--accent-color)] text-white'
+              ? 'bg-[var(--accent-color)]/15 text-[var(--accent-color)] font-medium'
               : 'hover:bg-[var(--hover-bg)] text-[var(--color-text)]'
           }
         `}
@@ -167,7 +167,7 @@ export const FileTreeItem = memo(function FileTreeItem({
 
         {/* 文件图标 */}
         <span
-          className={`flex-shrink-0 ${isSelected ? 'text-white' : 'text-[var(--color-text-secondary)]'}`}
+          className={`flex-shrink-0 ${isSelected ? 'text-[var(--accent-color)]' : 'text-[var(--color-text-secondary)]'}`}
         >
           <FileIcon type={iconType} isSelected={isSelected} />
         </span>

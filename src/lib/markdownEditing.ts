@@ -18,10 +18,15 @@ export type FormatType =
   | 'h1'
   | 'h2'
   | 'h3'
+  | 'h4'
+  | 'h5'
+  | 'h6'
   | 'quote'
   | 'list'
+  | 'ol'
   | 'tasklist'
   | 'codeblock'
+  | 'paragraph'
 
 interface InlineFormatConfig {
   prefix: string
@@ -43,10 +48,28 @@ const BLOCK_PREFIXES: Partial<Record<FormatType, string>> = {
   h1: '# ',
   h2: '## ',
   h3: '### ',
+  h4: '#### ',
+  h5: '##### ',
+  h6: '###### ',
   quote: '> ',
   list: '- ',
+  ol: '1. ',
   tasklist: '- [ ] ',
 }
+
+/** 行首块级前缀识别：标题 / 引用 / 任务 / 无序 / 有序列表；返回匹配到的前缀长度 */
+const BLOCK_PREFIX_RES = [/^#{1,6} /, /^> /, /^- \[[ xX]\] /, /^- /, /^\d+\. /]
+
+function matchBlockPrefix(text: string): { length: number } | null {
+  for (const re of BLOCK_PREFIX_RES) {
+    const m = text.match(re)
+    if (m) return { length: m[0].length }
+  }
+  return null
+}
+
+/** 有序列表的行前缀匹配（编号不固定为 1） */
+const OL_PREFIX_RE = /^\d+\. /
 
 export function isBlockFormat(format: FormatType): boolean {
   return format in BLOCK_PREFIXES
@@ -88,13 +111,11 @@ export function applyInlineFormat(state: EditorState, format: FormatType): Trans
   }
 }
 
-const HEADING_PREFIX_RE = /^#{1,6} /
-
 /**
  * 块级格式化：切换行首前缀（标题/引用/列表/任务列表）。
  * 作用于选区覆盖的所有行：
- * - 所有行都已有该前缀 → 全部移除（toggle off）
- * - 否则逐行添加；已有其他标题前缀或 `> `/`- ` 前缀时替换
+ * - 所有行都已有该前缀 → 全部移除（toggle off；有序列表按实际编号前缀匹配）
+ * - 否则逐行添加；已有其他块级前缀（标题/引用/列表/任务）时替换
  * 选区由 CM 自动随 changes 映射，无需显式指定。
  */
 export function toggleBlockFormat(state: EditorState, format: FormatType): TransactionSpec {
@@ -103,38 +124,35 @@ export function toggleBlockFormat(state: EditorState, format: FormatType): Trans
     throw new Error(`Not a block format: ${format}`)
   }
 
-  const { from, to } = state.selection.main
-  const startLine = state.doc.lineAt(from)
-  let endLine = state.doc.lineAt(to)
-  // 选区恰好结束于下一行行首时，不处理该空行
-  if (to > from && to === endLine.from && endLine.number > startLine.number) {
-    endLine = state.doc.line(endLine.number - 1)
-  }
+  const lines = selectedLines(state)
 
-  const lines = []
-  for (let n = startLine.number; n <= endLine.number; n++) {
-    lines.push(state.doc.line(n))
+  // ol 按实际编号匹配；list 不把任务项（- [ ] / - [x]）当作普通无序项，
+  // 否则对任务项 toggle list 只会剥掉 '- ' 留下 '[ ] ' 残渣
+  const hasPrefix = (text: string) => {
+    if (format === 'ol') return OL_PREFIX_RE.test(text)
+    if (format === 'list') return /^- (?!\[[ xX]\] )/.test(text)
+    return text.startsWith(prefix)
   }
-
-  const allHavePrefix = lines.every((line) => line.text.startsWith(prefix))
+  const allHavePrefix = lines.every((line) => hasPrefix(line.text))
 
   const changes = []
   for (const line of lines) {
     const text = line.text
     if (allHavePrefix) {
-      // 全部已有前缀：统一移除
-      changes.push({ from: line.from, to: line.from + prefix.length, insert: '' })
+      // 全部已有前缀：统一移除（ol 移除实际编号前缀）
+      const removeLen =
+        format === 'ol' ? (text.match(OL_PREFIX_RE)?.[0].length ?? 0) : prefix.length
+      if (removeLen > 0) {
+        changes.push({ from: line.from, to: line.from + removeLen, insert: '' })
+      }
       continue
     }
-    if (text.startsWith(prefix)) continue
+    if (hasPrefix(text)) continue
 
-    const headingMatch = text.match(HEADING_PREFIX_RE)
-    if (headingMatch) {
-      // 替换其他标题前缀
-      changes.push({ from: line.from, to: line.from + headingMatch[0].length, insert: prefix })
-    } else if (text.startsWith('> ') || text.startsWith('- ')) {
-      // 替换引用/列表前缀
-      changes.push({ from: line.from, to: line.from + 2, insert: prefix })
+    const existing = matchBlockPrefix(text)
+    if (existing) {
+      // 替换其他块级前缀（标题/引用/无序/有序/任务列表）
+      changes.push({ from: line.from, to: line.from + existing.length, insert: prefix })
     } else {
       changes.push({ from: line.from, insert: prefix })
     }
@@ -146,9 +164,42 @@ export function toggleBlockFormat(state: EditorState, format: FormatType): Trans
 }
 
 /**
- * 根据格式类型分发到行内/块级变换
+ * 正文（段落）：剥掉选区所有行的行首块级前缀（标题/引用/列表/任务），
+ * 无前缀的行保持不变。对应 Typora 段落菜单的「正文」。
+ */
+export function applyParagraphFormat(state: EditorState): TransactionSpec {
+  const changes = []
+  for (const line of selectedLines(state)) {
+    const existing = matchBlockPrefix(line.text)
+    if (existing) {
+      changes.push({ from: line.from, to: line.from + existing.length, insert: '' })
+    }
+  }
+  if (changes.length === 0) return {}
+  return { changes, scrollIntoView: true, userEvent: 'input' }
+}
+
+/** 选区覆盖的行集合；选区恰好结束于下一行行首时，不包含该空行 */
+function selectedLines(state: EditorState) {
+  const { from, to } = state.selection.main
+  const startLine = state.doc.lineAt(from)
+  let endLine = state.doc.lineAt(to)
+  if (to > from && to === endLine.from && endLine.number > startLine.number) {
+    endLine = state.doc.line(endLine.number - 1)
+  }
+
+  const lines = []
+  for (let n = startLine.number; n <= endLine.number; n++) {
+    lines.push(state.doc.line(n))
+  }
+  return lines
+}
+
+/**
+ * 根据格式类型分发到行内/块级变换（paragraph 走前缀剥离）
  */
 export function formatTransaction(state: EditorState, format: FormatType): TransactionSpec {
+  if (format === 'paragraph') return applyParagraphFormat(state)
   return isBlockFormat(format) ? toggleBlockFormat(state, format) : applyInlineFormat(state, format)
 }
 
