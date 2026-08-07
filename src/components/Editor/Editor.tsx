@@ -1,20 +1,95 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { open } from '@tauri-apps/plugin-shell'
 import type { EditorView } from '@codemirror/view'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdownAsync } from '../../lib/markdown/parser'
 import { printToPdf } from '../../lib/exportPdf'
 import { scrollPreviewToHeading } from '../../lib/outlineUtils'
+import { writeClipboardText } from '../../lib/clipboard'
+import {
+  buildPreviewMenuItems,
+  getShortcutLabels,
+  type PreviewMenuContext,
+} from '../../lib/contextMenu'
+import { isMacOS } from '../../lib/platform'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { ContextMenu } from '../Menu'
 import { CodeMirrorEditor } from './CodeMirrorEditor'
 import { WysiwygEditor } from './WysiwygEditor'
 import '../../styles/globals.css'
 
 export function Editor() {
+  const { t } = useTranslation()
   const { content, setContent, viewMode, filePath, zoomLevel } = useEditorStore()
 
   const [renderedHtml, setRenderedHtml] = useState('')
   const cmViewRef = useRef<EditorView | null>(null)
   const previewContainerRef = useRef<HTMLDivElement>(null)
+
+  // 预览区右键菜单：打开时刻快照链接/图片落点与选区状态
+  const { menu, openMenu, closeMenu } = useContextMenu<PreviewMenuContext>()
+
+  const handlePreviewContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement
+      const linkElement = target.closest('a[href]') as HTMLAnchorElement | null
+      const imageElement = target.closest('img')
+      const selection = window.getSelection()
+      openMenu(e, {
+        hasSelection: !!selection && !selection.isCollapsed && selection.toString().length > 0,
+        linkHref: linkElement?.getAttribute('href') ?? undefined,
+        imageSrc: imageElement?.getAttribute('src') ?? undefined,
+      })
+    },
+    [openMenu]
+  )
+
+  const handlePreviewMenuSelect = useCallback(
+    async (id: string) => {
+      const data = menu?.data
+      switch (id) {
+        case 'copy': {
+          const text = window.getSelection()?.toString()
+          if (text) await writeClipboardText(text)
+          break
+        }
+        case 'select-all': {
+          const container = previewContainerRef.current
+          const selection = window.getSelection()
+          if (container && selection) {
+            const range = document.createRange()
+            range.selectNodeContents(container)
+            selection.removeAllRanges()
+            selection.addRange(range)
+          }
+          break
+        }
+        case 'export-pdf':
+          // 同原生菜单 export-pdf：请求 Editor 提供 HTML 后走导出
+          window.dispatchEvent(
+            new CustomEvent('editor-request-html', { detail: { requestId: Date.now() } })
+          )
+          break
+        case 'link:open':
+          if (data?.linkHref) {
+            try {
+              await open(data.linkHref)
+            } catch (error) {
+              console.error('Failed to open external link:', error)
+            }
+          }
+          break
+        case 'link:copy':
+          if (data?.linkHref) await writeClipboardText(data.linkHref)
+          break
+        case 'image:copy-src':
+          if (data?.imageSrc) await writeClipboardText(data.imageSrc)
+          break
+      }
+    },
+    [menu]
+  )
 
   // 全局快捷键监听（包括缩放）- 在 Preview 模式下也能使用
   // 使用 getState() 避免闭包问题
@@ -277,6 +352,7 @@ export function Editor() {
           ref={previewContainerRef}
           className="flex-1 overflow-auto"
           onScroll={viewMode === 'split' ? handlePreviewScroll : undefined}
+          onContextMenu={handlePreviewContextMenu}
         >
           <div
             className="markdown-body min-h-full p-8 origin-top-left"
@@ -285,6 +361,17 @@ export function Editor() {
             onClick={handlePreviewClick}
           />
         </div>
+      )}
+
+      {/* 预览区右键菜单 */}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={buildPreviewMenuItems(t, getShortcutLabels(isMacOS()), menu.data)}
+          onSelect={(id) => void handlePreviewMenuSelect(id)}
+          onClose={closeMenu}
+        />
       )}
     </div>
   )

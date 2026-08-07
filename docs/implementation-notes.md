@@ -1177,3 +1177,26 @@ if (lang === 'typst') {
 - 文件管理操作（新建/重命名/删除）后需重新 `read_directory`，但重建会丢展开状态。解法：操作前 `collectExpandedPaths()` 收集展开目录路径集合，刷新后 `applyExpandedPaths()` 按路径恢复；当前文件父链强制展开。
 - 过滤搜索：query 非空时 `filterTreeByQuery`（保留祖先链）并临时全展开；清空后回到"第一层展开 + 当前文件父链展开"策略（`expandFirstLevel`）。
 - 重命名当前打开文件必须同步 store 的 `filePath`/`fileName` 并 `renameRecentFile`，否则自动保存会写到旧路径。
+
+## 2026-08-06 编辑器右键菜单（Source / Preview / WYSIWYG 三区域）
+
+在文件树之后，右键菜单覆盖到编辑器全部三个区域。分层：菜单项构建是纯函数，动作执行按 id 前缀分发，区域各自只持有「打开菜单 → 渲染 → 分发」的薄壳。
+
+### 分层结构
+
+- **`src/lib/contextMenu.ts`（纯函数，可单测）**：`buildSourceMenuItems` / `buildWysiwygMenuItems` / `buildPreviewMenuItems` 输出 `MenuItem[]`（id、i18n 文案、`disabled`、分隔线、快捷键标注）；`getShortcutLabels(isMac)` 出 ⌘/Ctrl+ 两套标注（仅展示——桌面端带 accelerator 的键由原生菜单/OS 处理）。WYSIWYG 构建器接收 `WysiwygMenuContext` 快照（inTable/inTableHeader/linkHref/onImage/inCodeBlock），上下文组排最前，尾部分隔线去重。
+- **`src/hooks/useContextMenu.ts`**：受控状态（坐标 + 打开时刻的上下文快照 data），`openMenu` 做 preventDefault/stopPropagation，`closeMenu` useCallback 稳定化（Menu 原语的老约定）。
+- **动作分发（各编辑器组件内）**：`format:*` → 既有 editor-format 通道（CM `runFormat` / `applyWysiwygFormat`，行为与工具栏一致）；`undo/redo` → 各自 history；剪贴板 → `src/lib/clipboard.ts`。
+
+### 剪贴板（src/lib/clipboard.ts + 新依赖）
+
+- 桌面端 WKWebView 的 `navigator.clipboard.readText` 不可用，必须 **`@tauri-apps/plugin-clipboard-manager`**（npm 2.3.2 + Cargo `tauri-plugin-clipboard-manager = "2"` + `lib.rs` 注册 + capabilities `clipboard-manager:default`）；浏览器 dev/E2E 降级 `navigator.clipboard`。失败返回 null/false 并记日志，调用方零 try/catch。
+- WYSIWYG 的 copy/cut 序列化为**纯文本**（`doc.textBetween`）——保留格式的剪贴板序列化未接，属已知限制；paste 读剪贴板后按 markdown 解析插入（与 Milkdown 原生粘贴一致，`insertWysiwygSnippet`），异常输入回退纯文本。
+
+### WYSIWYG 上下文（wysiwygContextMenu.ts）
+
+- **光标先行**：contextmenu 时 `posAtCoords` 换算落点，落在选区外则先把 `TextSelection.near` 光标移过去（编辑器标准行为），上下文解析与动作都以新光标为准。
+- **链接**：`getLinkRange` 按「光标落在带 link mark 的文本节点内（含右边界）」命中并向两侧同 mark 节点扩展——自实现而非 tiptap 版 `getMarkRange`，因为后者在 `parentOffset=0` 边界取不到节点。
+- **表格**：行/列**新增**复用 milkdown gfm 命令（`addRowBeforeCommand` 等，作用于当前选区）；行/列/整表**删除**是自实现 PM transaction（按 `$from.index(tableDepth)` 算行 index、逐行收集单元格删除区间后从后往前删）——不走 milkdown `selectRowCommand` + `deleteSelectedCellsCommand` 的 index 语义组合。schema 注意：表头是独立节点类型 `table_header_row`，markdown 表格必须有表头 → 表头行禁删行（菜单 disabled + 动作层双保险）；仅剩一列时删列退化为删整表。
+- **图片**：atom 节点无内部光标，右键时 `nodeBefore/nodeAfter` 判定与删除。
+- **E2E 坑**：Preview 的 `.markdown-body` 选择器会命中常驻挂载但隐藏的 `.markdown-body.wysiwyg-editor`，测试里要用 `.markdown-body.p-8` 区分。

@@ -947,6 +947,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         // 菜单点击统一转发给前端（predefined 项系统已自行处理，前端忽略未知 id）
         .on_menu_event(|app, event| {
             let id = event.id().0.clone();

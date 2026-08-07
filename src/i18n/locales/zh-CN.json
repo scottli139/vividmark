@@ -90,6 +90,34 @@
     "confirmDeleteFile": "删除「{{name}}」？",
     "confirmDeleteFolder": "删除文件夹「{{name}}」及其全部内容？"
   },
+  "contextMenu": {
+    "undo": "撤销",
+    "redo": "重做",
+    "cut": "剪切",
+    "copy": "复制",
+    "paste": "粘贴",
+    "selectAll": "全选",
+    "find": "查找",
+    "bold": "加粗",
+    "italic": "斜体",
+    "strikethrough": "删除线",
+    "inlineCode": "行内代码",
+    "link": "链接",
+    "openLink": "打开链接",
+    "copyLink": "复制链接",
+    "removeLink": "移除链接",
+    "copyImageAddress": "复制图片地址",
+    "deleteImage": "删除图片",
+    "copyCode": "复制代码",
+    "exportPdf": "导出 PDF",
+    "addRowAbove": "在上方添加行",
+    "addRowBelow": "在下方添加行",
+    "addColumnLeft": "在左侧添加列",
+    "addColumnRight": "在右侧添加列",
+    "deleteRow": "删除行",
+    "deleteColumn": "删除列",
+    "deleteTable": "删除表格"
+  },
   "dialog": {
     "confirmDiscard": "放弃未保存的更改？",
     "confirmDiscardMessage": "您有未保存的更改，确定要放弃吗？",
@@ -108,9 +136,7 @@
     "colHeader": "列 {{number}}",
     "insertAdmonition": "插入提示框",
     "admonitionType": "类型",
-    "admonitionTitle": "自定义标题（可选）",
-    "confirm": "确认",
-    "close": "关闭"
+    "admonitionTitle": "自定义标题（可选）"
   },
   "app": {
     "dropTitle": "拖放 Markdown 文件到此处",

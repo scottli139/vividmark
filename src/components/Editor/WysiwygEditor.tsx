@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { open } from '@tauri-apps/plugin-shell'
 import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from '@milkdown/kit/core'
 import { listenerCtx } from '@milkdown/kit/plugin/listener'
 import { redo, undo } from '@milkdown/kit/prose/history'
@@ -8,8 +9,18 @@ import { getMarkdown, replaceAll } from '@milkdown/kit/utils'
 import { useEditorStore } from '../../stores/editorStore'
 import type { FormatType } from '../../lib/markdownEditing'
 import { createLogger } from '../../lib/logger'
+import { writeClipboardText } from '../../lib/clipboard'
+import {
+  buildWysiwygMenuItems,
+  getShortcutLabels,
+  type WysiwygMenuContext,
+} from '../../lib/contextMenu'
+import { isMacOS } from '../../lib/platform'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { ContextMenu } from '../Menu'
 import { wysiwygPlugins } from './wysiwygPlugins'
 import { applyWysiwygFormat, insertWysiwygSnippet } from './wysiwygFormat'
+import { applyWysiwygContextAction, resolveWysiwygContext } from './wysiwygContextMenu'
 
 const logger = createLogger('WysiwygEditor')
 
@@ -50,6 +61,66 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
   const content = useEditorStore((state) => state.content)
   const viewMode = useEditorStore((state) => state.viewMode)
   const zoomLevel = useEditorStore((state) => state.zoomLevel)
+  const canUndo = useEditorStore((state) => state.canUndo)
+  const canRedo = useEditorStore((state) => state.canRedo)
+
+  // 右键菜单：打开时刻快照 PM 上下文（表格/链接/图片/代码块）与选区状态
+  const { menu, openMenu, closeMenu } = useContextMenu<{
+    context: WysiwygMenuContext
+    hasSelection: boolean
+  }>()
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    const editor = editorRef.current
+    if (!editor) return
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx)
+      // 右键落点在选区外时，光标先落到右键位置（编辑器标准行为），
+      // 上下文解析与后续动作都以该位置为准
+      const coords = view.posAtCoords({ left: e.clientX, top: e.clientY })
+      if (coords) {
+        const { from, to } = view.state.selection
+        if (coords.pos < from || coords.pos > to) {
+          view.dispatch(
+            view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(coords.pos)))
+          )
+        }
+      }
+      openMenu(e, {
+        context: resolveWysiwygContext(view),
+        hasSelection: !view.state.selection.empty,
+      })
+    })
+  }
+
+  const handleMenuSelect = (id: string) => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    // link:open / link:copy 只需菜单数据快照里的 href，不依赖编辑器当前状态
+    if (id === 'link:open') {
+      const href = menu?.data.context.linkHref
+      if (href) void open(href).catch((e) => logger.warn('Failed to open link:', e))
+      return
+    }
+    if (id === 'link:copy') {
+      const href = menu?.data.context.linkHref
+      if (href) void writeClipboardText(href)
+      return
+    }
+
+    editor.action((ctx) => {
+      if (id.startsWith('format:')) {
+        applyWysiwygFormat(ctx, id.slice('format:'.length) as FormatType)
+      } else if (id === 'undo' || id === 'redo') {
+        const view = ctx.get(editorViewCtx)
+        ;(id === 'undo' ? undo : redo)(view.state, view.dispatch)
+      } else {
+        applyWysiwygContextAction(ctx, id)
+      }
+      ctx.get(editorViewCtx).focus()
+    })
+  }
 
   // 创建 Milkdown 编辑器（幂等：已存在/创建中/已卸载则跳过；失败可重试）
   const ensureEditor = useCallback(() => {
@@ -255,26 +326,42 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
   }, [viewMode])
 
   return (
-    <div className="flex-1 min-h-0 overflow-auto">
-      {createError && (
-        <div className="p-4 text-sm text-[var(--text-secondary)]">
-          {t('editor.loadFailed')}: {createError}
-          <button
-            className="ml-2 text-[var(--accent-color)] underline"
-            onClick={() => {
-              setCreateError(null)
-              ensureEditor()
-            }}
-          >
-            {t('editor.retry')}
-          </button>
-        </div>
+    <>
+      <div className="flex-1 min-h-0 overflow-auto" onContextMenu={handleContextMenu}>
+        {createError && (
+          <div className="p-4 text-sm text-[var(--text-secondary)]">
+            {t('editor.loadFailed')}: {createError}
+            <button
+              className="ml-2 text-[var(--accent-color)] underline"
+              onClick={() => {
+                setCreateError(null)
+                ensureEditor()
+              }}
+            >
+              {t('editor.retry')}
+            </button>
+          </div>
+        )}
+        <div
+          ref={containerRef}
+          className="markdown-body wysiwyg-editor min-h-full"
+          style={{ fontSize: `${(BASE_FONT_SIZE * zoomLevel) / 100}px` }}
+        />
+      </div>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={buildWysiwygMenuItems(
+            t,
+            getShortcutLabels(isMacOS()),
+            { canUndo, canRedo, hasSelection: menu.data.hasSelection },
+            menu.data.context
+          )}
+          onSelect={handleMenuSelect}
+          onClose={closeMenu}
+        />
       )}
-      <div
-        ref={containerRef}
-        className="markdown-body wysiwyg-editor min-h-full"
-        style={{ fontSize: `${(BASE_FONT_SIZE * zoomLevel) / 100}px` }}
-      />
-    </div>
+    </>
   )
 }

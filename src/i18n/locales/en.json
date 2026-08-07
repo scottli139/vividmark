@@ -90,6 +90,34 @@
     "confirmDeleteFile": "Delete \"{{name}}\"?",
     "confirmDeleteFolder": "Delete folder \"{{name}}\" and all its contents?"
   },
+  "contextMenu": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All",
+    "find": "Find",
+    "bold": "Bold",
+    "italic": "Italic",
+    "strikethrough": "Strikethrough",
+    "inlineCode": "Inline Code",
+    "link": "Link",
+    "openLink": "Open Link",
+    "copyLink": "Copy Link",
+    "removeLink": "Remove Link",
+    "copyImageAddress": "Copy Image Address",
+    "deleteImage": "Delete Image",
+    "copyCode": "Copy Code",
+    "exportPdf": "Export PDF",
+    "addRowAbove": "Add Row Above",
+    "addRowBelow": "Add Row Below",
+    "addColumnLeft": "Add Column Left",
+    "addColumnRight": "Add Column Right",
+    "deleteRow": "Delete Row",
+    "deleteColumn": "Delete Column",
+    "deleteTable": "Delete Table"
+  },
   "dialog": {
     "confirmDiscard": "Discard unsaved changes?",
     "confirmDiscardMessage": "You have unsaved changes. Are you sure you want to discard them?",
@@ -108,9 +136,7 @@
     "colHeader": "Col {{number}}",
     "insertAdmonition": "Insert Admonition",
     "admonitionType": "Type",
-    "admonitionTitle": "Custom title (optional)",
-    "confirm": "Confirm",
-    "close": "Close"
+    "admonitionTitle": "Custom title (optional)"
   },
   "app": {
     "dropTitle": "Drop Markdown file here",

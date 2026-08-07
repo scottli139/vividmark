@@ -129,7 +129,7 @@
 #### P3 — 桌面质感与高级体验
 
 - [x] macOS 融合标题栏 ✅（Overlay + hiddenTitle + 自绘居中标题）
-- [x] 右键菜单 ✅（自绘 ContextMenu 实现，文件树已接入，不依赖原生菜单）
+- [x] 右键菜单 ✅（自绘 ContextMenu；文件树 + 编辑器三区域 Source/WYSIWYG/Preview 已接入，WYSIWYG 上下文感知：表格行列增删/链接/图片/代码块；不依赖原生菜单）
 - [x] 原生菜单 ✅（macOS App/File/Edit/View/Window 菜单栏，Windows/Linux 适配布局；2026-08-05）
 - [ ] 多标签页 + 会话恢复
 - [x] 主题系统（部分）✅ - 亮/暗/跟随系统三态 + 控件颜色收编 CSS 变量（CSS 主题包/自定义主题未做）
@@ -806,6 +806,18 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 
 **新增文件**：`strictBrParserPlugin.ts`、`hardbreakCleanupPlugin.ts`、`imeEnterGuardPlugin.ts`、`hardbreakView.ts`（+ 对应测试）
 **机制详解**：`docs/implementation-notes.md`「中文 IME 组合输入系列问题（最终形态）」
+
+### 2026-08-06 编辑器右键菜单（P0+P1+P2 全量落地）
+
+右键菜单从文件树扩展到编辑器三区域，分层「纯函数构建 → 薄壳分发」：
+
+- ✅ **Source（CodeMirror）**：撤销/重做、剪切/复制/粘贴、全选/查找、行内格式组（format:* 复用 editor-format 通道）
+- ✅ **Preview**：复制/全选/导出 PDF；链接落点给打开/复制链接，图片落点给复制图片地址
+- ✅ **WYSIWYG 上下文感知**：表格（增删行列/删整表，表头禁删行）、链接（打开/复制/移除）、图片（删除）、代码块（复制代码）；右键落点在选区外先移光标再解析上下文
+- ✅ **剪贴板**：新增 `@tauri-apps/plugin-clipboard-manager`（npm+Cargo+capability 全链路），`src/lib/clipboard.ts` 桌面/浏览器双通道
+- ✅ **纯函数层**：`src/lib/contextMenu.ts`（三区域构建器 + 平台快捷键标注）+ `src/hooks/useContextMenu.ts`；i18n `contextMenu.*` 26 键三处同步
+- ✅ **测试**：lib 构建器 12 例 + wysiwyg 上下文 14 例（真实 Milkdown 编辑器验证表格删除等 PM transaction 的 markdown 往返）；E2E `context-menu.spec.ts` 7 例（三区域弹出/disabled 态/格式动作/表格与链接上下文组）
+- **机制与坑**：`docs/implementation-notes.md`「2026-08-06 编辑器右键菜单」
 
 ---
 

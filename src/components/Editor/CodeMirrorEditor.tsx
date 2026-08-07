@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state'
 import { EditorView, keymap } from '@codemirror/view'
 import {
@@ -20,6 +21,11 @@ import { oneDark } from '@codemirror/theme-one-dark'
 import { useEditorStore } from '../../stores/editorStore'
 import { formatTransaction, insertTextAtCursor, type FormatType } from '../../lib/markdownEditing'
 import { createImageMarkdownFromFile } from '../../lib/imageUtils'
+import { readClipboardText, writeClipboardText } from '../../lib/clipboard'
+import { buildSourceMenuItems, getShortcutLabels } from '../../lib/contextMenu'
+import { isMacOS } from '../../lib/platform'
+import { useContextMenu } from '../../hooks/useContextMenu'
+import { ContextMenu } from '../Menu'
 
 /** 基础字号（对应原 textarea 的 text-sm），随 zoomLevel 缩放 */
 const BASE_FONT_SIZE = 14
@@ -195,6 +201,7 @@ export function CodeMirrorEditor({ onScroll, viewRef }: CodeMirrorEditorProps) {
 }
 
 function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
+  const { t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const editorViewRef = useRef<EditorView | null>(null)
   const compartmentsRef = useRef({ theme: new Compartment(), fontSize: new Compartment() })
@@ -202,6 +209,50 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
   const isDarkMode = useEditorStore((state) => state.isDarkMode)
   const zoomLevel = useEditorStore((state) => state.zoomLevel)
   const content = useEditorStore((state) => state.content)
+  const canUndo = useEditorStore((state) => state.canUndo)
+  const canRedo = useEditorStore((state) => state.canRedo)
+
+  // 右键菜单（Source/Split 下容器可见，非激活模式 contextmenu 不会触发）
+  const { menu, openMenu, closeMenu } = useContextMenu<{ hasSelection: boolean }>()
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    const view = editorViewRef.current
+    if (!view) return
+    openMenu(e, { hasSelection: !view.state.selection.main.empty })
+  }
+
+  const handleMenuSelect = (id: string) => {
+    const view = editorViewRef.current
+    if (!view) return
+
+    if (id.startsWith('format:')) {
+      runFormat(view, id.slice('format:'.length) as FormatType)
+    } else if (id === 'undo') {
+      undo(view)
+    } else if (id === 'redo') {
+      redo(view)
+    } else if (id === 'cut' || id === 'copy') {
+      const { from, to, empty } = view.state.selection.main
+      if (!empty) {
+        void writeClipboardText(view.state.sliceDoc(from, to))
+        if (id === 'cut') view.dispatch(view.state.replaceSelection(''))
+      }
+    } else if (id === 'paste') {
+      // 异步读取系统剪贴板（桌面端走 clipboard-manager 插件）
+      void readClipboardText().then((text) => {
+        if (text) {
+          view.dispatch(view.state.replaceSelection(text))
+          view.focus()
+        }
+      })
+      return
+    } else if (id === 'select-all') {
+      view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } })
+    } else if (id === 'find') {
+      openSearchPanel(view)
+    }
+    view.focus()
+  }
 
   const onScrollRef = useRef(onScroll)
   useEffect(() => {
@@ -345,5 +396,26 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
     }
   }, [content])
 
-  return <div ref={containerRef} className="flex-1 min-h-0 overflow-hidden" />
+  return (
+    <>
+      <div
+        ref={containerRef}
+        className="flex-1 min-h-0 overflow-hidden"
+        onContextMenu={handleContextMenu}
+      />
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={buildSourceMenuItems(t, getShortcutLabels(isMacOS()), {
+            canUndo,
+            canRedo,
+            hasSelection: menu.data.hasSelection,
+          })}
+          onSelect={handleMenuSelect}
+          onClose={closeMenu}
+        />
+      )}
+    </>
+  )
 }
