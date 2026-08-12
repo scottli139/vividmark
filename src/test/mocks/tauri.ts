@@ -43,6 +43,12 @@ export function setupDefaultTauriMocks() {
         }
       case 'save_file':
         return { success: true, error: null }
+      case 'print_pdf':
+        return { success: true, error: null }
+      case 'pdf_export_supported':
+        return true
+      case 'export_pdf_file':
+        return { success: true, error: null }
       default:
         return null
     }

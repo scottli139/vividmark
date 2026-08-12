@@ -178,7 +178,7 @@ describe('Toolbar', () => {
   })
 
   describe('export pdf', () => {
-    it('should dispatch editor-request-html event when export pdf menu item is clicked', () => {
+    it('should dispatch editor-export-pdf event when export pdf menu item is clicked', () => {
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       render(<Toolbar />)
@@ -190,7 +190,7 @@ describe('Toolbar', () => {
       expect(dispatchEventSpy).toHaveBeenCalled()
       const call = dispatchEventSpy.mock.calls.find((call) => {
         const event = call[0] as CustomEvent
-        return event.type === 'editor-request-html'
+        return event.type === 'editor-export-pdf'
       })
       expect(call).toBeTruthy()
 

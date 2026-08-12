@@ -35,12 +35,8 @@ export function MoreMenu() {
         zoomReset()
         break
       case 'export-pdf':
-        // 派发事件请求 Editor 提供 HTML 内容
-        window.dispatchEvent(
-          new CustomEvent('editor-request-html', {
-            detail: { requestId: Date.now() },
-          })
-        )
+        // 由 Editor 监听并执行导出
+        window.dispatchEvent(new CustomEvent('editor-export-pdf'))
         break
       case 'settings':
         setSettingsOpen(true)

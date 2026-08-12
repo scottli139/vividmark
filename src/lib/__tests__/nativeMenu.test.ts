@@ -87,10 +87,10 @@ describe('nativeMenu handleMenuAction', () => {
       expect(useEditorStore.getState().recentFiles).toEqual([])
     })
 
-    it('export-pdf 派发 editor-request-html', async () => {
+    it('export-pdf 派发 editor-export-pdf', async () => {
       const spy = vi.spyOn(window, 'dispatchEvent')
       await handleMenuAction('export-pdf')
-      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ type: 'editor-request-html' }))
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ type: 'editor-export-pdf' }))
       spy.mockRestore()
     })
   })

@@ -638,6 +638,10 @@ body {
   list-style-type: disc;
 }
 
+.markdown-body ol {
+  list-style-type: decimal;
+}
+
 .markdown-body ul:has(.task-list-item) {
   list-style-type: none;
   padding-left: 0;

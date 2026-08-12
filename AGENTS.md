@@ -133,27 +133,28 @@ Main store: `src/stores/editorStore.ts`.
 
 ## Tauri Commands (Rust Backend)
 
-Defined in `src-tauri/src/lib.rs`:
+Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`）:
 
-| Command                   | Parameters            | Returns           | Description                               |
-| ------------------------- | --------------------- | ----------------- | ----------------------------------------- |
-| `read_file`               | `path`                | `FileInfo`        | Read file content                         |
-| `save_file`               | `path, content`       | `SaveResult`      | Write file content                        |
-| `file_exists`             | `path`                | `bool`            | Check existence                           |
-| `read_directory`          | `ReadDirectoryParams` | `FileTreeItem[]`  | File tree data                            |
-| `create_file`             | `path`                | `null`            | Create empty file                         |
-| `create_folder`           | `path`                | `null`            | Create directory                          |
-| `rename_path`             | `oldPath, newPath`    | `null`            | Rename/move file or folder                |
-| `delete_path`             | `path`                | `null`            | Delete (folder: recursive)                |
-| `copy_path`               | `oldPath, newPath`    | `null`            | Copy (folder: recursive)                  |
-| `reveal_in_folder`        | `path`                | `null`            | Reveal in system file manager             |
-| `export_pdf`              | html content, title   | `ExportPdfResult` | Temp HTML → system browser                |
-| `print_pdf`               | `fileName`            | `ExportPdfResult` | Native print dialog                       |
-| `rebuild_menu`            | `lang, recentFiles`   | `null`            | Rebuild native menu (i18n / recent files) |
-| `set_menu_item_enabled`   | `id, enabled`         | `null`            | Native menu item enabled state            |
-| `set_menu_item_checked`   | `id, checked`         | `null`            | Native menu check item state              |
-| `update_dock_menu`        | `lang, recentFiles`   | `null`            | Rebuild macOS Dock menu（其他平台 no-op） |
-| `take_pending_open_files` | —                     | `String[]`        | 取走文件关联打开的路径队列（冷启动积压）  |
+| Command                 | Parameters                 | Returns           | Description                                     |
+| ----------------------- | -------------------------- | ----------------- | ----------------------------------------------- |
+| `read_file`             | `path`                     | `FileInfo`        | Read file content                               |
+| `save_file`             | `path, content`            | `SaveResult`      | Write file content                              |
+| `file_exists`           | `path`                     | `bool`            | Check existence                                 |
+| `read_directory`        | `ReadDirectoryParams`      | `FileTreeItem[]`  | File tree data                                  |
+| `create_file`           | `path`                     | `null`            | Create empty file                               |
+| `create_folder`         | `path`                     | `null`            | Create directory                                |
+| `rename_path`           | `oldPath, newPath`         | `null`            | Rename/move file or folder                      |
+| `delete_path`           | `path`                     | `null`            | Delete (folder: recursive)                      |
+| `copy_path`             | `oldPath, newPath`         | `null`            | Copy (folder: recursive)                        |
+| `reveal_in_folder`      | `path`                     | `null`            | Reveal in system file manager                   |
+| `pdf_export_supported`  | —                          | `bool`            | 平台是否支持 PDF 直存（macOS/Windows 支持）     |
+| `export_pdf_file`       | `html, outputPath, title`  | `ExportPdfResult` | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件     |
+| `print_pdf`             | `fileName`                 | `ExportPdfResult` | 打印对话框（PDF 直存不支持时的回退路径）        |
+| `rebuild_menu`          | `lang, recentFiles`        | `null`            | Rebuild native menu (i18n / recent files)       |
+| `set_menu_item_enabled` | `id, enabled`              | `null`            | Native menu item enabled state                  |
+| `set_menu_item_checked` | `id, checked`              | `null`            | Native menu check item state                    |
+| `update_dock_menu`      | `lang, recentFiles`        | `null`            | Rebuild macOS Dock menu（其他平台 no-op）       |
+| `take_pending_open_files` | —                        | `String[]`        | 取走文件关联打开的路径队列（冷启动积压）        |
 
 Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `generate_handler![]`, invoke via `@tauri-apps/api/core`. Struct fields cross the bridge as camelCase (`#[serde(rename = "isDirectory")]`).
 
@@ -189,7 +190,7 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
 - **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`
-- **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（菜单/工具栏 → 编辑器），`editor-scroll-to-heading` (outline nav), `editor-request-html` (PDF export), `editor-find` (原生菜单 Find), `app-open-dialog` (原生菜单 → Toolbar 的表格/提示框对话框), `file-open-request` (文件关联打开)
+- **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（菜单/工具栏 → 编辑器），`editor-scroll-to-heading` (outline nav), `editor-export-pdf` (PDF export), `editor-find` (原生菜单 Find), `app-open-dialog` (原生菜单 → Toolbar 的表格/提示框对话框), `file-open-request` (文件关联打开)
 - **WYSIWYG Enter 模型**: 普通段落 Enter = 行内软换行（源码单换行、行间无空行），Enter×2 = 新段落；列表/标题/代码块行为不变（`wysiwygEnterCommand`，IME 回车补偿共用）。CM 的 defaultKeymap 已移除 `Mod-/`（toggleComment 会把内容注释成 `<!-- -->`，与模式切换冲突）。中文 IME（WKWebView）的幻影节点/回车吞键有专门插件链，细节见 implementation-notes「中文 IME 组合输入系列问题」
 - **原生菜单事件流**: `src-tauri/src/menu.rs` 构建系统菜单（macOS App/文件/编辑/段落/格式/视图/窗口；Windows/Linux 适配）→ `on_menu_event` emit `native-menu-event` → `src/lib/nativeMenu.ts` `handleMenuAction` 分发。带 accelerator 的键在桌面端被 OS 拦截，webview 收不到 keydown —— 桌面端快捷键由菜单事件驱动，`useKeyboardShortcuts` 仅浏览器 dev/E2E 生效，互不重迭。**id 约定与右键菜单同源**：`format:<FormatType>` → editor-format 事件总线（FormatType 含 h1-h6/ol/paragraph 等，`markdownEditing.ts` 与 `wysiwygFormat.ts` 双端实现）；`insert:image` 走 `editorActions.ts` 共享流程、`insert:table|admonition` 经 `app-open-dialog` 打开 Toolbar 挂载的对话框、`insert:hr` 走 editor-insert。菜单 check/enabled 态与语言/最近文件由 store 订阅经 `set_menu_item_checked/enabled`/`rebuild_menu` 同步（**`Menu::get` 只查顶层项，子菜单内的项必须走 lib.rs 的 `find_menu_item` 递归查找；muda CheckMenuItem 点击会原生自动翻转勾选，最终态以同步为准；菜单重建后 check/enabled 回到构建默认值，必须重新同步一轮**）；Edit 的 Undo/Redo 用自定义项（系统级 undo 会绕过 CM/Milkdown history）
 - **macOS Dock 右键菜单**: `src-tauri/src/dock_menu.rs`（仅 macOS）——Tauri/muda/tao 均无 API，用 objc2 运行时给 tao AppDelegate 类 `class_addMethod(applicationDockMenu:)`，菜单项动作复用 `native-menu-event` 通道（file-new/file-open/open-recent:\*/clear-recent）；前端在 rebuild_menu 的同订阅点调 `update_dock_menu` 重建。**tao 升级需回归验证**
@@ -203,11 +204,12 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **编辑器右键菜单**: 三区域（Source/Preview/WYSIWYG）均已接入，结构对齐 Typora（剪贴板组 + 段落▸/格式▸/插入▸ 子菜单）。菜单项构建是纯函数（`src/lib/contextMenu.ts`，id/文案/disabled/快捷键标注），状态用 `src/hooks/useContextMenu.ts`；动作按 id 前缀分发——`format:*` 转发 editor-format 事件总线，剪贴板走 `src/lib/clipboard.ts`（桌面端 `@tauri-apps/plugin-clipboard-manager`，浏览器降级 navigator.clipboard），WYSIWYG 上下文动作（表格行列增删/链接/图片/代码块/`insert:*`）在 `wysiwygContextMenu.ts`（表格删除是自实现 PM transaction，不走 milkdown selectRow/deleteSelectedCells 的 index 语义；表头行禁删；「在上方/下方插入段落」= 在当前顶层块前后插空段落并落入光标）。**WebKit 右键抢选**：WKWebView 在 mousedown→contextmenu 之间抢先写 DOM 词/行选择（不可取消），必须 contextmenu 时折叠选区 + `getSelection().collapse(domAtPos)` 把 DOM 选择压回光标（细节见 implementation-notes）
 - **macOS 融合标题栏**: tauri.conf.json `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS 生效）；App 给 documentElement 加 `is-macos` class（判定走 `src/lib/platform.ts`）；Toolbar 根 `data-tauri-drag-region` + macOS 下 `pl-[78px]`（traffic light 预留）+ 自绘居中标题（<760px 隐藏）。**窗口拖拽两个坑**：① capabilities 必须显式授 `core:window:allow-start-dragging`（tauri 2.10 起非默认权限，否则 drag.js 的 IPC 被 ACL 静默拒绝）；② Tauri 的 drag.js 只查 `e.target` 自身属性（无 closest 上溯），子元素覆盖区域不触发——所以 Toolbar 的左/右分组容器也带 `data-tauri-drag-region`
 - **Logging**: use `createLogger('Module')` from `src/lib/logger.ts` (frontend) and `tauri-plugin-log` (backend); logs at `~/Library/Logs/com.vividmark.app/` on macOS
+- **PDF 直存管线**: 菜单/MoreMenu/右键 → `editor-export-pdf` 事件 → `exportPdf.ts exportCurrentDocument()` → 保存对话框 → 序列化应用 CSS + `parseMarkdownAsync` 生成独立 HTML（含打印密度覆盖：14px 字号/紧凑单元格/首列不换行）→ `export_pdf_file` 命令：隐藏 Webview 窗口（`vividmark-pdf://` 自定义协议 serve HTML，`on_page_load` Finished 等渲染，15s 超时兜底）→ macOS `NSPrintOperation(SaveJob)` / Windows `PrintToPdf` 静默写文件；**PDF 书签大纲**：前端从渲染 HTML 提取标题随 `outline` 参数传入，macOS 用 PDFKit 后处理重建（WebKit 不生成 outline；文本提取有兼容表意文字坑，匹配需 NFKC+去空白+部首通配，见 implementation-notes）；Linux/旧 runtime 回退 `print_pdf` 打印对话框。**macOS 关键坑**：必须 `sharedPrintInfo` copy + `canSpawnSeparateThread(true)` + `runOperationModalForWindow`（全新 `NSPrintInfo` + `run()` 会无限分页；`createPDFWithConfiguration` 是整页长截图不分页），细节见 implementation-notes
 
 ## Known Issues
 
 - **代码块中英文对齐**: WebView 无法保证全角:半角 = 2:1，ASCII 图混排中英文无法对齐。多种等宽字体方案均无效，建议用 Mermaid/PlantUML 替代（分析见 implementation-notes）
-- **PDF 默认文件名**: macOS 打印对话框固定使用 bundle 名 `vividmark.pdf`，需用户手动修改
+- **PDF 直存平台差异**: macOS（NSPrintOperation SaveJob）/ Windows（WebView2 PrintToPdf）支持静默存盘；Linux（webkit2gtk 未绑定 print_to_pdf）回退系统打印对话框
 - **WYSIWYG 已知限制**: 表格创建用 `|CxR| ` 语法；已有 admonition 的类型/标题需切 source 修改；slash menu / 悬浮格式条与 WYSIWYG 查找替换未接（详见 implementation-notes）
 
 ## CI/CD & Release

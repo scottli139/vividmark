@@ -222,7 +222,6 @@
     "fileNotFound": "File not found",
     "imageCopyFailed": "Failed to copy image",
     "invalidImage": "Invalid image file",
-    "exportPdfSuccess": "PDF export initiated. Please print to PDF in your browser.",
     "exportPdfFailed": "Failed to export PDF"
   },
   "language": {

@@ -5,6 +5,7 @@ use std::time::Instant;
 use tauri::{Emitter, Manager, WebviewWindow};
 
 mod menu;
+mod pdf;
 
 #[cfg(target_os = "macos")]
 mod dock_menu;
@@ -59,13 +60,6 @@ pub struct SaveResult {
 pub struct ExportPdfResult {
     pub success: bool,
     pub error: Option<String>,
-}
-
-/// PDF 导出参数
-#[derive(Debug, Deserialize)]
-pub struct ExportPdfParams {
-    pub html_content: String,
-    pub title: Option<String>,
 }
 
 /// 文件元数据信息，用于诊断
@@ -582,181 +576,6 @@ fn reveal_in_folder(path: String) -> Result<(), String> {
     Ok(())
 }
 
-// 导出 PDF - 使用系统打印对话框
-#[tauri::command]
-async fn export_pdf(
-    _window: tauri::Window,
-    params: ExportPdfParams,
-) -> Result<ExportPdfResult, String> {
-    let start = Instant::now();
-    log::info!("[export_pdf] Starting PDF export operation");
-    log::debug!("[export_pdf] Title: {:?}", params.title);
-    log::debug!(
-        "[export_pdf] HTML content size: {} bytes",
-        params.html_content.len()
-    );
-
-    // 创建临时 HTML 文件
-    let temp_dir = std::env::temp_dir();
-    let timestamp = start.elapsed().as_millis();
-    let temp_html_path = temp_dir.join(format!("vividmark_export_{}.html", timestamp));
-
-    // 构建完整的 HTML 文档
-    let title = params
-        .title
-        .unwrap_or_else(|| "VividMark Export".to_string());
-    let full_html = format!(
-        r#"<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>{}</title>
-    <style>
-        body {{
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 40px;
-        }}
-        h1, h2, h3, h4, h5, h6 {{
-            margin-top: 24px;
-            margin-bottom: 16px;
-            font-weight: 600;
-            line-height: 1.25;
-        }}
-        h1 {{ font-size: 2em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }}
-        h2 {{ font-size: 1.5em; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; }}
-        h3 {{ font-size: 1.25em; }}
-        p {{ margin-bottom: 16px; }}
-        code {{
-            background-color: #f6f8fa;
-            padding: 0.2em 0.4em;
-            border-radius: 3px;
-            font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
-            font-size: 85%;
-        }}
-        pre {{
-            background-color: #f6f8fa;
-            padding: 16px;
-            border-radius: 6px;
-            overflow: auto;
-            font-size: 85%;
-            line-height: 1.45;
-        }}
-        pre code {{
-            background-color: transparent;
-            padding: 0;
-        }}
-        blockquote {{
-            margin: 0;
-            padding: 0 1em;
-            color: #6a737d;
-            border-left: 0.25em solid #dfe2e5;
-        }}
-        ul, ol {{
-            margin-bottom: 16px;
-            padding-left: 2em;
-        }}
-        li + li {{
-            margin-top: 0.25em;
-        }}
-        table {{
-            border-collapse: collapse;
-            width: 100%;
-            margin-bottom: 16px;
-        }}
-        th, td {{
-            padding: 6px 13px;
-            border: 1px solid #dfe2e5;
-        }}
-        th {{
-            background-color: #f6f8fa;
-            font-weight: 600;
-        }}
-        tr:nth-child(2n) {{
-            background-color: #f6f8fa;
-        }}
-        img {{
-            max-width: 100%;
-            height: auto;
-        }}
-        .task-list-item {{
-            list-style-type: none;
-        }}
-        .admonition {{
-            margin: 16px 0;
-            padding: 12px 16px;
-            border-left: 4px solid;
-            border-radius: 4px;
-        }}
-        .admonition.tip {{ border-color: #28a745; background-color: #f8fff8; }}
-        .admonition.warning {{ border-color: #ffc107; background-color: #fffbf0; }}
-        .admonition.info {{ border-color: #17a2b8; background-color: #f0f9fb; }}
-        .admonition.note {{ border-color: #6c757d; background-color: #f8f9fa; }}
-        .admonition.danger {{ border-color: #dc3545; background-color: #fff5f5; }}
-        .admonition-title {{
-            font-weight: 600;
-            margin-bottom: 8px;
-        }}
-    </style>
-</head>
-<body>
-    {}
-</body>
-</html>"#,
-        title, params.html_content
-    );
-
-    // 写入临时文件
-    if let Err(e) = fs::write(&temp_html_path, full_html) {
-        log::error!("[export_pdf] Failed to create temp HTML file: {}", e);
-        return Ok(ExportPdfResult {
-            success: false,
-            error: Some(format!("Failed to create temp file: {}", e)),
-        });
-    }
-
-    log::debug!("[export_pdf] Temp HTML file created: {:?}", temp_html_path);
-
-    // 使用系统命令打开 HTML 文件进行打印
-    let path_str = temp_html_path.to_string_lossy().to_string();
-
-    #[cfg(target_os = "macos")]
-    let result = std::process::Command::new("open").arg(&path_str).spawn();
-
-    #[cfg(target_os = "windows")]
-    let result = std::process::Command::new("cmd")
-        .args(["/C", "start", "", &path_str])
-        .spawn();
-
-    #[cfg(target_os = "linux")]
-    let result = std::process::Command::new("xdg-open")
-        .arg(&path_str)
-        .spawn();
-
-    match result {
-        Ok(_) => {
-            log::info!(
-                "[export_pdf] ✓ Success: opened HTML for printing in {:?}",
-                start.elapsed()
-            );
-            Ok(ExportPdfResult {
-                success: true,
-                error: None,
-            })
-        }
-        Err(e) => {
-            log::error!("[export_pdf] Failed to open for printing: {}", e);
-            Ok(ExportPdfResult {
-                success: false,
-                error: Some(format!("Failed to open for printing: {}", e)),
-            })
-        }
-    }
-}
-
 // ===== 原生菜单命令 =====
 
 /// 递归查找菜单项（tauri 的 Menu::get 只查顶层直接子项，子菜单内的项必须递归）
@@ -1153,6 +972,8 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        // Typora 式 PDF 导出：隐藏窗口经自定义协议加载导出 HTML（见 pdf.rs）
+        .register_asynchronous_uri_scheme_protocol(pdf::PDF_SCHEME, pdf::handle_pdf_protocol)
         // 菜单点击统一转发给前端（predefined 项系统已自行处理，前端忽略未知 id）
         .on_menu_event(|app, event| {
             let id = event.id().0.clone();
@@ -1217,8 +1038,9 @@ pub fn run() {
             delete_path,
             copy_path,
             reveal_in_folder,
-            export_pdf,
             print_pdf,
+            pdf::pdf_export_supported,
+            pdf::export_pdf_file,
             rebuild_menu,
             set_menu_item_enabled,
             set_menu_item_checked,

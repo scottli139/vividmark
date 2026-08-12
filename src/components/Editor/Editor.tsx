@@ -4,7 +4,7 @@ import { open } from '@tauri-apps/plugin-shell'
 import type { EditorView } from '@codemirror/view'
 import { useEditorStore } from '../../stores/editorStore'
 import { parseMarkdownAsync } from '../../lib/markdown/parser'
-import { printToPdf } from '../../lib/exportPdf'
+import { exportCurrentDocument } from '../../lib/exportPdf'
 import { scrollPreviewToHeading } from '../../lib/outlineUtils'
 import { writeClipboardText } from '../../lib/clipboard'
 import {
@@ -66,10 +66,8 @@ export function Editor() {
           break
         }
         case 'export-pdf':
-          // 同原生菜单 export-pdf：请求 Editor 提供 HTML 后走导出
-          window.dispatchEvent(
-            new CustomEvent('editor-request-html', { detail: { requestId: Date.now() } })
-          )
+          // 同原生菜单 export-pdf：由下方监听器执行导出
+          window.dispatchEvent(new CustomEvent('editor-export-pdf'))
           break
         case 'link:open':
           if (data?.linkHref) {
@@ -237,16 +235,15 @@ export function Editor() {
     }
   }, [viewMode])
 
-  // 监听 PDF 导出请求事件
+  // 监听 PDF 导出请求事件（Typora 式：保存对话框 → 静默生成 PDF）
   useEffect(() => {
-    const handleRequestHtml = () => {
-      // 使用 WebView 原生打印功能导出 PDF
-      printToPdf()
+    const handleExportPdf = () => {
+      exportCurrentDocument()
     }
 
-    window.addEventListener('editor-request-html', handleRequestHtml as EventListener)
+    window.addEventListener('editor-export-pdf', handleExportPdf as EventListener)
     return () => {
-      window.removeEventListener('editor-request-html', handleRequestHtml as EventListener)
+      window.removeEventListener('editor-export-pdf', handleExportPdf as EventListener)
     }
   }, [])
 

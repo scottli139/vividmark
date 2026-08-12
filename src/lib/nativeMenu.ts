@@ -98,10 +98,8 @@ export async function handleMenuAction(id: string): Promise<void> {
       store.clearRecentFiles()
       break
     case 'export-pdf':
-      // 同 MoreMenu：请求 Editor 提供 HTML 后走导出
-      window.dispatchEvent(
-        new CustomEvent('editor-request-html', { detail: { requestId: Date.now() } })
-      )
+      // 同 MoreMenu：由 Editor 监听并执行导出
+      window.dispatchEvent(new CustomEvent('editor-export-pdf'))
       break
     case 'edit-undo':
       window.dispatchEvent(new CustomEvent('editor-undo'))

@@ -51,30 +51,7 @@
 
 ### PDF 导出默认文件名
 
-> 当前状态：打印对话框默认文件名为 `vividmark.pdf`，期望使用文档名称如 `document.pdf`
-
-**问题分析：**
-
-- macOS 系统打印对话框默认使用应用 bundle 名称作为 PDF 默认文件名
-- 尝试 `document.title` 修改无效
-- 尝试 `NSPrintInfo.setJobName:` 方法导致崩溃
-- 这是 macOS 系统的标准行为
-
-**可能的解决方案：**
-
-1. **方案 A**：使用 `tauri-plugin-dialog` 显示保存对话框，让用户指定文件名和位置
-   - 优点：用户体验好，直接指定文件名
-   - 缺点：需要额外实现 HTML → PDF 的转换（可能需要 `wkhtmltopdf` 或类似工具）
-2. **方案 B**：接受当前限制，在 UI 中提示用户手动修改文件名
-   - 优点：无需额外开发
-   - 缺点：用户体验不佳
-
-**参考实现：**
-
-- 文件：`src-tauri/src/lib.rs` 中的 `print_pdf` 函数
-- 前端：`src/lib/exportPdf.ts` 中的 `printToPdf` 函数
-
-**优先级：** P2（低优先级，当前方案可用，只是体验不够理想）
+> ✅ 已解决（Typora 式直存）：导出改为「保存对话框 → 静默生成 PDF 文件」，文件名即用户所选，不再经过打印对话框。见下文「Export PDF 详解」。
 
 ---
 
@@ -677,64 +654,98 @@ const separatorIndex = Math.max(lastSlash, lastBackslash)
 
 ## Export PDF 详解
 
-### 工作原理
+Typora 式直存：保存对话框 → 静默生成 PDF 文件，无打印对话框。
 
-由于 Tauri 的安全限制，无法直接静默生成 PDF 文件。导出 PDF 的工作流程如下：
+### 工作流程
 
-1. **用户点击导出按钮** - 工具栏上的打印机图标或 `Cmd/Ctrl + P` 快捷键
-2. **前端发送 HTML 内容** - Editor 组件通过 `editor-request-html` 事件将渲染后的 HTML 发送到 exportPdf 模块
-3. **Rust 后端创建临时 HTML 文件** - 添加打印友好的 CSS 样式
-4. **系统浏览器打开 HTML** - 使用 `tauri-plugin-opener` 打开系统默认浏览器
-5. **用户手动打印为 PDF** - 在浏览器中使用 "打印为 PDF" 功能保存
+1. **触发** - 原生菜单 `export-pdf`（Cmd/Ctrl+P）/ MoreMenu / Preview 右键菜单，统一派发 `editor-export-pdf` 事件 → `Editor.tsx` 监听并调用 `exportCurrentDocument()`
+2. **平台检查** - `pdf_export_supported` 命令（macOS 检查 `WKWebView.printOperationWithPrintInfo` 可用性；Windows 恒 true；Linux false）。不支持 → 直接回退 `print_pdf` 打印对话框
+3. **保存对话框** - 前端 `@tauri-apps/plugin-dialog` 的 `save()`，默认 `<文件名>.pdf`
+4. **生成导出 HTML**（`src/lib/exportPdf.ts buildPdfExportHtml`）：
+   - `parseMarkdownAsync(content, baseDir)` 渲染（与预览同管线，本地图片转 `asset://`）
+   - `document.styleSheets` + `adoptedStyleSheets` 序列化为内联 `<style>`（Tailwind/hljs/.markdown-body 全套，与预览像素级一致；不带 `.dark` class → PDF 恒浅色）
+   - 追加导出专用 CSS（`@page` 边距、`page-break-inside: avoid`、`print-color-adjust: exact` 保留背景色等）
+5. **Rust 渲染与写盘**（`src-tauri/src/pdf.rs export_pdf_file`）：
+   - 导出任务经 tokio Mutex 串行排队；HTML 存入全局 slot
+   - 创建隐藏 `WebviewWindow`（label `pdf-export`，800×1132），经自定义协议 `vividmark-pdf://localhost/export.html`（Windows 为 `http://vividmark-pdf.localhost/...`）加载 slot 中的 HTML
+   - `on_page_load` Finished（≈ load 事件，含图片等子资源）→ 开始打印；15s 超时兜底继续（远程图片不可达时缺图好过失败）
+   - 平台原生 print-to-PDF 写入目标路径，`destroy()` 窗口并清空 slot
+
+### 平台实现
+
+| 平台  | 机制                                                                                          | 备注                                       |
+| ----- | --------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| macOS | `WKWebView.printOperationWithPrintInfo:` + `NSPrintSaveJob` + `NSPrintJobSavingURL`（objc2） | 需 macOS 11+，否则回退                     |
+| Windows | WebView2 `ICoreWebView2_7::PrintToPdf`（webview2-com）                                      | 需 Runtime 1.0.1518.46+，cast 失败回退     |
+| Linux | 不支持（webkit2gtk 2.0 未绑定 `print_to_pdf`）                                                | `pdf_export_supported` false → 打印对话框  |
+
+### macOS 关键坑（spike 实测，macOS 26）
+
+- **`createPDFWithConfiguration:` 不适用**：生成的是整页长截图式单页 PDF，不分页
+- **全新 `NSPrintInfo()` + `runOperation()` 会无限分页**（页数爆炸、文件线性增长到 GB 级）；
+  必须复刻 wry 的 print 模式：`NSPrintInfo.sharedPrintInfo().copy()`（自带合法纸张）+
+  `canSpawnSeparateThread(true)` + `runOperationModalForWindow:delegate:didRunSelector:contextInfo:`，
+  完成回调走 delegate 的 `printOperationDidRun:success:contextInfo:`（contextInfo 携带 oneshot sender + delegate Retained 保活）
+- 页边距在 Rust 侧 `NSPrintInfo` 设 15mm（42.52pt）；纸张随系统地区（A4/Letter）
+- 隐藏窗口（从未 orderFront）可正常打印；背景色需 CSS `print-color-adjust: exact`
+
+### Windows 注意
+
+- `PlatformWebview.controller()` → `CoreWebView2()` → `cast::<ICoreWebView2_7>()`；
+  打印设置经 `environment()` cast `ICoreWebView2Environment6` → `CreatePrintSettings()`（开 `ShouldPrintBackgrounds`，边距 0.59in ≈ 15mm）
+- 完成回调 `PrintToPdfCompletedHandler::create`（webview2-com 宏生成），`HRESULT + BOOL` 双参数判成败
+
+### 回退与错误处理
+
+- `export_pdf_file` 返回 `error` 以 `unsupported` 开头 → 前端自动回退 `print_pdf`（打印对话框）
+- 其他失败 → `alertDialog(t('messages.exportPdfFailed'))`；用户取消保存对话框 → 静默
+- 浏览器 dev / E2E（无 Tauri）→ `window.print()`
 
 ### 实现文件
 
-| 文件                                 | 说明                                 |
-| ------------------------------------ | ------------------------------------ |
-| `src-tauri/src/lib.rs`               | Rust `export_pdf` / `print_pdf` 命令 |
-| `src/lib/exportPdf.ts`               | 前端导出工具函数                     |
-| `src/components/Toolbar/Toolbar.tsx` | 导出按钮                             |
-| `src/components/Editor/Editor.tsx`   | 监听导出事件                         |
+| 文件                          | 说明                                                         |
+| ----------------------------- | ------------------------------------------------------------ |
+| `src-tauri/src/pdf.rs`        | `export_pdf_file` / `pdf_export_supported` 命令 + 协议 handler |
+| `src-tauri/src/lib.rs`        | 协议注册 + `print_pdf`（回退，保持原样）                     |
+| `src/lib/exportPdf.ts`        | 前端导出编排 + 导出 HTML 生成 + 回退逻辑                     |
+| `src/components/Editor/Editor.tsx` | 监听 `editor-export-pdf`                                |
 
-### 依赖与权限
+### 分页 CSS 的实测结论（与 Typora 对比调试）
 
-**Rust (Cargo.toml):**
+- **长表格禁止整表 `page-break-inside: avoid`**：超出一页剩余空间的表会被整体推到下一页，
+  前页留大片空白（对比 Typora 时页数 6 vs 3 的主因）。正确做法：表格允许跨页 +
+  `tr/td/th { break-inside: avoid }` + `thead { display: table-header-group }`（跨页自动重复表头）
+- **WebKit 引擎限制**：多行文本的表格行在页边界处仍可能被行内拆分（`break-inside` 对 tr 不生效，
+  WebKit 长期未支持；Chromium/WebView2 正常）。行高越大越容易踩中，暂不规避
+- **末尾空白页**：`.markdown-body > :last-child` 的 margin 在内容恰好满页时溢出成空白页，
+  导出 CSS 需 `margin-bottom: 0`
+- **应用外壳样式必须重置**：序列化全集 CSS 里的 `html, body, #root { height: 100% }` 等需
+  `height: auto !important; overflow: visible !important` 覆盖
+- **打印密度独立于预览**：导出 CSS 覆盖 `font-size: 14px`（预览 16px）、`td/th padding: 6px 10px`、
+  `.markdown-body padding: 0`；`th` + 首列 `white-space: nowrap` 避免「完成」「8/1（六）」这类
+  短内容列被内容列挤压折行（首列若是长段落会撑宽表格，属可接受取舍）
+- **长代码行折行**：应用侧 `.hljs code { white-space: pre !important }` 会阻止折行导致代码在
+  `pre` 边界被裁剪，导出 CSS 需用同优先级+靠后的 `pre code / pre.hljs code / code.hljs`
+  选择器组覆盖为 `pre-wrap !important; word-break: break-all !important`
+- **表格内图片右侧被裁**：WebKit 把单元格内 `img { max-width: 100% }` 的百分比基准解析为
+  padding box（而非 content box），图片宽出左右 padding 各 10px，再被表格圆角的
+  `overflow: hidden` 切掉。修复：`td:has(> img) { padding-left/right: 0 }`（内容盒 = 填充盒）
+- **满宽表格右边线缺失**：WebKit 打印在页面可打印区边界裁剪内容，collapse 网格的右/下外边线
+  外凸半侧边框宽度（100% 宽表格恰好顶到边界）被裁 → 右边线只剩半宽近不可见（屏幕渲染有
+  次像素所以预览正常）。修复：导出 CSS `table { width: calc(100% - 2px) !important }`
 
-```toml
-tauri-plugin-opener = "2"
-```
+### PDF 书签大纲（macOS 后处理）
 
-**Capabilities (`src-tauri/capabilities/default.json`):**
+WebKit 打印不生成 PDF outline（Chromium 自动生成，Windows 无需处理）。macOS 在打印成功后用
+**PDFKit 后处理**：前端从渲染后 HTML 提取标题（`extractPdfOutline`，DOMParser + textContent，
+与 PDF 文本一致）→ `export_pdf_file` 携带 `outline: [{text, level}]` → `add_pdf_outline`：
+逐页取 `PDFPage.string()`，与标题做归一化包含匹配（页码游标单调向前，重复标题按序定位），
+按 level 用栈建树写入 `outlineRoot` 后 `writeToURL:` 覆盖。
 
-```json
-"opener:default"
-```
-
-### CSS 打印样式
-
-临时 HTML 文件包含针对打印优化的 CSS：
-
-- 字体：系统默认无衬线字体栈
-- 标题：层级缩进和底部边框
-- 代码：灰色背景和等宽字体
-- 表格：边框和斑马纹
-- 引用：左侧边框
-- 图片：最大宽度 100%
-
-### 使用方法
-
-```typescript
-import { exportToPdf, exportCurrentDocument } from './lib/exportPdf'
-
-// 导出指定 HTML 内容
-await exportToPdf({
-  htmlContent: '<h1>Hello World</h1>',
-  title: 'My Document',
-})
-
-// 导出当前文档（自动使用文件名作为标题）
-await exportCurrentDocument(renderedHtml)
-```
+**WebKit PDF 文本提取大坑**：部分汉字被映射为**兼容表意文字**（八→⼋ U+2F08，NFKC 可折叠）
+或**康熙部首增补字符**（风→⻛ U+2EDB、门→⻔ U+2ED4，U+2E80–U+2EFF 区块**无** Unicode 分解映射，
+NFKC 不折叠），且中英文边界会插入空格。因此 PDFKit `findString:` 精确匹配不可靠，必须：
+NFKC 归一 + 去除全部空白 + haystack 侧部首/兼容字符按单字符通配（`pdf_text_contains`）。
 
 ---
 
