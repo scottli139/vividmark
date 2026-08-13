@@ -41,12 +41,14 @@
     "highlight.js": "^11.11.1",
     "i18next": "^25.8.13",
     "i18next-browser-languagedetector": "^8.2.1",
+    "katex": "^0.18.4",
     "markdown-it": "^14.1.1",
     "markdown-it-container": "^4.0.0",
     "plantuml-encoder": "^1.4.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-i18next": "^16.5.4",
+    "remark-math": "^6.0.0",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
@@ -57,6 +59,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/katex": "^0.16.8",
     "@types/markdown-it-container": "^4.0.0",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",

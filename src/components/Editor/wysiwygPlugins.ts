@@ -11,6 +11,13 @@ import { hardbreakView } from './hardbreakView'
 import { strictBrParserPlugin } from './strictBrParserPlugin'
 import { imeEnterGuardPlugin } from './imeEnterGuardPlugin'
 import { imageView } from './imageView'
+import {
+  mathInlineInputRule,
+  mathBlockSchema,
+  mathInlineSchema,
+  remarkMathPlugin,
+} from './mathPlugin'
+import { mathBlockView, mathInlineView } from './mathView'
 import { plantUmlCodeBlockView } from './plantUmlCodeBlockView'
 import { taskListItemView } from './taskListItemView'
 import { wysiwygHistoryPlugin } from './wysiwygHistoryPlugin'
@@ -52,6 +59,13 @@ export const wysiwygPlugins: MilkdownPlugin[] = [
   ...remarkAdmonitionPlugin,
   ...admonitionSchema,
   admonitionView,
+  // math：$remark 注册 micromark/mdast 扩展（解析+序列化），schema 顺序约束同 admonition
+  ...remarkMathPlugin,
+  ...mathInlineSchema,
+  ...mathBlockSchema,
+  mathInlineView,
+  mathBlockView,
+  mathInlineInputRule,
   codeHighlightPlugin,
   wysiwygShortcutPlugin,
   strictBrParserPlugin,

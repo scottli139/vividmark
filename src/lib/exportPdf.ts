@@ -90,6 +90,39 @@ function collectDocumentCss(): string {
 }
 
 /**
+ * 把 CSS 中的 KaTeX woff2 字体 URL 内联为 base64 data URL。
+ *
+ * KaTeX 的 @font-face 引用应用构建产物里的字体文件（tauri:// / http:// origin），
+ * PDF 隐藏窗口走 vividmark-pdf:// 自定义协议，跨协议请求是死链——无字体会导致
+ * 分数/积分号等字形错乱。在主窗口 origin 下 fetch 字体转 data URL 后替换。
+ * 单个字体加载失败保留原 URL（回退系统字体），不阻断导出。
+ */
+async function inlineKatexFonts(css: string): Promise<string> {
+  const urls = new Set<string>()
+  for (const match of css.matchAll(/url\((['"]?)([^'")]+)\1\)/g)) {
+    if (match[2].includes('.woff2')) urls.add(match[2])
+  }
+
+  await Promise.all(
+    Array.from(urls).map(async (url) => {
+      try {
+        const blob = await (await fetch(url)).blob()
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(blob)
+        })
+        css = css.split(url).join(dataUrl)
+      } catch (error) {
+        fileOpsLogger.warn(`Failed to inline KaTeX font: ${url}`, error)
+      }
+    })
+  )
+  return css
+}
+
+/**
  * 导出专用样式。页面边距主要由 Rust 侧打印参数（15mm）决定；
  * 导出 HTML 不带 .dark class，PDF 恒为浅色主题。
  */
@@ -135,6 +168,10 @@ html, body {
 .markdown-body pre, .markdown-body blockquote, .markdown-body img {
   page-break-inside: avoid;
 }
+/* display 公式不跨页（KaTeX 内部是多层绝对定位 span，截断后不可读） */
+.markdown-body .katex-display {
+  page-break-inside: avoid;
+}
 /* 长表格允许跨页（整表 avoid 会被整体推到新页，留下大片空白）；
    行级 avoid 在 Chromium(WebView2) 生效，WebKit 对多行文本行仍可能行内断裂（引擎限制）；
    表头在后续页自动重复 */
@@ -171,8 +208,12 @@ function extractPdfOutline(bodyHtml: string): PdfOutlineItem[] {
 }
 
 /** 生成独立的导出 HTML 文档（应用同款 CSS + 渲染管线，无应用外壳） */
-function buildPdfExportHtml(bodyHtml: string, title: string): string {
-  const appCss = collectDocumentCss()
+async function buildPdfExportHtml(bodyHtml: string, title: string): Promise<string> {
+  let appCss = collectDocumentCss()
+  // 含公式时才内联 KaTeX 字体（无公式零开销）
+  if (bodyHtml.includes('class="katex"')) {
+    appCss = await inlineKatexFonts(appCss)
+  }
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -234,7 +275,7 @@ export async function exportCurrentDocument(): Promise<boolean> {
   try {
     const bodyHtml = await parseMarkdownAsync(content, getBaseDir(filePath))
     const outline = extractPdfOutline(bodyHtml)
-    const html = buildPdfExportHtml(bodyHtml, baseFileName)
+    const html = await buildPdfExportHtml(bodyHtml, baseFileName)
     const result = await invoke<ExportPdfResult>('export_pdf_file', {
       params: { html, outputPath, title: baseFileName, outline },
     })

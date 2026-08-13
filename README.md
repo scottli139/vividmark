@@ -2,7 +2,7 @@
 
 A modern, lightweight Markdown editor built with Tauri 2.0 and React. Inspired by Typora, featuring a clean, distraction-free writing experience with real-time preview.
 
-**Perfect for MkDocs**: Full support for MkDocs-specific syntax including admonitions (callout boxes), PlantUML diagrams, and advanced tables — making it an ideal editor for writing and previewing MkDocs documentation.
+**Perfect for MkDocs**: Full support for MkDocs-specific syntax including admonitions (callout boxes), PlantUML diagrams, math formulas (KaTeX), and advanced tables — making it an ideal editor for writing and previewing MkDocs documentation.
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)
@@ -90,6 +90,16 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
   @enduml
   ```
 
+- **Math Formulas** - Render LaTeX math with KaTeX; editable directly in WYSIWYG mode
+
+  ```markdown
+  Inline: $e=mc^2$
+
+  $$
+  \frac{1}{2}
+  $$
+  ```
+
 ### User Interface
 
 - **Multi-language support** - English and 简体中文 (Simplified Chinese), easily extensible to more languages
@@ -108,7 +118,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **State Management**: Zustand 5
 - **Internationalization**: i18next + react-i18next
 - **Markdown**: markdown-it with custom plugins
-- **Extended Syntax**: markdown-it-container, plantuml-encoder
+- **Extended Syntax**: markdown-it-container, plantuml-encoder, KaTeX
 - **Syntax Highlighting**: highlight.js
 - **Testing**: Vitest + React Testing Library + Playwright
 

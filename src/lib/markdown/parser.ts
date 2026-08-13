@@ -10,6 +10,7 @@ import { isLocalPath, isUrl } from '../imageUtils'
 import { admonitionTypes, getAdmonitionDisplayTitle } from './admonitionTypes'
 import { getPlantUmlSvgUrl } from '../plantuml'
 import { isTauri, resolveToAbsoluteImagePath } from '../imageSrc'
+import { mathPlugin } from './mathPlugin'
 
 // 自定义图片渲染规则 - 处理本地文件路径
 function convertImageSrc(src: string): string {
@@ -94,6 +95,9 @@ admonitionTypes.forEach((type) => {
     },
   })
 })
+
+// KaTeX 数学公式（$...$ 行内 / $$ 多行围栏块级）
+md.use(mathPlugin)
 
 // 自定义图片渲染规则
 const defaultImageRender =

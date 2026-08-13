@@ -63,7 +63,7 @@
   - 使用 PlantUML 在线服务渲染 SVG 图表
 - [x] **表格编辑** ✅ - Markdown 表格的可视化编辑，支持插入对话框、行列自定义
 - [x] **多语言支持** ✅ - 支持简体中文和英语（可扩展）
-- [ ] 数学公式 (KaTeX)
+- [x] **数学公式 (KaTeX)** ✅ - 行内 `$...$` / 块级 `$$` 围栏，KaTeX 渲染；WYSIWYG 可点击编辑、往返无损；PDF 导出字体内联
 - [x] **任务列表 (Checkbox)** ✅ - 支持 `- [ ]` 和 `- [x]` 语法，可点击切换状态，工具栏新增任务列表按钮
 - [x] **WYSIWYG 模式 Phase 1** ✅ - 四模式架构完成（WYSIWYG/Source/Preview/Split），默认 WYSIWYG
 - [x] **工具栏优化** ✅ - 精简按钮布局，标题下拉菜单，插入/格式下拉菜单，Windows 兼容的语言标签
@@ -287,13 +287,12 @@ logger.error('Failed to sync:', error)
 
 ### 功能开发
 
-- **数学公式 (KaTeX)** - LaTeX 公式渲染（Phase 4）
 - **多标签页 + 会话恢复** - 同时打开多个文件（Phase 5 / 13 P3）
 - **文件变更监控** - 外部修改自动重载（Phase 5）
 - **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3）
 - **专注模式 / 打字机模式**（Phase 13 P3）
 - **导出 HTML / Word**（Phase 6 / 13 P3）
-- **KaTeX / Mermaid / PlantUML 离线化**（Phase 13 P3；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
+- **Mermaid / PlantUML 离线化**（Phase 13 P3；KaTeX 本身本地渲染已离线；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
 - **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条
 
 ### 体验与优化

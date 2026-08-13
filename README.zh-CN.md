@@ -2,7 +2,7 @@
 
 一款基于 Tauri 2.0 和 React 构建的现代化轻量级 Markdown 编辑器。灵感来源于 Typora，提供简洁、无干扰的写作体验和实时预览功能。
 
-**MkDocs 完美适配**: 完整支持 MkDocs 特殊语法，包括提示框（Admonitions）、PlantUML 图表和高级表格 —— 是编写和预览 MkDocs 文档的理想编辑器。
+**MkDocs 完美适配**: 完整支持 MkDocs 特殊语法，包括提示框（Admonitions）、PlantUML 图表、KaTeX 数学公式和高级表格 —— 是编写和预览 MkDocs 文档的理想编辑器。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)](https://tauri.app)
@@ -90,6 +90,16 @@
   @enduml
   ```
 
+- **数学公式** - KaTeX 渲染 LaTeX 公式，WYSIWYG 模式下可直接点击编辑
+
+  ```markdown
+  行内: $e=mc^2$
+
+  $$
+  \frac{1}{2}
+  $$
+  ```
+
 ### 用户界面
 
 - **多语言支持** - 英文和简体中文，易于扩展到更多语言
@@ -108,7 +118,7 @@
 - **状态管理**: Zustand 5
 - **国际化**: i18next + react-i18next
 - **Markdown**: markdown-it 及自定义插件
-- **扩展语法**: markdown-it-container, plantuml-encoder
+- **扩展语法**: markdown-it-container, plantuml-encoder, KaTeX
 - **语法高亮**: highlight.js
 - **测试**: Vitest + React Testing Library + Playwright
 

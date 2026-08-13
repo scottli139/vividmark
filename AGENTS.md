@@ -11,7 +11,7 @@ Key features:
 - Four view modes: WYSIWYG (default, Milkdown/ProseMirror) / Source / Split / Preview
 - CodeMirror 6 source editor: Markdown highlighting, smart list continuation, find & replace
 - Real-time Markdown preview (markdown-it + highlight.js)
-- Markdown extensions: admonitions, PlantUML, task lists, tables
+- Markdown extensions: admonitions, PlantUML, task lists, tables, math formulas (KaTeX)
 - File operations with native dialogs, auto-save (2s idle), drag & drop, recent files
 - Native menubar (File/Edit/Paragraph/Format/View), macOS Dock menu & file associations (Open With)
 - Sidebar with outline navigation and resizable file tree; status bar (word count, cursor, zoom)
@@ -40,7 +40,7 @@ Key features:
 | Styling     | Tailwind CSS 4                                              |
 | State       | Zustand 5 (persist 用户偏好)                                |
 | i18n        | i18next + react-i18next                                     |
-| Markdown    | markdown-it + highlight.js                                  |
+| Markdown    | markdown-it + highlight.js + KaTeX                        |
 | Unit Tests  | Vitest + React Testing Library                              |
 | E2E Tests   | Playwright                                                  |
 | Lint/Format | ESLint (flat config) + Prettier                             |
@@ -187,7 +187,8 @@ Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `genera
 Read these before touching editor code — details in `docs/implementation-notes.md`:
 
 - **Dual editor cores**: WYSIWYG = Milkdown/ProseMirror（`WysiwygEditor.tsx`），Source/Split = CodeMirror 6（`CodeMirrorEditor.tsx`），都常驻挂载（非激活 hidden）。Markdown 源码是唯一事实来源；两侧事件 handler 与 `canUndo/canRedo` 写入都按 `viewMode` 门控
-- **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表 checkbox）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定；**commonmark 预设剔除了 `remark-preserve-empty-line`**（它把空段落序列化成独立 `<br />` 行，用户视为垃圾——剔除后空段落 = 普通空行，重载自然折叠；源码已有的 `<br />` 行解析为 html 节点保留）
+- **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表 checkbox/数学公式）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定；**commonmark 预设剔除了 `remark-preserve-empty-line`**（它把空段落序列化成独立 `<br />` 行，用户视为垃圾——剔除后空段落 = 普通空行，重载自然折叠；源码已有的 `<br />` 行解析为 html 节点保留）
+- **数学公式（KaTeX）**: 双端实现——markdown-it 侧 `src/lib/markdown/mathPlugin.ts`（自写 inline/block rule），WYSIWYG 侧 `mathPlugin.ts`（remark-math + math_inline/math_block atom schema）+ `mathView.ts`（点击进 textarea 编辑态）；**语法规则严格对齐 micromark-extension-math 3.x**（块级仅多行围栏，单行 `$$x$$` 是行内公式；无 pandoc 货币保护），两侧规则不一致会导致模式切换抖动；PDF 导出经 `exportPdf.ts inlineKatexFonts` 把 woff2 字体转 base64 内联（vividmark-pdf:// 协议窗口加载不到应用字体）
 - **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
 - **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`

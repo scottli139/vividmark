@@ -775,6 +775,23 @@ body {
   outline-offset: 2px;
 }
 
+/*
+ * ProseMirror 为不可编辑行内节点（atom nodeview：公式、图片）插入的光标辅助元素：
+ * Tailwind preflight 把 img 设为 display:block，separator 因此独占一行；
+ * 末尾的 trailingBreak 再占一行——两者叠加会把段落/表格单元格撑出空行。
+ * separator 恢复 PM 官方意图（inline 无形）；trailingBreak 在非空段落隐藏，
+ * 仅保留空段落（:only-child）撑高度供光标停靠。
+ */
+.wysiwyg-editor img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+}
+
+.wysiwyg-editor .ProseMirror-trailingBreak:not(:only-child) {
+  display: none;
+}
+
 /* 编辑态的 task checkbox 尺寸/边距与预览一致，去掉 outline 以免与焦点环冲突 */
 .wysiwyg-editor .task-checkbox {
   cursor: pointer;
@@ -858,6 +875,61 @@ body {
 /* admonition 内容区在编辑器内需要最小高度以便点击落入空容器 */
 .wysiwyg-editor .admonition-content {
   min-height: 1.2em;
+}
+
+/* ==================== 数学公式（KaTeX） ==================== */
+
+/* 长 display 公式横向滚动（.markdown-body 排版对预览与 WYSIWYG 同时生效） */
+.markdown-body .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
+.markdown-body .math-block {
+  margin: 1em 0;
+}
+
+/* WYSIWYG 公式节点：渲染态可点击进入编辑态 */
+.wysiwyg-editor .math-inline,
+.wysiwyg-editor .math-block {
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.wysiwyg-editor .math-inline:hover,
+.wysiwyg-editor .math-block:hover {
+  background-color: var(--hover-bg);
+}
+
+/* 节点选中态（与 ProseMirror-selectednode 同款描边） */
+.wysiwyg-editor .math-selected {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
+/* 编辑态 LaTeX 源码输入框 */
+.wysiwyg-editor .math-editor {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border: 1px solid var(--accent-color);
+  border-radius: 4px;
+  background: var(--editor-bg);
+  color: var(--editor-text);
+  font-family: 'Courier New', 'Courier', monospace;
+  font-size: 0.9em;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+/* 行内公式编辑框：随内容宽度，不撑整行 */
+.wysiwyg-editor .math-inline .math-editor {
+  display: inline-block;
+  width: auto;
+  min-width: 240px;
+  resize: none;
 }
 
 /* ==================== CodeMirror 搜索面板（亮/暗主题可读性） ==================== */
