@@ -8,6 +8,7 @@ import { isTauri } from './imageSrc'
 import { createLogger } from './logger'
 import type { FormatType } from './markdownEditing'
 import { insertImageFromPicker, openFolderFromPicker } from './editorActions'
+import { exportSite } from './exportSite'
 import { revealInFolder } from './fileTreeUtils'
 import { readClipboardText } from './clipboard'
 
@@ -102,6 +103,10 @@ export async function handleMenuAction(id: string): Promise<void> {
       // 同 MoreMenu：由 Editor 监听并执行导出
       window.dispatchEvent(new CustomEvent('editor-export-pdf'))
       break
+    case 'export-site':
+      // 文件夹级动作，与编辑器组件无关，直接调用（同 file-open-folder 模式）
+      await exportSite()
+      break
     case 'edit-undo':
       window.dispatchEvent(new CustomEvent('editor-undo'))
       break
@@ -195,6 +200,10 @@ function syncMenuEnabled(state: EditorState): void {
   void invoke('set_menu_item_enabled', { id: 'edit-undo', enabled: state.canUndo })
   void invoke('set_menu_item_enabled', { id: 'edit-redo', enabled: state.canRedo })
   void invoke('set_menu_item_enabled', { id: 'file-reveal', enabled: state.filePath !== null })
+  void invoke('set_menu_item_enabled', {
+    id: 'export-site',
+    enabled: state.openedFolder !== null,
+  })
 }
 
 // 菜单内容去重：语言/最近文件未变时不重建（防循环兜底；菜单重建 = Rust 整树
@@ -273,7 +282,8 @@ export async function initNativeMenu(): Promise<() => void> {
     if (
       state.canUndo !== prev.canUndo ||
       state.canRedo !== prev.canRedo ||
-      state.filePath !== prev.filePath
+      state.filePath !== prev.filePath ||
+      state.openedFolder !== prev.openedFolder
     ) {
       syncMenuEnabled(state)
     }

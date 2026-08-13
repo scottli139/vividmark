@@ -106,16 +106,17 @@ const defaultImageRender =
     return self.renderToken(tokens, idx, options)
   }
 
-md.renderer.rules.image = function (tokens, idx, options, _env, self) {
+md.renderer.rules.image = function (tokens, idx, options, env, self) {
   const token = tokens[idx]
   const srcIndex = token.attrIndex('src')
 
-  if (srcIndex >= 0) {
+  // env.preserveImages（站点导出）：保留相对路径 src，资产随站点镜像复制，不做 asset:// 转换
+  if (srcIndex >= 0 && !(env as { preserveImages?: boolean } | undefined)?.preserveImages) {
     const src = token.attrs![srcIndex][1]
     token.attrs![srcIndex][1] = convertImageSrc(src)
   }
 
-  return defaultImageRender(tokens, idx, options, _env, self)
+  return defaultImageRender(tokens, idx, options, env, self)
 }
 
 // ==================== 任务列表 (Task Lists) 支持 ====================
@@ -363,12 +364,12 @@ function preprocessPlantUML(content: string): string {
 /**
  * 解析 Markdown 为 HTML
  * @param content Markdown 内容
- * @param baseDir 可选的基础目录，用于解析相对路径
+ * @param options.preserveImages 为 true 时保留本地图片的相对路径 src（站点导出用；
+ *   资产按镜像目录复制，相对路径在站点中仍然有效，不做 convertFileSrc 转换）
  */
-export function parseMarkdown(content: string): string {
+export function parseMarkdown(content: string, options?: { preserveImages?: boolean }): string {
   // 注意：同步版本不会预处理图片
   // 如果需要图片支持，请使用 parseMarkdownAsync
-  // 如果需要 baseDir 支持，可以在未来添加
 
   // 重置任务索引
   resetTaskIndex()
@@ -380,7 +381,7 @@ export function parseMarkdown(content: string): string {
   const processedContent = preprocessPlantUML(contentWithTasks)
 
   // 渲染 markdown
-  let html = md.render(processedContent)
+  let html = md.render(processedContent, { preserveImages: options?.preserveImages === true })
 
   // 后处理任务列表（替换标记为 checkbox）
   html = postprocessTaskLists(html)

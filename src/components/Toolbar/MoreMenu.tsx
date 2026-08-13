@@ -4,11 +4,14 @@ import { Dropdown } from '../Menu'
 import type { MenuItem } from '../Menu'
 import { useEditorStore } from '../../stores/editorStore'
 import { availableLanguages, type Language } from '../../i18n'
+import { exportSite } from '../../lib/exportSite'
+import { isTauri } from '../../lib/imageSrc'
 
-/** 工具栏右侧「更多」菜单：缩放 / 导出 PDF / 语言 / 设置入口 */
+/** 工具栏右侧「更多」菜单：缩放 / 导出 PDF / 导出网站 / 语言 / 设置入口 */
 export function MoreMenu() {
   const { t, i18n } = useTranslation()
-  const { language, zoomIn, zoomOut, zoomReset, setLanguage, setSettingsOpen } = useEditorStore()
+  const { language, zoomIn, zoomOut, zoomReset, setLanguage, setSettingsOpen, openedFolder } =
+    useEditorStore()
 
   // 检测是否为 Mac
   const isMac =
@@ -38,6 +41,9 @@ export function MoreMenu() {
         // 由 Editor 监听并执行导出
         window.dispatchEvent(new CustomEvent('editor-export-pdf'))
         break
+      case 'export-site':
+        void exportSite()
+        break
       case 'settings':
         setSettingsOpen(true)
         break
@@ -54,6 +60,11 @@ export function MoreMenu() {
     { id: 'zoom-reset', label: t('toolbar.tooltip.zoomReset', { shortcut: `${cmdKey}+Shift+0` }) },
     { divider: true },
     { id: 'export-pdf', label: t('toolbar.tooltip.exportPdf', { shortcut: `${cmdKey}+P` }) },
+    {
+      id: 'export-site',
+      label: t('toolbar.tooltip.exportSite'),
+      disabled: !openedFolder || !isTauri(),
+    },
     { divider: true },
     ...availableLanguages.map<MenuItem>((lang) => ({
       id: `lang-${lang.code}`,
@@ -72,7 +83,7 @@ export function MoreMenu() {
       align="right"
       widthClass="w-48"
       trigger={
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             strokeLinecap="round"
             strokeLinejoin="round"

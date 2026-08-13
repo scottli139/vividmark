@@ -6,6 +6,7 @@ use tauri::{Manager, WebviewWindow};
 
 mod menu;
 mod pdf;
+mod site_export;
 mod window_router;
 
 #[cfg(target_os = "macos")]
@@ -1038,6 +1039,7 @@ pub fn run() {
             print_pdf,
             pdf::pdf_export_supported,
             pdf::export_pdf_file,
+            site_export::export_site,
             rebuild_menu,
             set_menu_item_enabled,
             set_menu_item_checked,

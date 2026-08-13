@@ -38,6 +38,7 @@ struct Labels {
     save: &'static str,
     save_as: &'static str,
     export_pdf: &'static str,
+    export_site: &'static str,
     edit: &'static str,
     undo: &'static str,
     redo: &'static str,
@@ -101,6 +102,7 @@ fn labels(lang: &str) -> Labels {
             save: "保存",
             save_as: "另存为…",
             export_pdf: "导出 PDF…",
+            export_site: "导出为网站…",
             edit: "编辑",
             undo: "撤销",
             redo: "重做",
@@ -159,6 +161,7 @@ fn labels(lang: &str) -> Labels {
             save: "Save",
             save_as: "Save As…",
             export_pdf: "Export PDF…",
+            export_site: "Export as Site…",
             edit: "Edit",
             undo: "Undo",
             redo: "Redo",
@@ -333,6 +336,14 @@ fn file_items<R: Runtime>(
             l.export_pdf,
             true,
             Some("CmdOrCtrl+P"),
+        )?),
+        // 初始禁用：无打开文件夹时不可用；前端按 openedFolder 同步 enabled
+        Box::new(MenuItem::with_id(
+            app,
+            "export-site",
+            l.export_site,
+            false,
+            None::<&str>,
         )?),
     ])
 }

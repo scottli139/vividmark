@@ -31,7 +31,8 @@
       "zoomIn": "Zoom In ({{shortcut}})",
       "zoomOut": "Zoom Out ({{shortcut}})",
       "zoomReset": "Reset Zoom ({{shortcut}})",
-      "exportPdf": "Export PDF ({{shortcut}})"
+      "exportPdf": "Export PDF ({{shortcut}})",
+      "exportSite": "Export as Site"
     },
     "viewMode": {
       "wysiwyg": "WYSIWYG",
@@ -222,7 +223,14 @@
     "fileNotFound": "File not found",
     "imageCopyFailed": "Failed to copy image",
     "invalidImage": "Invalid image file",
-    "exportPdfFailed": "Failed to export PDF"
+    "exportPdfFailed": "Failed to export PDF",
+    "exportSiteSuccess": "Site exported to: {{path}}",
+    "exportSiteFailed": "Failed to export site",
+    "exportSiteNoPages": "No Markdown files found in the opened folder"
+  },
+  "site": {
+    "home": "Home",
+    "toggleTheme": "Toggle dark mode"
   },
   "language": {
     "title": "Language",

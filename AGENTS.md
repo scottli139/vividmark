@@ -17,6 +17,7 @@ Key features:
 - Native menubar (File/Edit/Paragraph/Format/View), macOS Dock menu & file associations (Open With)
 - Sidebar with outline navigation and resizable file tree; status bar (word count, cursor, zoom)
 - i18n (en / zh-CN), dark mode, 50–200% zoom, PDF export
+- Export opened folder as a deployable static site (mkdocs-style nav, built-in generator, no external deps)
 
 ## Documentation Map
 
@@ -153,6 +154,7 @@ Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`�
 | `pdf_export_supported`    | —                         | `bool`            | 平台是否支持 PDF 直存（macOS/Windows 支持） |
 | `export_pdf_file`         | `html, outputPath, title` | `ExportPdfResult` | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件 |
 | `print_pdf`               | `fileName`                | `ExportPdfResult` | 打印对话框（PDF 直存不支持时的回退路径）    |
+| `export_site`             | `params(outputDir,files)` | `ExportSiteResult` | 「导出为网站」批量写盘（文本写入 + 资产镜像复制，site_export.rs） |
 | `rebuild_menu`            | `lang, recentFiles`       | `null`            | Rebuild native menu (i18n / recent files)   |
 | `set_menu_item_enabled`   | `id, enabled`             | `null`            | Native menu item enabled state              |
 | `set_menu_item_checked`   | `id, checked`             | `null`            | Native menu check item state                |
@@ -213,6 +215,7 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **编辑器右键菜单**: 三区域（Source/Preview/WYSIWYG）均已接入，结构对齐 Typora（剪贴板组 + 段落▸/格式▸/插入▸ 子菜单）。菜单项构建是纯函数（`src/lib/contextMenu.ts`，id/文案/disabled/快捷键标注），状态用 `src/hooks/useContextMenu.ts`；动作按 id 前缀分发——`format:*` 转发 editor-format 事件总线，剪贴板走 `src/lib/clipboard.ts`（桌面端 `@tauri-apps/plugin-clipboard-manager`，浏览器降级 navigator.clipboard），WYSIWYG 上下文动作（表格行列增删/链接/图片/代码块/`insert:*`）在 `wysiwygContextMenu.ts`（表格删除是自实现 PM transaction，不走 milkdown selectRow/deleteSelectedCells 的 index 语义；表头行禁删；「在上方/下方插入段落」= 在当前顶层块前后插空段落并落入光标）。**WebKit 右键抢选**：WKWebView 在 mousedown→contextmenu 之间抢先写 DOM 词/行选择（不可取消），必须 contextmenu 时折叠选区 + `getSelection().collapse(domAtPos)` 把 DOM 选择压回光标（细节见 implementation-notes）
 - **macOS 融合标题栏**: tauri.conf.json `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS 生效）；`trafficLightPosition: {x:12, y:25.5}` 把红绿灯垂直居中到 48px 工具栏（tao 语义：标题栏高 = 按钮高 14pt + y，按钮贴容器底部；居中公式 y = 目标按钮顶距 + 8.5pt）；App 给 documentElement 加 `is-macos` class（判定走 `src/lib/platform.ts`）；Toolbar 根 `data-tauri-drag-region` + macOS 下 `pl-[78px]`（traffic light 预留）+ 自绘居中标题（<760px 隐藏）。**窗口拖拽/标题权限坑**：tauri 2.10+ 起 `core:window:allow-start-dragging` 与 `core:window:allow-set-title` 均非默认权限，capabilities 必须显式授予，否则 IPC 被 ACL 静默拒绝（拖拽失效 / 标题恒为初始值）；② Tauri 的 drag.js 只查 `e.target` 自身属性（无 closest 上溯），子元素覆盖区域不触发——所以 Toolbar 的左/右分组容器也带 `data-tauri-drag-region`
 - **Logging**: use `createLogger('Module')` from `src/lib/logger.ts` (frontend) and `tauri-plugin-log` (backend); logs at `~/Library/Logs/com.vividmark.app/` on macOS
+- **导出为网站（静态站点包）**: 菜单/MoreMenu `export-site`（按 `openedFolder` 门控 enabled）→ `exportSite.ts exportSite()`（选输出目录 → `readDirectory` 原始树 → 渲染 → Rust `export_site` 批量写盘，参照 pdf.rs 拆为 site_export.rs）→ `<picked>/<文件夹名>-site/`。纯逻辑全在 `siteGenerator.ts`（可单测）：**镜像目录结构**（`foo.md`→`foo.html`，资产按原相对位置复制，故图片相对路径零重写）、README/index→所在目录 index.html、数字前缀 `01-` 排序且显示剥离、GitHub 风格标题 id（页内/跨页锚点可用）、`.md` 互链重写为 `.html`；页面框架在 `siteTemplate.ts`（共享 `vividmark-site/site.css` = collectDocumentCss + 框架样式 + KaTeX 字体内联；`.dark` class 浅/深切换，localStorage 持久化；`.nojekyll` 兼容 GitHub Pages）。关键坑：站点渲染用 `parseMarkdown(content, { preserveImages: true })`——经 markdown-it render env 跳过 image rule 的 convertFileSrc，否则相对图片被转成 asset:// 死链
 - **PDF 直存管线**: 菜单/MoreMenu/右键 → `editor-export-pdf` 事件 → `exportPdf.ts exportCurrentDocument()` → 保存对话框 → 序列化应用 CSS + `parseMarkdownAsync` 生成独立 HTML（含打印密度覆盖：14px 字号/紧凑单元格/首列不换行）→ `export_pdf_file` 命令：隐藏 Webview 窗口（`vividmark-pdf://` 自定义协议 serve HTML，`on_page_load` Finished 等渲染，15s 超时兜底）→ macOS `NSPrintOperation(SaveJob)` / Windows `PrintToPdf` 静默写文件；**PDF 书签大纲**：前端从渲染 HTML 提取标题随 `outline` 参数传入，macOS 用 PDFKit 后处理重建（WebKit 不生成 outline；文本提取有兼容表意文字坑，匹配需 NFKC+去空白+部首通配，见 implementation-notes）；Linux/旧 runtime 回退 `print_pdf` 打印对话框。**macOS 关键坑**：必须 `sharedPrintInfo` copy + `canSpawnSeparateThread(true)` + `runOperationModalForWindow`（全新 `NSPrintInfo` + `run()` 会无限分页；`createPDFWithConfiguration` 是整页长截图不分页），细节见 implementation-notes
 
 ## Known Issues

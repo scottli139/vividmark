@@ -50,6 +50,15 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Context menus** - Right-click in file tree and all editor areas; WYSIWYG menus are context-aware (table row/column editing, link, image, code block)
 - **Undo/Redo** - Full history support with Cmd/Ctrl + Z / Shift+Z
 
+### Documentation Site Export
+
+Turn any opened folder into a deployable documentation site with one click — no Python, no mkdocs install, no external tools required:
+
+- **MkDocs-style layout** - Sticky header, collapsible sidebar navigation, and a light/dark toggle baked into every page
+- **Auto-derived navigation** - The directory tree becomes the nav; numeric prefixes (`01-intro.md`) control ordering and are stripped from display; `README.md`/`index.md` becomes the section landing page
+- **Link-safe output** - Cross-page `.md` links are rewritten to `.html` with GitHub-style heading anchors; images and attachments are mirrored in place, so relative paths just work
+- **Deploy anywhere** - GitHub Pages (`.nojekyll` included), Netlify, Nginx, or just open `index.html` locally — the output is plain static HTML rendered by the same engine as the in-app preview
+
 ### Formatting Tools
 
 - **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links (Cmd/Ctrl + B / I / K)

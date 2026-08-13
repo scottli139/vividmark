@@ -31,7 +31,8 @@
       "zoomIn": "放大 ({{shortcut}})",
       "zoomOut": "缩小 ({{shortcut}})",
       "zoomReset": "重置缩放 ({{shortcut}})",
-      "exportPdf": "导出 PDF ({{shortcut}})"
+      "exportPdf": "导出 PDF ({{shortcut}})",
+      "exportSite": "导出为网站"
     },
     "viewMode": {
       "wysiwyg": "所见即所得",
@@ -222,7 +223,14 @@
     "fileNotFound": "文件不存在",
     "imageCopyFailed": "复制图片失败",
     "invalidImage": "无效的图片文件",
-    "exportPdfFailed": "导出 PDF 失败"
+    "exportPdfFailed": "导出 PDF 失败",
+    "exportSiteSuccess": "站点已导出到：{{path}}",
+    "exportSiteFailed": "导出网站失败",
+    "exportSiteNoPages": "打开的文件夹中没有 Markdown 文件"
+  },
+  "site": {
+    "home": "首页",
+    "toggleTheme": "切换深色模式"
   },
   "language": {
     "title": "语言",

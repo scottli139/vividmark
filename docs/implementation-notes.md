@@ -1290,3 +1290,20 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 ### 风暴表现与定位路径
 
 现象：打开多个 md 后 app 主进程 + 各 webview 持续 30–90% CPU（活动监视器），kernel_task 飙升压频。日志表现为同窗口同毫秒数百次 `rebuild_menu`。定位路径：rebuild 调用方 label（命令加 window 参数打 label）→ 前端 DIAG fetch 埋点（发现 openFileByPath 被反复调用、lastOpened 持续刷新）→ take_startup 双窗口取同路径（发现 listener 泄漏双建窗口）→ StrictMode 竞态 + 幽灵队列。
+
+## 2026-08-13 导出为网站（静态站点包）
+
+打开文件夹 → 文件菜单/MoreMenu「导出为网站…」→ 选输出位置 → 生成 `<picked>/<文件夹名>-site/` 可直接部署的静态站点（mkdocs 风格：顶栏 + 左侧可折叠导航 + 浅/深色切换）。零外部依赖（不调 Python/mkdocs CLI）。
+
+### 关键设计
+
+- **镜像目录结构**：`guide/intro.md` → `guide/intro.html`，非 md 资产按原相对位置原样复制（Rust `export_site` 命令 fs::copy）——图片等相对 src **零重写**即可用，唯一要重写的是 `.md` 互链（换 `.html`，保留 #anchor；README/index 目标映射为 index.html）。这是整个方案的核心简化
+- **preserveImages 渲染**：预览用的 image rule 会把本地 src 转 convertFileSrc（asset://），导出站点里是死链。`parseMarkdown(content, { preserveImages: true })` 经 markdown-it render 的 env 参数透传到 image rule 跳过转换——不用 parseMarkdownAsync（它的 base64 内联是为 PDF 单文件场景，站点用镜像复制更合适）
+- **导航推导**（siteGenerator.ts，纯函数）：数字前缀 `01-`/`01_`/`01.` 排序且显示名剥离；README.md/index.md 成为所在目录 index.html 且导航恒排最前（回退标题用目录名；根的无 H1 时注入「首页/Home」）；无根 index 页时生成 meta-refresh 重定向首页；纯资产目录不进导航
+- **页面框架**（siteTemplate.ts）：共享 CSS 文件 `vividmark-site/site.css` = `collectDocumentCss()`（应用同款 .markdown-body/hljs/主题变量，从 exportPdf.ts 导出复用）+ 框架样式（复用 --editor-bg 等变量，`:root`/`.dark` 双定义随收集 CSS 自动带上）；有公式才 `inlineKatexFonts`；`<html>.dark` 切换 + localStorage `vividmark-site-theme` + head 内联防闪烁脚本；目录折叠用 `<details>/<summary>` 零 JS；附 `.nojekyll` 兼容 GitHub Pages
+- **标题 id**：GitHub 风格 slug（Unicode 字母/数字保留、标点剔除、空格转连字符、重名 -1 去重），DOMParser 后处理加到 h1–h6，页内与跨页 `#anchor` 因此可用
+- **菜单接线**：`export-site` 菜单项初始禁用，`syncMenuEnabled` 按 `openedFolder` 同步（仿 file-reveal）；handleMenuAction 直接调 `exportSite()`（文件夹级动作不走 editor-* 事件总线，同 file-open-folder 模式）
+
+### 已知限制（首版接受）
+
+- read_directory 深度上限 10；覆盖写不清理旧文件（重复导出残留已删源文件的 HTML）；无站内搜索/页内 TOC；PlantUML 仍是 plantuml.com 远程图（部署后需联网）；指向导出集合外 `.md` 的链接同样换后缀（部署后本就失效）

@@ -71,7 +71,7 @@ function getBaseDir(filePath: string | null): string | undefined {
 }
 
 /** 序列化当前文档的全部样式表（含 Tailwind/hljs/.markdown-body），保证 PDF 与预览一致 */
-function collectDocumentCss(): string {
+export function collectDocumentCss(): string {
   const chunks: string[] = []
   const sheets: CSSStyleSheet[] = [
     ...Array.from(document.styleSheets),
@@ -97,7 +97,7 @@ function collectDocumentCss(): string {
  * 分数/积分号等字形错乱。在主窗口 origin 下 fetch 字体转 data URL 后替换。
  * 单个字体加载失败保留原 URL（回退系统字体），不阻断导出。
  */
-async function inlineKatexFonts(css: string): Promise<string> {
+export async function inlineKatexFonts(css: string): Promise<string> {
   const urls = new Set<string>()
   for (const match of css.matchAll(/url\((['"]?)([^'")]+)\1\)/g)) {
     if (match[2].includes('.woff2')) urls.add(match[2])
