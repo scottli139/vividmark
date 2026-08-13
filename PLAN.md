@@ -293,7 +293,7 @@ logger.error('Failed to sync:', error)
 - **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3）
 - **专注模式 / 打字机模式**（Phase 13 P3）
 - **导出 HTML / Word**（Phase 6 / 13 P3）
-- **KaTeX / Mermaid / PlantUML 离线化**（Phase 13 P3，Typst 方案见 `docs/typst-offline-plan.md`，暂停中）
+- **KaTeX / Mermaid / PlantUML 离线化**（Phase 13 P3；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
 - **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条
 
 ### 体验与优化

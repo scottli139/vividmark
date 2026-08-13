@@ -19,15 +19,16 @@ Key features:
 
 ## Documentation Map
 
-| File                                                               | Content                                                |
-| ------------------------------------------------------------------ | ------------------------------------------------------ |
-| `PLAN.md`                                                          | 开发计划与任务进度（唯一的任务看板，不在本文件重复）   |
-| `docs/implementation-notes.md`                                     | 实现细节知识库：已知问题、架构要点、发布流程、Git 规范 |
-| `docs/session-log.md`                                              | 历史开发日志（Session 记录，自 PLAN.md 归档）          |
-| `docs/REQUIREMENTS.md`                                             | 需求文档                                               |
-| `docs/ux-improvement-plan.md`                                      | Typora 对标体验差距分析与 P0–P3 改进方案               |
-| `docs/wysiwyg-research.md` + `docs/wysiwyg-implementation-plan.md` | WYSIWYG 模式调研与实现计划（自研路线，已被 P2 取代）   |
-| `docs/typst-offline-plan.md`                                       | Typst 离线支持计划（⏸️ 暂停中）                        |
+| File                                                               | Content                                                         |
+| ------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `PLAN.md`                                                          | 开发计划与任务进度（唯一的任务看板，不在本文件重复）            |
+| `docs/implementation-notes.md`                                     | 实现细节知识库：已知问题、架构要点、发布流程、Git 规范          |
+| `docs/session-log.md`                                              | 历史开发日志（Session 记录，自 PLAN.md 归档）                   |
+| `docs/REQUIREMENTS.md`                                             | 需求文档                                                        |
+| `docs/ux-improvement-plan.md`                                      | Typora 对标体验差距分析与 P0–P3 改进方案                        |
+| `docs/wysiwyg-research.md` + `docs/wysiwyg-implementation-plan.md` | WYSIWYG 模式调研与实现计划（自研路线，已被 P2 取代）            |
+| `docs/typst-offline-plan.md`                                       | Typst 离线支持计划（⏸️ 暂停中，2026-08-12 评估转向独立产品）    |
+| `docs/typst-standalone-editor-plan.md`                             | 独立 Typst 编辑器预研（📋 未立项；与 VividMark 分离的产品方向） |
 
 ## Technology Stack
 
@@ -135,26 +136,26 @@ Main store: `src/stores/editorStore.ts`.
 
 Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`）:
 
-| Command                 | Parameters                 | Returns           | Description                                     |
-| ----------------------- | -------------------------- | ----------------- | ----------------------------------------------- |
-| `read_file`             | `path`                     | `FileInfo`        | Read file content                               |
-| `save_file`             | `path, content`            | `SaveResult`      | Write file content                              |
-| `file_exists`           | `path`                     | `bool`            | Check existence                                 |
-| `read_directory`        | `ReadDirectoryParams`      | `FileTreeItem[]`  | File tree data                                  |
-| `create_file`           | `path`                     | `null`            | Create empty file                               |
-| `create_folder`         | `path`                     | `null`            | Create directory                                |
-| `rename_path`           | `oldPath, newPath`         | `null`            | Rename/move file or folder                      |
-| `delete_path`           | `path`                     | `null`            | Delete (folder: recursive)                      |
-| `copy_path`             | `oldPath, newPath`         | `null`            | Copy (folder: recursive)                        |
-| `reveal_in_folder`      | `path`                     | `null`            | Reveal in system file manager                   |
-| `pdf_export_supported`  | —                          | `bool`            | 平台是否支持 PDF 直存（macOS/Windows 支持）     |
-| `export_pdf_file`       | `html, outputPath, title`  | `ExportPdfResult` | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件     |
-| `print_pdf`             | `fileName`                 | `ExportPdfResult` | 打印对话框（PDF 直存不支持时的回退路径）        |
-| `rebuild_menu`          | `lang, recentFiles`        | `null`            | Rebuild native menu (i18n / recent files)       |
-| `set_menu_item_enabled` | `id, enabled`              | `null`            | Native menu item enabled state                  |
-| `set_menu_item_checked` | `id, checked`              | `null`            | Native menu check item state                    |
-| `update_dock_menu`      | `lang, recentFiles`        | `null`            | Rebuild macOS Dock menu（其他平台 no-op）       |
-| `take_pending_open_files` | —                        | `String[]`        | 取走文件关联打开的路径队列（冷启动积压）        |
+| Command                   | Parameters                | Returns           | Description                                 |
+| ------------------------- | ------------------------- | ----------------- | ------------------------------------------- |
+| `read_file`               | `path`                    | `FileInfo`        | Read file content                           |
+| `save_file`               | `path, content`           | `SaveResult`      | Write file content                          |
+| `file_exists`             | `path`                    | `bool`            | Check existence                             |
+| `read_directory`          | `ReadDirectoryParams`     | `FileTreeItem[]`  | File tree data                              |
+| `create_file`             | `path`                    | `null`            | Create empty file                           |
+| `create_folder`           | `path`                    | `null`            | Create directory                            |
+| `rename_path`             | `oldPath, newPath`        | `null`            | Rename/move file or folder                  |
+| `delete_path`             | `path`                    | `null`            | Delete (folder: recursive)                  |
+| `copy_path`               | `oldPath, newPath`        | `null`            | Copy (folder: recursive)                    |
+| `reveal_in_folder`        | `path`                    | `null`            | Reveal in system file manager               |
+| `pdf_export_supported`    | —                         | `bool`            | 平台是否支持 PDF 直存（macOS/Windows 支持） |
+| `export_pdf_file`         | `html, outputPath, title` | `ExportPdfResult` | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件 |
+| `print_pdf`               | `fileName`                | `ExportPdfResult` | 打印对话框（PDF 直存不支持时的回退路径）    |
+| `rebuild_menu`            | `lang, recentFiles`       | `null`            | Rebuild native menu (i18n / recent files)   |
+| `set_menu_item_enabled`   | `id, enabled`             | `null`            | Native menu item enabled state              |
+| `set_menu_item_checked`   | `id, checked`             | `null`            | Native menu check item state                |
+| `update_dock_menu`        | `lang, recentFiles`       | `null`            | Rebuild macOS Dock menu（其他平台 no-op）   |
+| `take_pending_open_files` | —                         | `String[]`        | 取走文件关联打开的路径队列（冷启动积压）    |
 
 Adding a command: implement `#[tauri::command]` in `lib.rs`, register in `generate_handler![]`, invoke via `@tauri-apps/api/core`. Struct fields cross the bridge as camelCase (`#[serde(rename = "isDirectory")]`).
 
@@ -202,7 +203,7 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **主题约定**: globals.css 顶部 `@custom-variant dark (&:where(.dark, .dark *))` — `dark:` 变体跟随应用内 `.dark` class（挂 documentElement），不再是系统媒体查询；颜色一律走 CSS 变量（`--hover-bg`/`--active-bg`/`--color-text-muted` 等，:root 与 .dark 双定义），新组件禁止 Tailwind 灰色硬编码
 - **菜单原语**: 下拉/右键菜单统一用 `src/components/Menu/`（Dropdown / ContextMenu / MenuPanel），禁止再复制 outside-click 模式；ContextMenu 的 `onClose` 必须 useCallback 稳定化；MenuPanel 支持一层子菜单（`MenuSubmenuItem.children`，hover/点击展开，右缘翻左、底部上收）
 - **编辑器右键菜单**: 三区域（Source/Preview/WYSIWYG）均已接入，结构对齐 Typora（剪贴板组 + 段落▸/格式▸/插入▸ 子菜单）。菜单项构建是纯函数（`src/lib/contextMenu.ts`，id/文案/disabled/快捷键标注），状态用 `src/hooks/useContextMenu.ts`；动作按 id 前缀分发——`format:*` 转发 editor-format 事件总线，剪贴板走 `src/lib/clipboard.ts`（桌面端 `@tauri-apps/plugin-clipboard-manager`，浏览器降级 navigator.clipboard），WYSIWYG 上下文动作（表格行列增删/链接/图片/代码块/`insert:*`）在 `wysiwygContextMenu.ts`（表格删除是自实现 PM transaction，不走 milkdown selectRow/deleteSelectedCells 的 index 语义；表头行禁删；「在上方/下方插入段落」= 在当前顶层块前后插空段落并落入光标）。**WebKit 右键抢选**：WKWebView 在 mousedown→contextmenu 之间抢先写 DOM 词/行选择（不可取消），必须 contextmenu 时折叠选区 + `getSelection().collapse(domAtPos)` 把 DOM 选择压回光标（细节见 implementation-notes）
-- **macOS 融合标题栏**: tauri.conf.json `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS 生效）；App 给 documentElement 加 `is-macos` class（判定走 `src/lib/platform.ts`）；Toolbar 根 `data-tauri-drag-region` + macOS 下 `pl-[78px]`（traffic light 预留）+ 自绘居中标题（<760px 隐藏）。**窗口拖拽两个坑**：① capabilities 必须显式授 `core:window:allow-start-dragging`（tauri 2.10 起非默认权限，否则 drag.js 的 IPC 被 ACL 静默拒绝）；② Tauri 的 drag.js 只查 `e.target` 自身属性（无 closest 上溯），子元素覆盖区域不触发——所以 Toolbar 的左/右分组容器也带 `data-tauri-drag-region`
+- **macOS 融合标题栏**: tauri.conf.json `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS 生效）；`trafficLightPosition: {x:12, y:25.5}` 把红绿灯垂直居中到 48px 工具栏（tao 语义：标题栏高 = 按钮高 14pt + y，按钮贴容器底部；居中公式 y = 目标按钮顶距 + 8.5pt）；App 给 documentElement 加 `is-macos` class（判定走 `src/lib/platform.ts`）；Toolbar 根 `data-tauri-drag-region` + macOS 下 `pl-[78px]`（traffic light 预留）+ 自绘居中标题（<760px 隐藏）。**窗口拖拽两个坑**：① capabilities 必须显式授 `core:window:allow-start-dragging`（tauri 2.10 起非默认权限，否则 drag.js 的 IPC 被 ACL 静默拒绝）；② Tauri 的 drag.js 只查 `e.target` 自身属性（无 closest 上溯），子元素覆盖区域不触发——所以 Toolbar 的左/右分组容器也带 `data-tauri-drag-region`
 - **Logging**: use `createLogger('Module')` from `src/lib/logger.ts` (frontend) and `tauri-plugin-log` (backend); logs at `~/Library/Logs/com.vividmark.app/` on macOS
 - **PDF 直存管线**: 菜单/MoreMenu/右键 → `editor-export-pdf` 事件 → `exportPdf.ts exportCurrentDocument()` → 保存对话框 → 序列化应用 CSS + `parseMarkdownAsync` 生成独立 HTML（含打印密度覆盖：14px 字号/紧凑单元格/首列不换行）→ `export_pdf_file` 命令：隐藏 Webview 窗口（`vividmark-pdf://` 自定义协议 serve HTML，`on_page_load` Finished 等渲染，15s 超时兜底）→ macOS `NSPrintOperation(SaveJob)` / Windows `PrintToPdf` 静默写文件；**PDF 书签大纲**：前端从渲染 HTML 提取标题随 `outline` 参数传入，macOS 用 PDFKit 后处理重建（WebKit 不生成 outline；文本提取有兼容表意文字坑，匹配需 NFKC+去空白+部首通配，见 implementation-notes）；Linux/旧 runtime 回退 `print_pdf` 打印对话框。**macOS 关键坑**：必须 `sharedPrintInfo` copy + `canSpawnSeparateThread(true)` + `runOperationModalForWindow`（全新 `NSPrintInfo` + `run()` 会无限分页；`createPDFWithConfiguration` 是整页长截图不分页），细节见 implementation-notes
 
