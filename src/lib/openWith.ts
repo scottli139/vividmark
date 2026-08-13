@@ -10,11 +10,12 @@ import { createLogger } from './logger'
 const logger = createLogger('OpenWith')
 
 /**
- * 文件关联「打开方式」/ 双击 .md 打开（macOS RunEvent::Opened → file-open-request）。
+ * 文件关联「打开方式」/ 双击 .md 打开（macOS RunEvent::Opened → 窗口路由 file-open-request）。
  *
- * 冷启动竞态：Opened 事件可能早于前端监听器注册，Rust 侧同时入队；
- * 前端注册监听后调用 take_pending_open_files 取走积压路径。
- * 热打开（app 运行中）直接走事件 payload，并顺手清空队列防陈旧路径重开。
+ * 冷启动竞态：Opened 事件可能早于前端监听器注册，Rust 侧按窗口 label 入启动队列；
+ * 前端注册监听后调用 take_startup_open_files 取走本窗口积压路径。
+ * 热打开（app 运行中）由 Rust window_router 定向到目标窗口（已打开→聚焦/
+ * 干净空窗口→复用/否则新建窗口），收到事件即本窗口应打开。
  */
 async function openPaths(paths: string[]): Promise<void> {
   for (const path of paths) {
@@ -34,8 +35,11 @@ export async function initOpenWith(): Promise<() => void> {
   let unlisten: UnlistenFn | undefined
   try {
     unlisten = await listen<string[]>('file-open-request', (event) => {
-      // 保持队列为空：HMR/重初始化时 take_pending 不会拿到陈旧路径
-      void invoke('take_pending_open_files')
+      // HMR/全量重载时清空所有 label 的待打开队列（本窗口自己的已取走；其余
+      // label 的所属页面已失效，遗留的陈旧条目若被重载后的页面再次取走会
+      // 重开文件——多窗口下这是菜单重建风暴的燃料之一）
+      void invoke('take_startup_open_files', { label: null })
+      // Rust 侧已按窗口定向（window_router），收到即本窗口应打开
       openPaths(event.payload).catch((e) => logger.error('Open-with failed:', e))
     })
   } catch (e) {
@@ -43,8 +47,8 @@ export async function initOpenWith(): Promise<() => void> {
     return () => {}
   }
 
-  // 冷启动积压路径
-  const pending = await invoke<string[]>('take_pending_open_files').catch(() => [])
+  // 冷启动/新窗口启动积压路径（按本窗口 label 取走）
+  const pending = await invoke<string[]>('take_startup_open_files').catch(() => [])
   if (pending.length > 0) {
     await openPaths(pending)
   }

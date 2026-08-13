@@ -81,14 +81,14 @@ export function Toolbar() {
     setViewMode,
   } = useEditorStore()
 
-  // 更新窗口标题
+  // 更新窗口标题（Typora 式：文件名 + 脏标记；Dock 窗口列表/Mission Control 依此区分文档）
   useEffect(() => {
     const updateTitle = async () => {
       try {
         const window = getCurrentWindow()
         const dirtyMark = isDirty ? ' ●' : ''
         const baseTitle = fileName === 'Untitled.md' ? t('app.untitled') : fileName
-        await window.setTitle(`${baseTitle}${dirtyMark} - VividMark`)
+        await window.setTitle(`${baseTitle}${dirtyMark}`)
       } catch {
         // 在浏览器环境中会失败，忽略错误
       }

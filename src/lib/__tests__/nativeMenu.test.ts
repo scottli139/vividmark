@@ -3,14 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mockInvoke, mockListen } from '../../test/mocks/tauri'
 import { handleMenuAction, initNativeMenu } from '../nativeMenu'
 import { useEditorStore } from '../../stores/editorStore'
-import { newFile, openFile, openFileByPath, saveFile, saveFileAs } from '../fileOps'
+import { openFileSmart, saveFile, saveFileAs } from '../fileOps'
 import { confirmDialog } from '../dialog'
 
 // fileOps / dialog 全部 mock，只验证分发逻辑
 vi.mock('../fileOps', () => ({
-  newFile: vi.fn(),
-  openFile: vi.fn(),
-  openFileByPath: vi.fn(),
+  openFileSmart: vi.fn(),
   saveFile: vi.fn(),
   saveFileAs: vi.fn(),
 }))
@@ -36,6 +34,7 @@ vi.mock('../clipboard', () => ({
 describe('nativeMenu handleMenuAction', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockInvoke.mockResolvedValue(null)
     useEditorStore.setState({
       isDirty: false,
       showSidebar: true,
@@ -47,39 +46,33 @@ describe('nativeMenu handleMenuAction', () => {
   })
 
   describe('file 菜单', () => {
-    it('file-new：无脏标记直接新建，不弹确认', async () => {
+    it('file-new：新建独立窗口（多窗口 SDI，无脏确认）', async () => {
       await handleMenuAction('file-new')
+      expect(mockInvoke).toHaveBeenCalledWith('open_in_new_window', { path: null })
       expect(confirmDialog).not.toHaveBeenCalled()
-      expect(newFile).toHaveBeenCalledOnce()
     })
 
-    it('file-new：脏标记 + 确认 → 新建', async () => {
+    it('file-new：脏文档同样直接新建窗口（当前文档内容不动）', async () => {
       useEditorStore.setState({ isDirty: true })
-      vi.mocked(confirmDialog).mockResolvedValue(true)
       await handleMenuAction('file-new')
-      expect(confirmDialog).toHaveBeenCalledOnce()
-      expect(newFile).toHaveBeenCalledOnce()
+      expect(mockInvoke).toHaveBeenCalledWith('open_in_new_window', { path: null })
+      expect(confirmDialog).not.toHaveBeenCalled()
     })
 
-    it('file-new：脏标记 + 取消 → 不新建', async () => {
-      useEditorStore.setState({ isDirty: true })
-      vi.mocked(confirmDialog).mockResolvedValue(false)
-      await handleMenuAction('file-new')
-      expect(newFile).not.toHaveBeenCalled()
-    })
-
-    it('file-open / file-save / file-save-as 分发到 fileOps', async () => {
+    it('file-open 走多窗口路由 / file-save / file-save-as 分发到 fileOps', async () => {
       await handleMenuAction('file-open')
       await handleMenuAction('file-save')
       await handleMenuAction('file-save-as')
-      expect(openFile).toHaveBeenCalledOnce()
+      expect(openFileSmart).toHaveBeenCalledOnce()
       expect(saveFile).toHaveBeenCalledOnce()
       expect(saveFileAs).toHaveBeenCalledOnce()
     })
 
-    it('open-recent:<path> 解析路径并打开', async () => {
+    it('open-recent:<path> 经 route_open 多窗口路由', async () => {
       await handleMenuAction('open-recent:/Users/x/notes/todo.md')
-      expect(openFileByPath).toHaveBeenCalledWith('/Users/x/notes/todo.md')
+      expect(mockInvoke).toHaveBeenCalledWith('route_open', {
+        paths: ['/Users/x/notes/todo.md'],
+      })
     })
 
     it('clear-recent 清空最近文件', async () => {
@@ -153,7 +146,7 @@ describe('nativeMenu handleMenuAction', () => {
 
     it('未知 id（predefined 项）静默忽略', async () => {
       await expect(handleMenuAction('__tauri_cut__')).resolves.toBeUndefined()
-      expect(newFile).not.toHaveBeenCalled()
+      expect(openFileSmart).not.toHaveBeenCalled()
     })
   })
 

@@ -28,13 +28,13 @@ describe('openWith 文件关联打开', () => {
     const cleanup = await initOpenWith()
 
     expect(mockListen).toHaveBeenCalledWith('file-open-request', expect.any(Function))
-    expect(mockInvoke).toHaveBeenCalledWith('take_pending_open_files')
+    expect(mockInvoke).toHaveBeenCalledWith('take_startup_open_files')
     expect(openFileByPath).toHaveBeenCalledWith('/a/first.md')
     expect(openFileByPath).toHaveBeenCalledWith('/b/second.md')
     cleanup()
   })
 
-  it('事件到达：打开 payload 路径并清空队列', async () => {
+  it('事件到达：打开 payload 路径（Rust 已定向到本窗口，不触碰启动队列）', async () => {
     let handler: ((event: { payload: string[] }) => void) | undefined
     mockListen.mockImplementation((_event: string, cb: unknown) => {
       handler = cb as typeof handler
@@ -48,8 +48,11 @@ describe('openWith 文件关联打开', () => {
     await vi.waitFor(() => {
       expect(openFileByPath).toHaveBeenCalledWith('/c/warm.md')
     })
-    // 事件路径处理后清空队列（防陈旧路径重开）
-    expect(mockInvoke).toHaveBeenCalledWith('take_pending_open_files')
+    // 热路径：初始化时按 label 取走一次；事件到达时再全清一次幽灵队列（HMR 防御）
+    expect(mockInvoke).not.toHaveBeenCalledWith('take_pending_open_files')
+    const takeCalls = mockInvoke.mock.calls.filter((c) => c[0] === 'take_startup_open_files')
+    expect(takeCalls).toHaveLength(2)
+    expect(takeCalls[1][1]).toEqual({ label: null })
     cleanup()
   })
 

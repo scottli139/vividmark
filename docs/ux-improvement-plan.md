@@ -80,7 +80,9 @@ CM6 同时是 P2 的 Source 模式底座（Typora 的源码模式同样需要体
 
 ### P3 — 桌面应用质感与高级体验
 
-- macOS `titleBarStyle` 融合标题栏；原生菜单 + 右键菜单；多标签页 + 会话恢复
+> 2026-08-13 方向调整：「多标签页」改为 **Typora 式多窗口（SDI，每文档独立窗口）**，详见 PLAN.md。
+
+- macOS `titleBarStyle` 融合标题栏；原生菜单 + 右键菜单；多窗口 + 会话恢复
 - 主题系统（Typora 式 CSS 主题 + 跟随系统暗色）；专注模式 / 打字机模式
 - 统一自绘对话框替换 confirm/alert；大纲当前位置高亮跟随；文件树搜索与文件管理
 - 设置面板；KaTeX、Mermaid、PlantUML 离线化；HTML/Word 导出

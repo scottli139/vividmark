@@ -46,6 +46,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Native menus** - Full system menu bar (File/Edit/Paragraph/Format/View) with localized labels, dynamic Open Recent, and OS-level shortcuts
 - **macOS Dock menu** - Right-click the Dock icon for New/Open and recent files
 - **File associations** - Open .md files via Finder "Open With" or double-click (installed app)
+- **Multi-window** - Typora-style SDI: each document opens in its own window; opening an already-open file focuses its window, a clean empty window is reused
 - **Context menus** - Right-click in file tree and all editor areas; WYSIWYG menus are context-aware (table row/column editing, link, image, code block)
 - **Undo/Redo** - Full history support with Cmd/Ctrl + Z / Shift+Z
 
@@ -214,7 +215,7 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 - [x] Phase 1: Basic framework
 - [x] Phase 2: Core editor
 - [x] Phase 3: File operations
-- [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions, Table editing, Multi-language support, Outline navigation)
+- [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions, Table editing, Math formulas (KaTeX), Multi-language support, Outline navigation)
 - [x] Phase 8: Code standards (ESLint, Prettier, TypeScript strict mode)
 - [x] Phase 9: Testing infrastructure (Vitest, Playwright, CI/CD)
 - [x] Phase 10: Branding (Logo, icons)
@@ -222,9 +223,9 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 
 ### In Progress / Planned
 
-- [ ] Phase 5: File management (File tree, Multi-tabs)
-- [ ] Phase 6: Advanced features (PDF export, Search & replace)
-- [ ] Phase 7: Polish & optimization (Performance, Preferences)
+- [ ] Phase 5: File management (File tree ✅, Multi-window (Typora-style SDI) ✅, File change watching)
+- [ ] Phase 6: Advanced features (PDF export ✅, Search & replace ✅, CSS themes, HTML/Word export)
+- [ ] Phase 7: Polish & optimization (Performance, Preferences ✅)
 
 ## Contributing
 

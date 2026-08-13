@@ -15,7 +15,7 @@ use crate::ExportPdfResult;
 
 /// 导出页自定义协议（lib.rs 注册，serve 当前导出任务的 HTML）
 pub const PDF_SCHEME: &str = "vividmark-pdf";
-const PDF_WINDOW_LABEL: &str = "pdf-export";
+pub const PDF_WINDOW_LABEL: &str = "pdf-export";
 /// 等待页面加载（含图片等子资源）的超时；超时后继续打印（缺图好过失败）
 const PAGE_LOAD_TIMEOUT: Duration = Duration::from_secs(15);
 /// 等待系统打印管线写盘的超时

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { open } from '@tauri-apps/plugin-dialog'
+import { invoke } from '@tauri-apps/api/core'
 import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
@@ -11,6 +12,7 @@ import { confirmDialog } from '../../lib/dialog'
 import { revealInFolder } from '../../lib/fileTreeUtils'
 import { writeClipboardText } from '../../lib/clipboard'
 import { isMacOS } from '../../lib/platform'
+import { isTauri } from '../../lib/imageSrc'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { ContextMenu, type MenuItem } from '../Menu'
 import {
@@ -130,6 +132,11 @@ export function Sidebar() {
 
   const handleRecentFileClick = useCallback(
     async (file: RecentFile) => {
+      // 桌面端多窗口路由：已打开→聚焦 / 本窗口干净空文档→复用 / 否则新建窗口
+      if (isTauri()) {
+        await invoke('route_open', { paths: [file.path] })
+        return
+      }
       if (isDirty) {
         if (!(await confirmDialog(t('dialog.confirmDiscard')))) {
           return

@@ -1265,3 +1265,28 @@ if (lang === 'typst') {
 - **右键触发侧栏调宽**：`useResizable.handleMouseDown` 未检查 `e.button`，右键（button=2）按下也会进入 resize 态（contextmenu 与 mousedown 同序列）——侧栏右缘 4px 热区上右键打开菜单时同时开始调宽。修复：仅 `e.button === 0` 响应。同序问题：分隔条 `title` 硬编码英文 → 走 i18n（`sidebar.dragToResize`）。
 - **视图菜单「源代码模式」移除**：⌘/ 切换项与四个视图模式 check 项（所见即所得/源码/分屏/预览）并列引发歧义。Typora 只有双态所以没有这个问题；VividMark 四模式组的显式项已是权威入口。菜单项删除后 ⌘/ 桌面端无 accelerator 占用，keydown 直达 webview 由 `useKeyboardShortcuts` 处理（与改造前行为一致）。
 - **WYSIWYG 表格行高虚高**：Milkdown 表格单元格内容被 `<p>` 包裹，`.markdown-body p` 的 1em 段落下边距计入行高（58px vs 预览 47px）。修复：`th/td > p { margin: 0 }`（预览无 p 包裹不受影响），修后 44px。
+
+## 2026-08-13 多窗口（Typora 式 SDI）与菜单重建风暴排查
+
+### 架构要点（window_router.rs / windowManager.ts）
+
+- 每文档独立窗口 = 独立 webview/JS 上下文，单文档 store 无需重构；窗口注册表（`WINDOW_STATES`，前端 `report_window_state` 上报 filePath/isDirty）是「文件→窗口」路由的唯一事实来源
+- 菜单/Dock 事件经 `emit_to_focused` 定向 `LAST_FOCUSED`（tauri/muda 菜单事件不携带窗口来源；macOS 菜单点击不改 key window，Windows 点菜单必先聚焦——启发式两端成立）
+- 打开路径路由 `route_open_paths`：已打开→聚焦；干净空窗口→复用（定向 `file-open-request`）；否则新建。**新建分支有 pending 去重**（路径已在某新窗口启动队列则跳过）——防前端重复触发竞态建出重复窗口
+- 菜单 check/enabled 由焦点窗口驱动（nativeMenu.ts 焦点门控 + `onFocusChanged` 全量重同步）；`rebuildMenu` 按 payload 去重（内容未变不重建）——重建 = Rust 整树菜单 + Dock 菜单 + check/enabled 全量重同步，高频重建即风暴
+
+### 坑 1：React StrictMode 异步 cleanup 竞态 → listener 泄漏（关键）
+
+App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「async init → then 里赋值 cleanup」模式。StrictMode 双挂载时第二次 effect 的 cleanup 覆盖第一次的，**首个 listener 永不注销**——每个事件被处理两次。单窗口时代只是幂等浪费；多窗口下 open-recent 双调用 → route 竞态 → **同文件建出两个窗口**。修复：useRef 防重合并为单 effect，不做手动 cleanup（listener 生命周期跟随 webview 上下文，窗口销毁即释放）。**凡「async 注册 + cleanup」的 effect 都有此坑**。
+
+### 坑 2：vite HMR/全量重载 + 幽灵启动队列 = 风暴燃料
+
+新窗口创建时路径入 `STARTUP_OPEN_FILES[label]`，前端就绪后 `take_startup_open_files` 按 label 取走。若页面因 HMR 重载而窗口创建时前端未取走（或泄漏 listener 建出的重复窗口从未正常初始化），队列残留「幽灵条目」——页面每次重载都会把它取走重开文件（lastOpened 刷新 → 菜单重建），反复建窗/重开形成自续循环。修复：热路径收到 `file-open-request` 时 `take_startup_open_files { label: null }` 全清。
+
+### 坑 3：macOS WKWebView 多窗口 localStorage 不共享
+
+实测：多窗口各自独立 localStorage（storage 事件跨窗口不触发）——跨窗口偏好同步不能用 storage 事件，改为 tauri 事件广播（`prefs-sync`，themeMode/language/recentFiles 三字段；listener 值比较落地防回声）。诊断手段备忘：vite dev server 加临时 middleware（POST /__diag 打印请求体）可把 webview 内不可见的 console 信息导入 dev 终端。
+
+### 风暴表现与定位路径
+
+现象：打开多个 md 后 app 主进程 + 各 webview 持续 30–90% CPU（活动监视器），kernel_task 飙升压频。日志表现为同窗口同毫秒数百次 `rebuild_menu`。定位路径：rebuild 调用方 label（命令加 window 参数打 label）→ 前端 DIAG fetch 埋点（发现 openFileByPath 被反复调用、lastOpened 持续刷新）→ take_startup 双窗口取同路径（发现 listener 泄漏双建窗口）→ StrictMode 竞态 + 幽灵队列。

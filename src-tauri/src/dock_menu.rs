@@ -19,7 +19,7 @@ use objc2::runtime::{AnyClass, AnyObject, Imp, Sel};
 use objc2::{define_class, extern_methods, sel, MainThreadMarker};
 use objc2_app_kit::{NSApplication, NSMenu, NSMenuItem};
 use objc2_foundation::{NSInteger, NSObject, NSString};
-use tauri::{AppHandle, Emitter, Wry};
+use tauri::{AppHandle, Wry};
 
 use crate::menu::RecentFilePayload;
 
@@ -36,12 +36,10 @@ static DOCK_MENU: Mutex<Option<Shared<Retained<NSMenu>>>> = Mutex::new(None);
 static DOCK_TARGET: Mutex<Option<Shared<Retained<DockMenuTarget>>>> = Mutex::new(None);
 static APP_HANDLE: Mutex<Option<AppHandle<Wry>>> = Mutex::new(None);
 
-/// Dock 菜单点击 → 复用原生菜单事件通道，前端 handleMenuAction 分发
+/// Dock 菜单点击 → 复用原生菜单事件通道（定向最近焦点窗口，多窗口路由见 window_router）
 fn emit_menu_event(id: &str) {
     if let Some(app) = APP_HANDLE.lock().unwrap().as_ref() {
-        if let Err(e) = app.emit("native-menu-event", id) {
-            log::warn!("[dock] Failed to emit menu event {}: {}", id, e);
-        }
+        crate::window_router::emit_to_focused(app, "native-menu-event", id);
     }
 }
 

@@ -1,10 +1,9 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
-import i18n from '../i18n'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEditorStore, type EditorState } from '../stores/editorStore'
 import type { ThemeMode } from './theme'
-import { confirmDialog } from './dialog'
-import { newFile, openFile, openFileByPath, saveFile, saveFileAs } from './fileOps'
+import { openFileSmart, saveFile, saveFileAs } from './fileOps'
 import { isTauri } from './imageSrc'
 import { createLogger } from './logger'
 import type { FormatType } from './markdownEditing'
@@ -50,7 +49,8 @@ export async function handleMenuAction(id: string): Promise<void> {
   const store = useEditorStore.getState()
 
   if (id.startsWith('open-recent:')) {
-    await openFileByPath(id.slice('open-recent:'.length))
+    // 多窗口路由：已打开→聚焦 / 本窗口干净空文档→复用 / 否则新建窗口
+    await invoke('route_open', { paths: [id.slice('open-recent:'.length)] })
     return
   }
 
@@ -72,13 +72,14 @@ export async function handleMenuAction(id: string): Promise<void> {
 
   switch (id) {
     case 'file-new':
-      // 与 useKeyboardShortcuts 一致：脏文档先确认
-      if (!store.isDirty || (await confirmDialog(i18n.t('dialog.confirmDiscard') as string))) {
-        newFile()
-      }
+      // 多窗口（Typora 式 SDI）：新建独立窗口，不再清空当前文档（无需脏确认）
+      void invoke('open_in_new_window', { path: null }).catch((e) =>
+        logger.error('Failed to create window:', e)
+      )
       break
     case 'file-open':
-      await openFile()
+      // 对话框选定后经多窗口路由（已打开→聚焦/复用干净空窗口/新建）
+      await openFileSmart()
       break
     case 'file-open-folder':
       await openFolderFromPicker()
@@ -196,11 +197,18 @@ function syncMenuEnabled(state: EditorState): void {
   void invoke('set_menu_item_enabled', { id: 'file-reveal', enabled: state.filePath !== null })
 }
 
+// 菜单内容去重：语言/最近文件未变时不重建（防循环兜底；菜单重建 = Rust 整树
+// 重建 + Dock 菜单重建 + check/enabled 全量重同步，高频重建即「重建风暴」）
+let lastRebuildKey = ''
+
 function rebuildMenu(state: EditorState): void {
   const payload = {
     lang: state.language,
     recentFiles: state.recentFiles.map(({ name, path }) => ({ name, path })),
   }
+  const key = JSON.stringify(payload)
+  if (key === lastRebuildKey) return
+  lastRebuildKey = key
   void invoke('rebuild_menu', payload).then(() => {
     // 重建后 check/enabled 回到构建默认值（wysiwyg✓/system✓/undo/redo 可用），
     // 必须按最新状态重新同步一轮
@@ -210,6 +218,19 @@ function rebuildMenu(state: EditorState): void {
   })
   // macOS Dock 右键菜单同步重建（非 macOS 为 no-op 桩）
   void invoke('update_dock_menu', payload)
+}
+
+// ==================== 多窗口焦点门控 ====================
+// 原生菜单是应用级的：check/enabled/rebuild 只应由焦点窗口驱动，否则多窗口互踩。
+// 焦点切换时新焦点窗口全量重同步一轮（rebuild 由状态变化方触发，此处不重复）。
+
+let windowFocused = true
+
+/** 全量同步菜单 check/enabled（焦点切换时由 onFocusChanged 调用） */
+export function syncAllMenuState(): void {
+  const state = useEditorStore.getState()
+  syncMenuChecks(state)
+  syncMenuEnabled(state)
 }
 
 /**
@@ -231,13 +252,24 @@ export async function initNativeMenu(): Promise<() => void> {
     return () => {}
   }
 
-  // 初始全量同步，再订阅增量变化
-  const initial = useEditorStore.getState()
-  syncMenuChecks(initial)
-  syncMenuEnabled(initial)
-  rebuildMenu(initial)
+  // 焦点跟踪：仅焦点窗口驱动菜单状态；成为焦点时全量重同步
+  const win = getCurrentWindow()
+  windowFocused = await win.isFocused().catch(() => true)
+  const unlistenFocus = await win
+    .onFocusChanged(({ payload: focused }) => {
+      windowFocused = focused
+      if (focused) syncAllMenuState()
+    })
+    .catch(() => () => {})
+
+  // 初始全量同步（仅焦点窗口——新开的后台窗口不得覆盖焦点窗口的菜单态），再订阅增量变化
+  if (windowFocused) {
+    syncAllMenuState()
+    rebuildMenu(useEditorStore.getState())
+  }
 
   const unsubscribe = useEditorStore.subscribe((state, prev) => {
+    if (!windowFocused) return
     if (
       state.canUndo !== prev.canUndo ||
       state.canRedo !== prev.canRedo ||
@@ -260,6 +292,7 @@ export async function initNativeMenu(): Promise<() => void> {
   logger.info('Native menu initialized')
   return () => {
     unlisten?.()
+    unlistenFocus()
     unsubscribe()
   }
 }

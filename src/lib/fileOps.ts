@@ -35,6 +35,22 @@ export async function openFile(): Promise<void> {
   }
 }
 
+// 打开文件（多窗口路由：已打开→聚焦 / 干净空窗口→复用 / 否则新建窗口）。
+// 原生菜单 file-open 专用；浏览器 dev 走 openFile 本窗口打开。
+export async function openFileSmart(): Promise<void> {
+  const selected = await open({
+    multiple: false,
+    filters: [
+      { name: t('file.filters.markdown'), extensions: ['md', 'markdown', 'txt'] },
+      { name: t('file.filters.allFiles'), extensions: ['*'] },
+    ],
+  })
+
+  if (selected && typeof selected === 'string') {
+    await invoke('route_open', { paths: [selected] })
+  }
+}
+
 // 保存文件
 export async function saveFile(): Promise<boolean> {
   const store = useEditorStore.getState()

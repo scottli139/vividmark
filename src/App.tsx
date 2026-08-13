@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEditorStore } from './stores/editorStore'
 import { Editor } from './components/Editor/Editor'
@@ -10,6 +10,7 @@ import { useFileDragDrop } from './hooks/useFileDragDrop'
 import { useAutoSave } from './hooks/useAutoSave'
 import { initNativeMenu } from './lib/nativeMenu'
 import { initOpenWith } from './lib/openWith'
+import { initWindowManager } from './lib/windowManager'
 import { Dialog } from './components/Dialog'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
 import { isMacOSDesktop } from './lib/platform'
@@ -50,22 +51,20 @@ function App() {
   // 注册全局快捷键
   useKeyboardShortcuts()
 
-  // 系统原生菜单（仅 Tauri 桌面端；浏览器 dev 环境为 no-op）
+  // 系统原生菜单 / 文件关联 / 多窗口管理（仅 Tauri 桌面端；浏览器 dev 为 no-op）
+  //
+  // 三个 init 都注册事件监听且返回异步 cleanup；React StrictMode 双挂载会让
+  // 「cleanup 在 promise resolve 前执行」竞态导致首批 listener 泄漏（每个事件
+  // 处理两次——多窗口下 open-recent 双调用会竞态建出重复窗口）。useRef 防重
+  // 保证每次挂载周期只初始化一次；listener 生命周期跟随 webview 上下文，
+  // 窗口销毁即释放，无需手动 cleanup。
+  const tauriInitedRef = useRef(false)
   useEffect(() => {
-    let cleanup: (() => void) | undefined
-    void initNativeMenu().then((fn) => {
-      cleanup = fn
-    })
-    return () => cleanup?.()
-  }, [])
-
-  // 文件关联「打开方式」（仅 Tauri 桌面端；浏览器 dev 环境为 no-op）
-  useEffect(() => {
-    let cleanup: (() => void) | undefined
-    void initOpenWith().then((fn) => {
-      cleanup = fn
-    })
-    return () => cleanup?.()
+    if (tauriInitedRef.current) return
+    tauriInitedRef.current = true
+    void initNativeMenu()
+    void initOpenWith()
+    void initWindowManager()
   }, [])
 
   // 文件拖放支持

@@ -2,10 +2,11 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
-use tauri::{Emitter, Manager, WebviewWindow};
+use tauri::{Manager, WebviewWindow};
 
 mod menu;
 mod pdf;
+mod window_router;
 
 #[cfg(target_os = "macos")]
 mod dock_menu;
@@ -602,13 +603,15 @@ fn find_menu_item<R: tauri::Runtime>(
 #[tauri::command]
 fn rebuild_menu(
     app: tauri::AppHandle,
+    window: WebviewWindow,
     lang: String,
     recent_files: Vec<menu::RecentFilePayload>,
 ) -> Result<(), String> {
     let native_menu = menu::build_menu(&app, &lang, &recent_files).map_err(|e| e.to_string())?;
     app.set_menu(native_menu).map_err(|e| e.to_string())?;
     log::info!(
-        "[menu] Menu rebuilt (lang={}, recent={})",
+        "[menu] Menu rebuilt by {} (lang={}, recent={})",
+        window.label(),
         lang,
         recent_files.len()
     );
@@ -930,17 +933,8 @@ fn log_system_info() {
     log::info!("[System] ============================================");
 }
 
-/// 「打开方式」/ 双击关联文件的路径队列：打开事件可能早于前端监听器
-/// 注册（冷启动），先入队；前端就绪后调用 take_pending_open_files 取走
-static PENDING_OPEN_FILES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
-
-/// 取走并清空待打开文件队列
-#[tauri::command]
-fn take_pending_open_files() -> Vec<String> {
-    std::mem::take(&mut *PENDING_OPEN_FILES.lock().unwrap())
-}
-
-/// 处理 macOS 文件打开事件（Finder「打开方式」/ 双击 .md）：入队 + 广播
+/// 处理 macOS 文件打开事件（Finder「打开方式」/ 双击 .md）：经窗口路由
+/// （已打开→聚焦 / 干净空窗口→复用 / 否则新建窗口；冷启动入 main 启动队列）
 /// （RunEvent::Opened 仅 macOS/iOS 存在，故整个函数按目标平台门控）
 #[cfg(target_os = "macos")]
 fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
@@ -956,13 +950,7 @@ fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
         "[open-with] Opened {} file(s) via file association",
         paths.len()
     );
-    PENDING_OPEN_FILES
-        .lock()
-        .unwrap()
-        .extend(paths.iter().cloned());
-    if let Err(e) = app.emit("file-open-request", &paths) {
-        log::warn!("[open-with] Failed to emit file-open-request: {}", e);
-    }
+    window_router::route_open_paths(app, &paths, None);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -974,12 +962,21 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         // Typora 式 PDF 导出：隐藏窗口经自定义协议加载导出 HTML（见 pdf.rs）
         .register_asynchronous_uri_scheme_protocol(pdf::PDF_SCHEME, pdf::handle_pdf_protocol)
-        // 菜单点击统一转发给前端（predefined 项系统已自行处理，前端忽略未知 id）
+        // 菜单点击定向转发到最近焦点窗口（多窗口路由见 window_router）；
+        // 无焦点记录时退化为广播（单窗口启动期行为不变）
         .on_menu_event(|app, event| {
             let id = event.id().0.clone();
-            if let Err(e) = app.emit("native-menu-event", id.as_str()) {
-                log::warn!("[menu] Failed to emit menu event {}: {}", id, e);
+            window_router::emit_to_focused(app, "native-menu-event", id.as_str());
+        })
+        // 维护 LAST_FOCUSED / 清理销毁窗口的注册表条目
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::Focused(true) => {
+                window_router::set_last_focused(window.label());
             }
+            tauri::WindowEvent::Destroyed => {
+                window_router::remove_window_state(window.label());
+            }
+            _ => {}
         })
         .setup(|app| {
             // Configure logging for both debug and release builds
@@ -1045,7 +1042,10 @@ pub fn run() {
             set_menu_item_enabled,
             set_menu_item_checked,
             update_dock_menu,
-            take_pending_open_files
+            window_router::report_window_state,
+            window_router::open_in_new_window,
+            window_router::route_open,
+            window_router::take_startup_open_files
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
