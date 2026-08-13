@@ -83,7 +83,7 @@
 - [ ] 自定义主题编辑
 - [x] **导出 PDF** ✅ - 支持将 Markdown 导出为 PDF（通过浏览器打印为 PDF）
 - [ ] 导出 HTML
-- [ ] 导出 Word
+- [ ] 导出 Word（方案见 `docs/word-export-plan.md`，pandoc 路线已 PoC 验证）
 - [x] 搜索与替换 ✅（Source/Split 模式，Cmd+F；WYSIWYG 未接，见 Phase 13 P3）
 
 ### Phase 7: 打磨优化 (进行中)
