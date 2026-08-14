@@ -242,6 +242,7 @@ vividmark/
 欢迎各种形式的贡献——bug 报告、新功能、文档、测试、翻译。开发环境搭建与 PR 检查清单见 [CONTRIBUTING.zh-CN.md](CONTRIBUTING.zh-CN.md)。
 
 - 初次参与？从 [`good first issue`](https://github.com/scottli139/vividmark/labels/good%20first%20issue) 标签下的 issue 开始
+- 🪟🐧 **Windows / Linux 用户**：我们需要真机测试志愿者，见 [#1](https://github.com/scottli139/vividmark/issues/1)
 - 🤖 本项目 100% 由 AI 构建，**欢迎 AI 辅助贡献**——`AGENTS.md` 是为你的 AI 编程助手准备好的上下文文件
 - 参与请遵守 [行为准则](CODE_OF_CONDUCT.md)
 
