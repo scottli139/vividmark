@@ -84,7 +84,7 @@ Markdown token 流在前端，自定义语法（admonition/数学/PlantUML）Rus
 | # | 任务 | 描述 | 预估 |
 | --- | --- | --- | --- |
 | 1.1 | `src/lib/wordPreprocess.ts`（新） | 纯函数预处理管线，Vitest 可测：① 任务列表 `- [ ]/- [x]` → `- ☐/- ☑`（复用 parser.ts 的 `TASK_LIST_REGEX`，补回 pandoc 丢失的勾选状态）；② PlantUML 处理见 1.2；③ 数学公式 Phase 1 原样透传（pandoc `tex_math_dollars` 兼容 `$...$` 与 `$$` 多行围栏，分歧见「已知边界」） | 3h |
-| 1.2 | PlantUML 预下载 | 复用 `getPlantUmlSvgUrl` 的编码，改调 **`/plantuml/png/` 端点**下载 PNG → 写临时目录 → Markdown 改写为本地绝对路径图片引用（```plantuml 代码块与 `@startuml` 行内两处都处理，对齐 parser.ts 的两处入口）。离线/下载失败 → 保留原代码块（pandoc 渲为代码块）并 warn 日志，不阻断导出。绕开 rsvg-convert 依赖，旧版 Word/WPS 也稳 | 3h |
+| 1.2 | PlantUML 预下载 | 复用 `getPlantUmlSvgUrl` 的编码，改调 **`/plantuml/png/` 端点**下载 PNG → 写临时目录 → Markdown 改写为本地绝对路径图片引用（```plantuml 代码块与 `@startuml` 行内两处都处理，对齐 parser.ts 的两处入口）。离线/下载失败 → 保留原代码块（pandoc 渲为代码块）并 warn 日志，不阻断导出。绕开 rsvg-convert 依赖，旧版 Word/WPS 也稳。**备注（2026-08-14）**：PlantUML 本地渲染已落地（`src/lib/plantuml.ts renderPlantUmlSvg` 离线出 SVG），届时可改为本地渲染 SVG → 转 PNG（canvas 栅格化），完全去掉预下载的网络依赖；SVG 栅格化有浏览器 canvas 兜底，仍无需 rsvg-convert | 3h |
 | 1.3 | `src-tauri/src/word.rs`（新） | `check_pandoc()` → 探测 pandoc（见「探测策略」）；`export_docx(markdown, outputPath, resource_dir)` → `std::env::temp_dir()` 建唯一子目录写 `.md` → `std::process::Command` 执行 `pandoc -f markdown -t docx --resource-path=<resource_dir> -o <output>` → 无论成败清理临时目录。30s 超时；stderr 回传前端。Rust 直调进程与文件 IO，**无需新增 capabilities 权限** | 4h |
 | 1.4 | `src/lib/exportWord.ts`（新） | 镜像 `exportPdf.ts`：pandoc 检测缓存 → 保存对话框（filters docx）→ 预处理 → `invoke('export_docx')` → 错误 `alertDialog`。浏览器 dev/E2E 环境（`!isTauri()`）提示仅桌面端可用 | 2h |
 | 1.5 | pandoc 缺失引导 | 检测失败时对话框说明「导出 Word 需要安装 Pandoc」+ 平台安装指引（macOS `brew install pandoc` / Windows `winget install pandoc` / Linux 包管理器），附 pandoc.org 链接（shell plugin 打开，已有 `shell:default`） | 1h |

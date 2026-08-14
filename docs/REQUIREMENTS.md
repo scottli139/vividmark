@@ -178,7 +178,7 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 | FR-021.1 | PlantUML 行内语法 `@startuml...@enduml` | P1 | ✅ |
 | FR-021.2 | PlantUML 代码块语法 ` ```plantuml ``` ` | P1 | ✅ |
 | FR-021.3 | 使用 PlantUML 在线服务渲染 | P1 | ✅ |
-| FR-021.4 | PlantUML 本地离线渲染 | P2 | ⬜ |
+| FR-021.4 | PlantUML 本地离线渲染 | P2 | ✅ |
 | FR-021.5 | Mermaid 图表支持 | P2 | ⬜ |
 
 #### 3.3.3 图片处理 [FR-022]
@@ -353,7 +353,7 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 
 ### 6.2 依赖约束
 
-- 必须支持离线使用（除 PlantUML 渲染外）
+- 必须支持离线使用（PlantUML 已于 2026-08-14 实现本地引擎渲染，失败时回退在线服务）
 - 安装包大小应 < 100MB
 - 不依赖外部运行时（如 Node.js、Python）
 

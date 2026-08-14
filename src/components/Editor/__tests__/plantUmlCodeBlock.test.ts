@@ -1,18 +1,30 @@
 /**
  * PlantUML 代码块 nodeview 测试
- * - getPlantUmlSvgUrl 与 preview 渲染共用同一 URL 生成逻辑
- * - nodeview：预览图 + 可编辑源码双区；序列化走原 code_block 路径（无损）
+ * - 本地引擎渲染内联 SVG（此处 mock 渲染器；真引擎需 canvas，jsdom 跑不了）
+ * - 本地渲染失败回退在线 img；getPlantUmlSvgUrl 是在线回退的 URL 生成逻辑
+ * - nodeview：预览 + 可编辑源码双区；序列化走原 code_block 路径（无损）
  * - 语言切换 plantuml ↔ 其他 时 nodeview 重建
  */
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi, beforeEach } from 'vitest'
 import { Editor, defaultValueCtx, editorViewCtx, rootCtx } from '@milkdown/kit/core'
 import { getMarkdown, replaceAll } from '@milkdown/kit/utils'
-import { getPlantUmlSvgUrl } from '../../../lib/plantuml'
+import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../../../lib/plantuml'
 import { wysiwygPlugins } from '../wysiwygPlugins'
+
+// 本地引擎需要 canvas（jsdom 跑不了），mock 渲染函数；在线回退 URL 保留真实实现
+vi.mock('../../../lib/plantuml', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../lib/plantuml')>()
+  return { ...actual, renderPlantUmlSvg: vi.fn() }
+})
 
 describe('plantuml code block view', () => {
   let editor: Editor | null = null
   let container: HTMLDivElement | null = null
+
+  beforeEach(() => {
+    vi.mocked(renderPlantUmlSvg).mockReset()
+    vi.mocked(renderPlantUmlSvg).mockResolvedValue('<svg data-test="local"></svg>')
+  })
 
   afterEach(async () => {
     await editor?.destroy()
@@ -42,19 +54,35 @@ describe('plantuml code block view', () => {
     expect(getPlantUmlSvgUrl('@startuml\nC -> D\n@enduml')).not.toBe(url)
   })
 
-  it('renders preview image plus editable source for plantuml blocks', async () => {
+  it('renders local SVG preview plus editable source for plantuml blocks', async () => {
     await createEditor('```plantuml\n@startuml\nA -> B\n@enduml\n```')
 
     const block = container!.querySelector('.plantuml-block')
     expect(block).toBeInTheDocument()
-    // 预览图：与 preview 渲染同一 URL 生成逻辑
-    const img = block!.querySelector<HTMLImageElement>('.plantuml-diagram img')
-    expect(img).toBeInTheDocument()
-    expect(img!.src).toBe(getPlantUmlSvgUrl('@startuml\nA -> B\n@enduml'))
-    expect(img!.closest('[contenteditable="false"]')).toBeTruthy()
+    // 本地引擎异步渲染：先占位，后内联 SVG
+    await vi.waitFor(() => {
+      expect(block!.querySelector('.plantuml-diagram svg[data-test="local"]')).toBeInTheDocument()
+    })
+    expect(renderPlantUmlSvg).toHaveBeenCalledWith('@startuml\nA -> B\n@enduml', {
+      dark: expect.any(Boolean),
+    })
+    const preview = block!.querySelector('.plantuml-diagram')
+    expect(preview!.closest('[contenteditable="false"]')).toBeTruthy()
     // 源码区保留（pre>code，内容是 PM 文档的一部分）
     const code = block!.querySelector('pre code')
     expect(code?.textContent).toContain('@startuml')
+  })
+
+  it('falls back to online image when local render fails', async () => {
+    vi.mocked(renderPlantUmlSvg).mockRejectedValue(new Error('engine unavailable'))
+    await createEditor('```plantuml\n@startuml\nA -> B\n@enduml\n```')
+
+    const block = container!.querySelector('.plantuml-block')
+    await vi.waitFor(() => {
+      const img = block!.querySelector<HTMLImageElement>('.plantuml-diagram img')
+      expect(img).toBeInTheDocument()
+      expect(img!.src).toBe(getPlantUmlSvgUrl('@startuml\nA -> B\n@enduml'))
+    })
   })
 
   it('serializes plantuml blocks losslessly', async () => {

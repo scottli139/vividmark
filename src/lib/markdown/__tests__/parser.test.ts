@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { parseMarkdown, parseMarkdownAsync, getExcerpt, preprocessImages } from '../parser'
+import { renderPlantUmlSvg } from '../../plantuml'
 
 // Mock Tauri API
 vi.mock('@tauri-apps/api/core', () => ({
@@ -9,6 +10,12 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('@tauri-apps/plugin-fs', () => ({
   readFile: vi.fn(),
 }))
+
+// 本地引擎需要 canvas（jsdom 跑不了），mock 渲染函数；在线回退 URL 保留真实实现
+vi.mock('../../plantuml', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../plantuml')>()
+  return { ...actual, renderPlantUmlSvg: vi.fn() }
+})
 
 describe('parseMarkdown', () => {
   it('should parse headings', () => {
@@ -446,23 +453,30 @@ Warning 1
 })
 
 describe('parseMarkdown - PlantUML', () => {
-  it('should render inline PlantUML as image', () => {
+  /** 占位符 data 属性里解码出的 PlantUML 源码 */
+  function placeholderSrc(html: string): string {
+    const src = html.match(/data-plantuml-src="([^"]*)"/)?.[1]
+    return decodeURIComponent(src ?? '')
+  }
+
+  it('should render inline PlantUML as placeholder', () => {
     const markdown = `@startuml
 Alice -> Bob: Hello
 @enduml`
     const result = parseMarkdown(markdown)
-    expect(result).toContain('<div class="plantuml-diagram">')
-    expect(result).toContain('<img')
-    expect(result).toContain('plantuml.com/plantuml/svg')
-    expect(result).toContain('loading="lazy"')
+    expect(result).toContain('<div class="plantuml-diagram" data-plantuml-src="')
+    expect(result).toContain('<div class="plantuml-loading"></div>')
+    // 完整 @startuml...@enduml 源码进占位符，本地引擎渲染时取回
+    expect(placeholderSrc(result)).toContain('@startuml')
+    expect(placeholderSrc(result)).toContain('Alice -> Bob: Hello')
+    expect(placeholderSrc(result)).toContain('@enduml')
   })
 
-  it('should render PlantUML code block as image', () => {
+  it('should render PlantUML code block as placeholder', () => {
     const markdown = '```plantuml\nAlice -> Bob: Hello\n```'
     const result = parseMarkdown(markdown)
-    expect(result).toContain('<div class="plantuml-diagram">')
-    expect(result).toContain('<img')
-    expect(result).toContain('plantuml.com/plantuml/svg')
+    expect(result).toContain('<div class="plantuml-diagram" data-plantuml-src="')
+    expect(placeholderSrc(result)).toContain('Alice -> Bob: Hello')
   })
 
   it('should render multiple PlantUML diagrams', () => {
@@ -475,6 +489,7 @@ Bob -> Charlie: Hi
 @enduml`
     const result = parseMarkdown(markdown)
     expect(result.match(/plantuml-diagram/g)?.length).toBe(2)
+    expect(result.match(/plantuml-loading/g)?.length).toBe(2)
   })
 
   it('should handle PlantUML with complex content', () => {
@@ -488,8 +503,35 @@ endif
 stop
 @enduml`
     const result = parseMarkdown(markdown)
-    expect(result).toContain('<div class="plantuml-diagram">')
-    expect(result).toContain('plantuml.com/plantuml/svg')
+    expect(result).toContain('<div class="plantuml-diagram" data-plantuml-src="')
+    expect(placeholderSrc(result)).toContain('if (condition) then (yes)')
+  })
+
+  it('should not mangle fenced code blocks containing @startuml markers', () => {
+    // 围栏里的标记是 plantuml 代码块的常态写法，行内正则不得入内（曾有的嵌套破坏 bug）
+    const markdown = '```plantuml\n@startuml\nA -> B\n@enduml\n```'
+    const result = parseMarkdown(markdown)
+    expect(result.match(/plantuml-diagram/g)?.length).toBe(1)
+    expect(placeholderSrc(result)).toBe('@startuml\nA -> B\n@enduml\n')
+  })
+
+  it('should not match @startuml inside inline code spans', () => {
+    const markdown = '`@startuml` 与 `@enduml` 标记必须书写'
+    const result = parseMarkdown(markdown)
+    expect(result).not.toContain('plantuml-diagram')
+    expect(result).toContain('<code>@startuml</code>')
+    expect(result).toContain('<code>@enduml</code>')
+  })
+
+  it('should render fenced and inline forms side by side correctly', () => {
+    const markdown = '```plantuml\n@startuml\nA -> B\n@enduml\n```\n\n@startuml\nC -> D\n@enduml'
+    const result = parseMarkdown(markdown)
+    const sources = [...result.matchAll(/data-plantuml-src="([^"]*)"/g)].map((m) =>
+      decodeURIComponent(m[1])
+    )
+    expect(sources.length).toBe(2)
+    expect(sources[0]).toBe('@startuml\nA -> B\n@enduml\n')
+    expect(sources[1]).toBe('@startuml\nC -> D\n@enduml')
   })
 })
 
@@ -512,13 +554,35 @@ Async tip
     expect(result).toContain('Async tip')
   })
 
-  it('should render PlantUML in async mode', async () => {
+  it('should render PlantUML placeholder in async mode', async () => {
     const markdown = `@startuml
 Alice -> Bob: Async
 @enduml`
     const result = await parseMarkdownAsync(markdown)
-    expect(result).toContain('<div class="plantuml-diagram">')
+    expect(result).toContain('<div class="plantuml-diagram" data-plantuml-src="')
+    expect(result).toContain('<div class="plantuml-loading"></div>')
+  })
+
+  it('should inline PlantUML SVG when inlinePlantUml is set', async () => {
+    vi.mocked(renderPlantUmlSvg).mockResolvedValue('<svg data-test="local"></svg>')
+    const markdown = `@startuml
+Alice -> Bob: Inline
+@enduml`
+    const result = await parseMarkdownAsync(markdown, { inlinePlantUml: true })
+    expect(renderPlantUmlSvg).toHaveBeenCalledOnce()
+    expect(result).toContain('<div class="plantuml-diagram"><svg data-test="local"></svg></div>')
+    expect(result).not.toContain('plantuml-loading')
+    expect(result).not.toContain('data-plantuml-src')
+  })
+
+  it('should fall back to online service when local render fails', async () => {
+    vi.mocked(renderPlantUmlSvg).mockRejectedValue(new Error('engine unavailable'))
+    const markdown = `@startuml
+Alice -> Bob: Fallback
+@enduml`
+    const result = await parseMarkdownAsync(markdown, { inlinePlantUml: true })
     expect(result).toContain('plantuml.com/plantuml/svg')
+    expect(result).toContain('<img')
   })
 })
 

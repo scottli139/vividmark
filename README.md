@@ -92,7 +92,7 @@ Turn any opened folder into a deployable documentation site with one click — n
 
   Supported types: `tip`, `warning`, `info`, `note`, `danger`, `success`, `hint`, `important`, `caution`
 
-- **PlantUML Diagrams** - Render UML diagrams directly in your document
+- **PlantUML Diagrams** - Render UML diagrams directly in your document with the built-in local engine (@plantuml/core) — fully offline, dark-mode aware, and inlined as SVG in PDF/site exports (falls back to the online service only if local rendering fails)
   ```markdown
   @startuml
   Alice -> Bob: Hello
@@ -128,7 +128,7 @@ Turn any opened folder into a deployable documentation site with one click — n
 - **State Management**: Zustand 5
 - **Internationalization**: i18next + react-i18next
 - **Markdown**: markdown-it with custom plugins
-- **Extended Syntax**: markdown-it-container, plantuml-encoder, KaTeX
+- **Extended Syntax**: markdown-it-container, @plantuml/core (offline UML engine), KaTeX
 - **Syntax Highlighting**: highlight.js
 - **Testing**: Vitest + React Testing Library + Playwright
 

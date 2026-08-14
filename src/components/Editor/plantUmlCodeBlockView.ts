@@ -2,29 +2,39 @@ import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import type { EditorView, NodeView } from '@milkdown/kit/prose/view'
 import { codeBlockSchema } from '@milkdown/kit/preset/commonmark'
 import { $view } from '@milkdown/kit/utils'
-import { getPlantUmlSvgUrl } from '../../lib/plantuml'
+import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../../lib/plantuml'
+import { useEditorStore } from '../../stores/editorStore'
 
-/** 源码编辑后预览刷新的防抖窗口（ms），避免每次击键都发图片请求 */
+/** 源码编辑后预览刷新的防抖窗口（ms），避免每次击键都触发渲染 */
 const PREVIEW_REFRESH_DELAY = 500
 
 function isPlantUmlNode(node: ProseNode): boolean {
   return node.attrs.language === 'plantuml'
 }
 
-function encodePreviewSrc(img: HTMLImageElement, node: ProseNode) {
+/** 本地渲染失败时回退在线服务 img（沿用破图占位样式 globals.css .plantuml-load-error） */
+function showOnlineFallback(preview: HTMLElement, source: string) {
+  const img = document.createElement('img')
+  img.alt = 'PlantUML Diagram'
+  img.loading = 'lazy'
+  img.onerror = () => img.classList.add('plantuml-load-error')
+  img.onload = () => img.classList.remove('plantuml-load-error')
   try {
-    img.src = getPlantUmlSvgUrl(node.textContent)
+    img.src = getPlantUmlSvgUrl(source)
   } catch {
-    // 编码失败：移除 src，显示破图占位样式（globals.css .plantuml-load-error）
+    // 编码失败：移除 src，显示破图占位样式
     img.removeAttribute('src')
     img.classList.add('plantuml-load-error')
   }
+  preview.innerHTML = ''
+  preview.appendChild(img)
 }
 
 /**
  * 代码块 nodeview：
- * - plantuml 代码块：上方预览图（contentEditable=false，复用 .plantuml-diagram 样式），
- *   下方源码区保留 contentDOM 始终可编辑；序列化走原 code_block 路径，天然无损
+ * - plantuml 代码块：上方预览（contentEditable=false，本地引擎离线渲染内联 SVG，
+ *   失败回退在线服务，复用 .plantuml-diagram 样式），下方源码区保留 contentDOM 始终可编辑；
+ *   序列化走原 code_block 路径，天然无损
  * - 其他代码块：`pre.hljs > code`（hljs class 让基色/等宽规则与预览一致），右上角附
  *   语言输入框（contenteditable=false，不在 contentDOM 内，PM 不管理）；
  *   输入语言名即驱动 codeHighlightPlugin 高亮，输入 plantuml 则走 update() 返回 false
@@ -35,11 +45,36 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
   return (initialNode, view: EditorView, getPos): NodeView => {
     let node = initialNode
     let previewTimer: ReturnType<typeof setTimeout> | null = null
+    // 渲染序号：防抖期间源码再变/主题再切时，使进行中的旧渲染失效
+    let previewSeq = 0
 
     let dom: HTMLElement
     let contentDOM: HTMLElement
-    let previewImg: HTMLImageElement | null = null
+    let previewEl: HTMLElement | null = null
     let langInput: HTMLInputElement | null = null
+    let unsubscribeTheme: (() => void) | null = null
+
+    /** 本地引擎渲染预览（暗色跟随应用主题） */
+    const renderPreview = async (source: string, seq: number) => {
+      if (!previewEl) return
+      try {
+        const svg = await renderPlantUmlSvg(source, {
+          dark: useEditorStore.getState().isDarkMode,
+        })
+        if (previewEl && seq === previewSeq) previewEl.innerHTML = svg
+      } catch {
+        if (previewEl && seq === previewSeq) showOnlineFallback(previewEl, source)
+      }
+    }
+
+    /** 源码变化后防抖刷新预览 */
+    const schedulePreviewRender = (sourceNode: ProseNode) => {
+      if (previewTimer) clearTimeout(previewTimer)
+      previewTimer = setTimeout(() => {
+        previewTimer = null
+        void renderPreview(sourceNode.textContent, ++previewSeq)
+      }, PREVIEW_REFRESH_DELAY)
+    }
 
     /** 把语言输入框的值写回 language attr（无变化不 dispatch，避免产生空事务/脏标记） */
     const commitLanguage = (value: string) => {
@@ -81,13 +116,8 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       const preview = document.createElement('div')
       preview.className = 'plantuml-diagram'
       preview.setAttribute('contenteditable', 'false')
-      previewImg = document.createElement('img')
-      previewImg.alt = 'PlantUML Diagram'
-      previewImg.loading = 'lazy'
-      previewImg.onerror = () => previewImg?.classList.add('plantuml-load-error')
-      previewImg.onload = () => previewImg?.classList.remove('plantuml-load-error')
-      encodePreviewSrc(previewImg, node)
-      preview.appendChild(previewImg)
+      preview.innerHTML = '<div class="plantuml-loading"></div>'
+      previewEl = preview
 
       const pre = document.createElement('pre')
       pre.dataset.language = node.attrs.language
@@ -97,6 +127,14 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
 
       dom.append(preview, pre)
       contentDOM = code
+
+      void renderPreview(node.textContent, ++previewSeq)
+      // 主题切换：按新 dark 参数重渲染（SVG 颜色在渲染期确定，CSS 变量管不到 SVG 内部）
+      unsubscribeTheme = useEditorStore.subscribe((state, prev) => {
+        if (state.isDarkMode !== prev.isDarkMode) {
+          void renderPreview(node.textContent, ++previewSeq)
+        }
+      })
     } else {
       const pre = document.createElement('pre')
       pre.classList.add('hljs')
@@ -121,11 +159,8 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
         if (langInput && document.activeElement !== langInput) {
           langInput.value = String(node.attrs.language ?? '')
         }
-        if (previewImg) {
-          if (previewTimer) clearTimeout(previewTimer)
-          const img = previewImg
-          const current = node
-          previewTimer = setTimeout(() => encodePreviewSrc(img, current), PREVIEW_REFRESH_DELAY)
+        if (previewEl) {
+          schedulePreviewRender(node)
         }
         return true
       },
@@ -143,6 +178,8 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       },
       destroy() {
         if (previewTimer) clearTimeout(previewTimer)
+        previewSeq++ // 使进行中的渲染失效
+        unsubscribeTheme?.()
       },
     }
   }

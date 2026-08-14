@@ -105,29 +105,17 @@ admonitionTypes.forEach((type) => {
 **Dependencies:**
 
 ```bash
-pnpm add plantuml-encoder
+pnpm add @plantuml/core    # 本地渲染引擎（TeaVM 编译，MIT，离线）
+pnpm add plantuml-encoder  # 在线服务 URL 编码（本地渲染失败时的回退路径）
 ```
 
 **Implementation:**
-Two rendering approaches:
+Two syntax entries, both produce placeholders (async local rendering):
 
 1. **Code block syntax** (` ```plantuml ``` `) - handled in highlight function
 2. **Inline syntax** (`@startuml...@enduml`) - preprocessed before markdown parsing
 
-```typescript
-// Preprocess inline PlantUML
-const PLANTUML_INLINE_REGEX = /@startuml([\s\S]*?)@enduml/g
-
-function preprocessPlantUML(content: string): string {
-  return content.replace(PLANTUML_INLINE_REGEX, (_match, p1) => {
-    const encoded = encode(p1.trim())
-    const url = `https://www.plantuml.com/plantuml/svg/${encoded}`
-    return `<div class="plantuml-diagram"><img src="${url}" alt="PlantUML" loading="lazy" /></div>\n`
-  })
-}
-```
-
-**Note:** Currently uses PlantUML online service. Offline rendering requires additional setup.
+两处入口统一产出 `data-plantuml-src` 占位符，由本地引擎（`src/lib/plantuml.ts renderPlantUmlSvg`）离线渲染为内联 SVG，失败回退 plantuml.com 在线图。引擎选型、串行队列、暗色与测试策略详见文末「2026-08-14 PlantUML 本地渲染」一节。
 
 ### 任务列表 (Checkbox)
 
@@ -1298,7 +1286,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 ### 关键设计
 
 - **镜像目录结构**：`guide/intro.md` → `guide/intro.html`，非 md 资产按原相对位置原样复制（Rust `export_site` 命令 fs::copy）——图片等相对 src **零重写**即可用，唯一要重写的是 `.md` 互链（换 `.html`，保留 #anchor；README/index 目标映射为 index.html）。这是整个方案的核心简化
-- **preserveImages 渲染**：预览用的 image rule 会把本地 src 转 convertFileSrc（asset://），导出站点里是死链。`parseMarkdown(content, { preserveImages: true })` 经 markdown-it render 的 env 参数透传到 image rule 跳过转换——不用 parseMarkdownAsync（它的 base64 内联是为 PDF 单文件场景，站点用镜像复制更合适）
+- **preserveImages 渲染**：预览用的 image rule 会把本地 src 转 convertFileSrc（asset://），导出站点里是死链。`parseMarkdownAsync(content, { preserveImages: true, inlinePlantUml: true })` 经 markdown-it render 的 env 参数透传到 image rule 跳过转换（不传 baseDir 故 base64 图片内联不触发——那仍是 PDF 单文件场景专用）；`inlinePlantUml` 把 UML 图本地渲染为内联 SVG（2026-08-14 起，此前是 plantuml.com 远程图需联网）
 - **导航推导**（siteGenerator.ts，纯函数）：数字前缀 `01-`/`01_`/`01.` 排序且显示名剥离；README.md/index.md 成为所在目录 index.html 且导航恒排最前（回退标题用目录名；根的无 H1 时注入「首页/Home」）；无根 index 页时生成 meta-refresh 重定向首页；纯资产目录不进导航
 - **页面框架**（siteTemplate.ts）：共享 CSS 文件 `vividmark-site/site.css` = `collectDocumentCss()`（应用同款 .markdown-body/hljs/主题变量，从 exportPdf.ts 导出复用）+ 框架样式（复用 --editor-bg 等变量，`:root`/`.dark` 双定义随收集 CSS 自动带上）；有公式才 `inlineKatexFonts`；`<html>.dark` 切换 + localStorage `vividmark-site-theme` + head 内联防闪烁脚本；目录折叠用 `<details>/<summary>` 零 JS；附 `.nojekyll` 兼容 GitHub Pages
 - **标题 id**：GitHub 风格 slug（Unicode 字母/数字保留、标点剔除、空格转连字符、重名 -1 去重），DOMParser 后处理加到 h1–h6，页内与跨页 `#anchor` 因此可用
@@ -1306,7 +1294,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 
 ### 已知限制（首版接受）
 
-- read_directory 深度上限 10；覆盖写不清理旧文件（重复导出残留已删源文件的 HTML）；无站内搜索/页内 TOC；PlantUML 仍是 plantuml.com 远程图（部署后需联网）；指向导出集合外 `.md` 的链接同样换后缀（部署后本就失效）
+- read_directory 深度上限 10；覆盖写不清理旧文件（重复导出残留已删源文件的 HTML）；无站内搜索/页内 TOC；指向导出集合外 `.md` 的链接同样换后缀（部署后本就失效）
 
 ---
 
@@ -1369,3 +1357,38 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 - **macOS 上凡是动 NSWindow 原生属性（标题、样式）的调用，都可能触发 AppKit 重排标题栏**，tauri 层的配置只在创建时生效一次，之后要自己在原生源码里重放布局。
 - 排查窗口 chrome 布局问题的趁手工具：`osascript` + System Events 读 `position of button N of window 1`（button 1/2/3 = 红/黄/绿），轮询可抓「先对后跳」这类时序问题。
 - 同类现象若出现在 Windows/Linux 不适用本条（红绿灯是 macOS 概念；本条代码整体 cfg 门控在 macOS）。
+
+---
+
+## 2026-08-14 PlantUML 本地渲染（@plantuml/core TeaVM 引擎，替代在线服务）
+
+### 选型
+
+- **采用**：官方 `@plantuml/core@1.2026.6`（plantuml/plantuml#2715，TeaVM 编译的纯 JS 引擎；**≥1.2026.6 才是 MIT 许可，更早版本是 GPL**）。plantuml.js 7.15MB + viz-global.js 1.44MB（Graphviz/Viz.js，WASM 已内联 base64，零额外 fetch）+ openiconic.js 51KB；emoji.js（1.88MB，`<:emoji:>` sprite）未打包，需要时后补。
+- **排除 CheerpJ 路线**（plantuml/plantuml.js、sakirtemel/plantuml-wasm）：其许可强制要求 Leaning Technologies 云端 runtime，不是真离线。
+- **排除 plantuml.jar + JRE**：依赖用户机器装 Java，与「轻量、不依赖外部运行时」的约束冲突。
+
+### 资产与加载
+
+- vite-plugin-static-copy 把 `node_modules/@plantuml/core/{plantuml.js,viz-global.js,openiconic.js,LICENSE}` 拷到 `vendor/plantuml/`（不进 git，版本随 package.json）；dist 体积 5.1MB → ~14MB。
+- `src/lib/plantuml.ts` 懒加载：首个 UML 图出现才 `loadScript(viz-global.js) → loadScript(openiconic.js) → import(plantuml.js)`（前两个是 classic script，注册 `window.Viz` / `window.PLANTUML_OPENICONIC` 全局，必须先于渲染；动态 import 用 `/* @vite-ignore */` 绕过打包分析）。
+
+### 引擎行为要点（本机实测 + 官方文档）
+
+- **同一 JS 上下文必须串行渲染**（引擎共享内部状态，并发静默互相覆盖，官方明示）——封装层 Promise 队列强制串行；另有结果缓存（Map，LRU 上限 200）+ inflight 去重。
+- `dark` 选项只有 `render(lines, targetId, {dark})` 文档化（renderToString 没有）→ 统一 detached div（离屏绝对定位，**不用 display:none** 以免影响引擎内部测量）+ MutationObserver 等 `<svg>` 出现取 innerHTML，15s 超时 reject。
+- 语法错误也会产出「错误示意图」SVG（与在线服务行为一致），reject 只发生在引擎级故障/超时 → 调用方回退 plantuml.com 在线 img（保留旧展示路径，离线环境下与旧版表现相同，不算回归）。
+- 引擎需要 canvas 2D 测文本：**jsdom 跑不了**（实测卡在 getContext 超时），单测用 `setPlantUmlEngineForTests` 注入假引擎；真引擎冒烟在 `e2e/plantuml.spec.ts`（Playwright 拦截 plantuml.com 外发请求，证明纯离线渲染）。
+- 多窗口各 webview 独立加载引擎副本（内存换隔离，接受）。
+
+### 管线改造
+
+- markdown-it `highlight` 回调必须同步 → fence 与 `@startuml` 行内（parser.ts）只产 `<div class="plantuml-diagram" data-plantuml-src="encodeURIComponent(源码)"><div class="plantuml-loading">` 占位符（顺带消除了 preprocessPlantUML 手拼 URL 的重复实现）。
+- 预览（Editor.tsx）：`renderPlantUmlPlaceholders(container, {dark})` DOM 渐进渲染（文本先出、SVG 后补）；占位 div 渲染后保留 data 属性，主题切换按新 dark 重跑即可（SVG 颜色渲染期确定，CSS 变量管不到 SVG 内部）。
+- 导出（PDF/站点）：`parseMarkdownAsync` 签名从 `(content, baseDir?)` 改为 `(content, { baseDir?, preserveImages?, inlinePlantUml? })`；`inlinePlantUml: true` 时对 HTML 字符串替换占位符为内联 SVG——PDF 隐藏窗口与导出站点从此零网络依赖（同时修复站点「部署后需联网」的首版限制）。
+- WYSIWYG（plantUmlCodeBlockView.ts）：预览+源码双区不变，预览改本地渲染（500ms 防抖 + 渲染序号防陈旧覆盖 + editorStore `isDarkMode` 订阅重渲染，destroy 时取消订阅并递增序号使进行中渲染失效）。
+
+### 试用回归暴露的两个 bug（当日修复）
+
+- **切换视图模式后图不显示**：预览容器只在 preview/split 模式挂载（Editor.tsx JSX 条件渲染），占位渲染 effect 依赖只有 `[renderedHtml, isDarkMode]`——从 WYSIWYG/Source 切入时容器是新挂载但依赖未变，effect 不重跑，占位符永远停在加载态。首版 e2e 能过纯属 120ms 防抖让 renderedHtml 落在切换之后的时序运气。修复：deps 补 `viewMode`；回归测试「内容就绪后静置再切模式」。**教训：effect 依赖必须覆盖「容器可用性」的来源。**
+- **行内正则破坏围栏/行内代码**：`@startuml...@enduml` 行内替换正则不理解 Markdown 结构——围栏代码块里的 plantuml 源码（带标记是常态写法）和行内代码里的 `@startuml` 提及（如语法说明文档）都会被误匹配、嵌套破坏（此问题在在线服务时代就潜伏，测试从未覆盖「围栏内含标记」场景）。修复：替换前 `FENCE_BLOCK_REGEX`（```/~~~ 围栏）+ `INLINE_CODE_REGEX`（单反引号单行 span）掩码代码区，替换后还原（编码进占位符 data 属性前先还原）；未闭合围栏不掩码（罕见用户错误，接受）。

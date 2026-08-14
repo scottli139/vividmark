@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { open } from '@tauri-apps/plugin-shell'
 import type { EditorView } from '@codemirror/view'
 import { useEditorStore } from '../../stores/editorStore'
-import { parseMarkdownAsync } from '../../lib/markdown/parser'
+import { parseMarkdownAsync, renderPlantUmlPlaceholders } from '../../lib/markdown/parser'
 import { exportCurrentDocument } from '../../lib/exportPdf'
 import { scrollPreviewToHeading } from '../../lib/outlineUtils'
 import { writeClipboardText } from '../../lib/clipboard'
@@ -21,7 +21,7 @@ import '../../styles/globals.css'
 
 export function Editor() {
   const { t } = useTranslation()
-  const { content, setContent, viewMode, filePath, zoomLevel } = useEditorStore()
+  const { content, setContent, viewMode, filePath, zoomLevel, isDarkMode } = useEditorStore()
 
   const [renderedHtml, setRenderedHtml] = useState('')
   const cmViewRef = useRef<EditorView | null>(null)
@@ -181,7 +181,7 @@ export function Editor() {
           const separatorIndex = Math.max(lastSlash, lastBackslash)
           baseDir = separatorIndex > 0 ? filePath.substring(0, separatorIndex) : undefined
         }
-        const html = await parseMarkdownAsync(content, baseDir)
+        const html = await parseMarkdownAsync(content, { baseDir })
 
         if (!cancelled) {
           setRenderedHtml(html)
@@ -211,6 +211,16 @@ export function Editor() {
       })
     }
   }, [renderedHtml])
+
+  // PlantUML 占位符 → 本地引擎渐进渲染（文本先出、SVG 后补）；
+  // data-plantuml-src 属性渲染后保留，主题切换时用新 dark 参数重跑即可。
+  // 注意 viewMode 也必须在依赖里：预览容器只在 preview/split 模式挂载，
+  // 从 WYSIWYG/Source 切过来时容器是新挂载的，renderedHtml 不变 effect 不会重跑
+  useEffect(() => {
+    const container = previewContainerRef.current
+    if (!container) return
+    void renderPlantUmlPlaceholders(container, { dark: isDarkMode })
+  }, [renderedHtml, isDarkMode, viewMode])
 
   // 监听大纲点击事件 - 滚动到对应标题
   // Source/Split 模式由 CodeMirrorEditor 处理，这里只处理 Preview 模式

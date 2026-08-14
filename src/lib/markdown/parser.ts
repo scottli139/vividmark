@@ -1,14 +1,11 @@
 import MarkdownIt from 'markdown-it'
 import container from 'markdown-it-container'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - plantuml-encoder has no type declarations
-import { encode } from 'plantuml-encoder'
 import hljs from 'highlight.js'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { isLocalPath, isUrl } from '../imageUtils'
 import { admonitionTypes, getAdmonitionDisplayTitle } from './admonitionTypes'
-import { getPlantUmlSvgUrl } from '../plantuml'
+import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../plantuml'
 import { isTauri, resolveToAbsoluteImagePath } from '../imageSrc'
 import { mathPlugin } from './mathPlugin'
 
@@ -64,15 +61,72 @@ const md = new MarkdownIt({
   },
 })
 
-// 渲染 PlantUML 为图片
+// 渲染 PlantUML 占位符（本地引擎异步渲染，见 renderPlantUmlPlaceholders）
+// highlight 回调必须同步返回，故只产出占位结构，源码经 encodeURIComponent 放入 data 属性
 function renderPlantUML(content: string): string {
+  return createPlantUmlPlaceholder(content)
+}
+
+/**
+ * PlantUML 占位符 HTML。markdown-it 同步渲染只产占位，真正的 SVG 渲染有两条路径：
+ * - 预览：renderPlantUmlPlaceholders 对挂载后的 DOM 渐进渲染
+ * - 导出：parseMarkdownAsync 的 inlinePlantUml 选项对 HTML 字符串替换
+ */
+function createPlantUmlPlaceholder(source: string): string {
+  return `<div class="plantuml-diagram" data-plantuml-src="${encodeURIComponent(source)}"><div class="plantuml-loading"></div></div>`
+}
+
+/** 本地渲染失败时的在线服务回退 HTML（保持旧版展示路径） */
+function createPlantUmlOnlineFallback(source: string): string {
   try {
-    const url = getPlantUmlSvgUrl(content)
-    return `<div class="plantuml-diagram"><img src="${url}" alt="PlantUML Diagram" loading="lazy" /></div>`
-  } catch (error) {
-    console.error('[PlantUML] Encoding failed:', error)
-    return `<pre class="hljs plantuml-error"><code>${MarkdownIt.prototype.utils.escapeHtml(content)}</code></pre>`
+    const url = getPlantUmlSvgUrl(source)
+    return `<img src="${url}" alt="PlantUML Diagram" loading="lazy" />`
+  } catch {
+    return `<pre class="hljs plantuml-error"><code>${MarkdownIt.prototype.utils.escapeHtml(source)}</code></pre>`
   }
+}
+
+/**
+ * 把容器内的 PlantUML 占位符渲染为内联 SVG（本地引擎，离线）。
+ * 渲染后保留 data-plantuml-src 属性，主题切换可用不同 dark 参数重跑本函数。
+ * 单个图失败时回退在线服务，不影响其他图。
+ */
+export async function renderPlantUmlPlaceholders(
+  root: ParentNode,
+  options?: { dark?: boolean }
+): Promise<void> {
+  const placeholders = root.querySelectorAll<HTMLElement>('[data-plantuml-src]')
+  await Promise.all(
+    Array.from(placeholders).map(async (el) => {
+      const source = decodeURIComponent(el.dataset.plantumlSrc ?? '')
+      if (!source.trim()) return
+      try {
+        el.innerHTML = await renderPlantUmlSvg(source, { dark: options?.dark === true })
+      } catch {
+        el.innerHTML = createPlantUmlOnlineFallback(source)
+      }
+    })
+  )
+}
+
+// 占位符是 createPlantUmlPlaceholder 生成的确定性格式，字符串替换安全
+const PLANTUML_PLACEHOLDER_REGEX =
+  /<div class="plantuml-diagram" data-plantuml-src="([^"]*)"><div class="plantuml-loading"><\/div><\/div>/g
+
+/** 导出路径：把 HTML 字符串中的占位符替换为内联 SVG（失败回退在线 img） */
+async function inlinePlantUmlDiagrams(html: string): Promise<string> {
+  const matches = [...html.matchAll(PLANTUML_PLACEHOLDER_REGEX)]
+  for (const match of matches) {
+    const source = decodeURIComponent(match[1])
+    let replacement: string
+    try {
+      replacement = `<div class="plantuml-diagram">${await renderPlantUmlSvg(source)}</div>`
+    } catch {
+      replacement = `<div class="plantuml-diagram">${createPlantUmlOnlineFallback(source)}</div>`
+    }
+    html = html.replace(match[0], replacement)
+  }
+  return html
 }
 
 // 配置 Admonition 容器
@@ -347,18 +401,46 @@ export async function preprocessImages(content: string, baseDir?: string): Promi
 // PlantUML 行内语法正则
 const PLANTUML_INLINE_REGEX = /@startuml([\s\S]*?)@enduml/g
 
-// 预处理 PlantUML 行内语法
+// ==================== 代码区掩码 ====================
+// 行内 @startuml 正则不理解 Markdown 结构：围栏代码块里的 plantuml 源码（带标记是常态）、
+// 行内代码里的 `@startuml` 提及（如本文档）都会被误匹配、嵌套破坏。替换前先把这两类区域
+// 掩码成占位符，替换完再还原。
+
+// 围栏代码块：``` 或 ~~~（CommonMark 允许至多 3 空格缩进），含信息串，到同款闭合行
+const FENCE_BLOCK_REGEX = /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?^ {0,3}\1[ \t]*$/gm
+// 行内代码 span（单反引号、单行；多反引号/跨行 span 罕见，不掩码）
+const INLINE_CODE_REGEX = /`[^`\n]+`/g
+
+const MASK_TOKEN_PREFIX = ' VIVIDMARK_CODE_MASK_'
+
+function maskCodeSegments(content: string): { masked: string; segments: string[] } {
+  const segments: string[] = []
+  const mask = (match: string): string => {
+    segments.push(match)
+    return `${MASK_TOKEN_PREFIX}${segments.length - 1} `
+  }
+  // 先围栏（多行）后行内（单行），避免行内正则吃进围栏内部
+  const masked = content.replace(FENCE_BLOCK_REGEX, mask).replace(INLINE_CODE_REGEX, mask)
+  return { masked, segments }
+}
+
+function unmaskCodeSegments(content: string, segments: string[]): string {
+  return content.replace(/ VIVIDMARK_CODE_MASK_(\d+) /g, (_m, i) => segments[Number(i)])
+}
+
+// 预处理 PlantUML 行内语法（@startuml...@enduml → 占位符，渲染走本地引擎）
 function preprocessPlantUML(content: string): string {
-  return content.replace(PLANTUML_INLINE_REGEX, (_match, p1) => {
+  const { masked, segments } = maskCodeSegments(content)
+  const replaced = masked.replace(PLANTUML_INLINE_REGEX, (match) => {
     try {
-      const encoded = encode(p1.trim())
-      const url = `https://www.plantuml.com/plantuml/svg/${encoded}`
-      return `<div class="plantuml-diagram"><img src="${url}" alt="PlantUML Diagram" loading="lazy" /></div>\n`
+      // 先还原掩码再编码：图源码里若恰好有行内代码形态的行，取回的是原始内容
+      return `${createPlantUmlPlaceholder(unmaskCodeSegments(match, segments))}\n`
     } catch (error) {
-      console.error('[PlantUML] Encoding failed:', error)
-      return _match
+      console.error('[PlantUML] Placeholder creation failed:', error)
+      return match
     }
   })
+  return unmaskCodeSegments(replaced, segments)
 }
 
 /**
@@ -389,27 +471,44 @@ export function parseMarkdown(content: string, options?: { preserveImages?: bool
   return html
 }
 
+export interface ParseMarkdownOptions {
+  /** 基础目录，用于解析相对路径图片（异步版转 base64） */
+  baseDir?: string
+  /** 保留本地图片相对路径 src（站点导出用，资产镜像复制，不做 convertFileSrc/base64 转换） */
+  preserveImages?: boolean
+  /** 把 PlantUML 占位符替换为内联 SVG（导出用；预览走 renderPlantUmlPlaceholders 渐进渲染） */
+  inlinePlantUml?: boolean
+}
+
 /**
- * 异步解析 Markdown 为 HTML，支持本地图片
- * @param content Markdown 内容
- * @param baseDir 可选的基础目录，用于解析相对路径
+ * 异步解析 Markdown 为 HTML，支持本地图片与 PlantUML 本地渲染
  */
-export async function parseMarkdownAsync(content: string, baseDir?: string): Promise<string> {
+export async function parseMarkdownAsync(
+  content: string,
+  options?: ParseMarkdownOptions
+): Promise<string> {
   // 重置任务索引
   resetTaskIndex()
 
   // 预处理任务列表语法
   const contentWithTasks = preprocessTaskLists(content)
 
-  const processedContent = await preprocessImages(contentWithTasks, baseDir)
+  const processedContent = await preprocessImages(contentWithTasks, options?.baseDir)
   // 预处理 PlantUML 行内语法
   const contentWithPlantUML = preprocessPlantUML(processedContent)
 
   // 渲染 markdown
-  let html = md.render(contentWithPlantUML)
+  let html = md.render(contentWithPlantUML, {
+    preserveImages: options?.preserveImages === true,
+  })
 
   // 后处理任务列表（替换标记为 checkbox）
   html = postprocessTaskLists(html)
+
+  // 导出路径：PlantUML 占位符 → 内联 SVG（预览路径由 renderPlantUmlPlaceholders 处理）
+  if (options?.inlinePlantUml) {
+    html = await inlinePlantUmlDiagrams(html)
+  }
 
   return html
 }

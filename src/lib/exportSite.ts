@@ -8,7 +8,7 @@ import { collectDocumentCss } from './exportPdf'
 import { readDirectory } from './fileTreeUtils'
 import { isTauri } from './imageSrc'
 import { createLogger } from './logger'
-import { parseMarkdown } from './markdown/parser'
+import { parseMarkdownAsync } from './markdown/parser'
 import {
   addHeadingIds,
   buildNavModel,
@@ -132,13 +132,19 @@ export async function exportSite(): Promise<boolean> {
     const nav = buildNavModel(tree, titles)
     const titleByPath = flattenNavTitles(nav.entries)
 
-    // 渲染页面：保留相对图片路径（资产镜像复制），加标题 id，重写 .md 互链
-    const renderedPages = pages.map((page) => {
-      const htmlPath = mdToHtmlPath(page.relPath)
-      let body = parseMarkdown(contents.get(page.sourcePath) ?? '', { preserveImages: true })
-      body = rewriteMarkdownLinks(addHeadingIds(body))
-      return { htmlPath, body }
-    })
+    // 渲染页面：保留相对图片路径（资产镜像复制），加标题 id，重写 .md 互链；
+    // PlantUML 经本地引擎内联 SVG（部署后无需联网）
+    const renderedPages = await Promise.all(
+      pages.map(async (page) => {
+        const htmlPath = mdToHtmlPath(page.relPath)
+        let body = await parseMarkdownAsync(contents.get(page.sourcePath) ?? '', {
+          preserveImages: true,
+          inlinePlantUml: true,
+        })
+        body = rewriteMarkdownLinks(addHeadingIds(body))
+        return { htmlPath, body }
+      })
+    )
     const hasKatex = renderedPages.some((p) => p.body.includes('class="katex"'))
 
     const siteCss = await buildSiteCss(collectDocumentCss(), hasKatex)
