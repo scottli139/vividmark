@@ -953,6 +953,43 @@ body {
   resize: none;
 }
 
+/* ==================== frontmatter（WYSIWYG 只读节点） ==================== */
+
+.wysiwyg-editor .frontmatter {
+  margin: 0 0 1em;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: default;
+}
+
+.wysiwyg-editor .frontmatter-label {
+  padding: 2px 10px;
+  background-color: var(--hover-bg);
+  color: var(--color-text-muted);
+  font-size: 0.75em;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.wysiwyg-editor .frontmatter-content {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--text-secondary);
+  font-family: 'Courier New', 'Courier', monospace;
+  font-size: 0.85em;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* 节点选中态（与 math-selected 同款描边） */
+.wysiwyg-editor .frontmatter-selected {
+  outline: 2px solid var(--accent-color);
+  outline-offset: 2px;
+}
+
 /* ==================== CodeMirror 搜索面板（亮/暗主题可读性） ==================== */
 .cm-panel.cm-search {
   padding: 4px 8px;

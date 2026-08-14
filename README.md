@@ -111,6 +111,8 @@ Turn any opened folder into a deployable documentation site with one click — n
   $$
   ```
 
+- **YAML Frontmatter** - Document metadata block at the top of a file: stripped from preview/PDF/site output, shown as a read-only card in WYSIWYG (edit it in Source mode), and used for page titles in site export
+
 ### User Interface
 
 - **Multi-language support** - English and 简体中文 (Simplified Chinese), easily extensible to more languages

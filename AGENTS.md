@@ -11,7 +11,7 @@ Key features:
 - Four view modes: WYSIWYG (default, Milkdown/ProseMirror) / Source / Split / Preview
 - CodeMirror 6 source editor: Markdown highlighting, smart list continuation, find & replace
 - Real-time Markdown preview (markdown-it + highlight.js)
-- Markdown extensions: admonitions, PlantUML（本地引擎离线渲染）, task lists, tables, math formulas (KaTeX)
+- Markdown extensions: admonitions, PlantUML（本地引擎离线渲染）, task lists, tables, math formulas (KaTeX), YAML frontmatter
 - File operations with native dialogs, auto-save (2s idle), drag & drop, recent files
 - Multi-window (Typora-style SDI): one window per document with smart open routing (focus / reuse / new window)
 - Native menubar (File/Edit/Paragraph/Format/View), macOS Dock menu & file associations (Open With)
@@ -153,7 +153,7 @@ Main store: `src/stores/editorStore.ts`.
 Read these before touching editor code — 每条只保留核心约束，展开细节均在 `docs/implementation-notes.md`（下称 notes）：
 
 - **Dual editor cores**: WYSIWYG = Milkdown/ProseMirror（`WysiwygEditor.tsx`），Source/Split = CodeMirror 6（`CodeMirrorEditor.tsx`），常驻挂载（非激活 hidden）。Markdown 源码是唯一事实来源；两侧事件 handler 与 `canUndo/canRedo` 写入都按 `viewMode` 门控
-- **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表/数学公式）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定；commonmark 预设剔除了 `remark-preserve-empty-line`（空段落 = 普通空行；源码已有 `<br />` 行仍解析为 html 节点保留）
+- **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表/数学公式/frontmatter）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定；commonmark 预设剔除了 `remark-preserve-empty-line`（空段落 = 普通空行；源码已有 `<br />` 行仍解析为 html 节点保留）；**`$remark` options 默认 `{}` 原样进 `.use()`**——校验 options 的 remark 插件必须显式传第三参（如 frontmatter 传 `'yaml'`，细节见 notes）
 - **数学公式（KaTeX）**: 双端实现（markdown-it 侧 `src/lib/markdown/mathPlugin.ts` 自写 rule；WYSIWYG 侧 `mathPlugin.ts` + `mathView.ts` 点击编辑）；**语法规则严格对齐 micromark-extension-math 3.x**（块级仅多行围栏，单行 `$$x$$` 是行内公式），两侧不一致会导致模式切换抖动
 - **PlantUML 本地渲染（离线）**: `@plantuml/core`（TeaVM）拷至 `vendor/plantuml/`（不进 git），懒加载；**引擎共享内部状态，必须串行渲染**（统一入口 `src/lib/plantuml.ts`：Promise 队列 + 缓存 + inflight 去重，失败回退在线 img）。markdown-it 只产 `data-plantuml-src` 占位符（先掩码围栏/行内代码区）；预览渐进渲染的 **effect deps 必须含 viewMode**；导出走 `parseMarkdownAsync { inlinePlantUml: true }` 内联 SVG；jsdom 无 canvas——单测注假引擎，真机冒烟 `e2e/plantuml.spec.ts`
 - **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）

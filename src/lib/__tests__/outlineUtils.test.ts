@@ -215,4 +215,38 @@ Line 3`
       expect(findActiveOutlineItem([], 10)).toBeNull()
     })
   })
+
+  describe('extractOutline frontmatter', () => {
+    it('frontmatter 内的 # 行（YAML 注释）不进大纲', () => {
+      const content = '---\n# YAML 注释\ntitle: x\n---\n# 真正标题\n正文'
+      const outline = extractOutline(content)
+
+      expect(outline).toHaveLength(1)
+      expect(outline[0].text).toBe('真正标题')
+    })
+
+    it('frontmatter 后的标题保持源码行号（lineIndex/charIndex 不偏移）', () => {
+      // lines: 0:'---', 1:'# YAML 注释', 2:'title: x', 3:'---', 4:'# 真正标题', 5:'正文'
+      const content = '---\n# YAML 注释\ntitle: x\n---\n# 真正标题\n正文'
+      const outline = extractOutline(content)
+
+      expect(outline[0].lineIndex).toBe(4)
+      // charIndex = 4('---\n') + 10('# YAML 注释\n') + 9('title: x\n') + 4('---\n') = 27
+      expect(outline[0].charIndex).toBe(27)
+    })
+
+    it('文档中间的 --- 块不是 frontmatter，其后的 # 行仍是标题', () => {
+      const content = '# A\n\n---\n\n# B'
+      const outline = extractOutline(content)
+
+      expect(outline.map((item) => item.text)).toEqual(['A', 'B'])
+    })
+
+    it('无闭合围栏的 --- 不按 frontmatter 处理', () => {
+      const content = '---\ntitle: x\n# 标题'
+      const outline = extractOutline(content)
+
+      expect(outline.map((item) => item.text)).toEqual(['标题'])
+    })
+  })
 })

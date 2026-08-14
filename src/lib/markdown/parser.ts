@@ -5,6 +5,7 @@ import { readFile } from '@tauri-apps/plugin-fs'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { isLocalPath, isUrl } from '../imageUtils'
 import { admonitionTypes, getAdmonitionDisplayTitle } from './admonitionTypes'
+import { parseFrontmatter } from './frontmatter'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../plantuml'
 import { isTauri, resolveToAbsoluteImagePath } from '../imageSrc'
 import { mathPlugin } from './mathPlugin'
@@ -456,8 +457,11 @@ export function parseMarkdown(content: string, options?: { preserveImages?: bool
   // 重置任务索引
   resetTaskIndex()
 
+  // 剥离文档开头的 YAML frontmatter（YAML 解析失败保守保留原文）
+  const { body } = parseFrontmatter(content)
+
   // 预处理任务列表语法
-  const contentWithTasks = preprocessTaskLists(content)
+  const contentWithTasks = preprocessTaskLists(body)
 
   // 预处理 PlantUML 行内语法
   const processedContent = preprocessPlantUML(contentWithTasks)
@@ -490,8 +494,11 @@ export async function parseMarkdownAsync(
   // 重置任务索引
   resetTaskIndex()
 
+  // 剥离文档开头的 YAML frontmatter（YAML 解析失败保守保留原文）
+  const { body } = parseFrontmatter(content)
+
   // 预处理任务列表语法
-  const contentWithTasks = preprocessTaskLists(content)
+  const contentWithTasks = preprocessTaskLists(body)
 
   const processedContent = await preprocessImages(contentWithTasks, options?.baseDir)
   // 预处理 PlantUML 行内语法

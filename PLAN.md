@@ -302,7 +302,7 @@ logger.error('Failed to sync:', error)
 **第一波（约 9 天，顺序含依赖约束，依据见两份方案文档的「依赖与顺序约束」章节）：**
 
 1. **站点导出配置感知 P1** ✅（2026-08-14 完成）— mkdocs 核心（风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 纯函数；`yaml` 依赖引入；36 个新单测）。方案 `docs/site-export-config-plan.md`
-2. **frontmatter 双端**（语法批次 3：预览剥离 + WYSIWYG 只读 atom 节点；纯函数随上项落地）
+2. **frontmatter 双端** ✅（2026-08-14 完成）— 预览/导出剥离 + 大纲去噪 + WYSIWYG 只读 atom 节点（remark-frontmatter + 只读 nodeview，`$remark` options 坑已记入 notes；17 个新单测）
 3. **站点导出配置感知 P2** — `!!!` admonition 双端 + `exclude_docs`（FR-020.10）
 4. **GitHub Alerts**（语法批次 1 / FR-023.1；0.5 天，可提前热身）
 5. **脚注**（语法批次 2 / FR-023.2）

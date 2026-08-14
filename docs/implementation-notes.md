@@ -218,6 +218,15 @@ Two syntax entries, both produce placeholders (async local rendering):
 - **语法规则严格对齐 micromark-extension-math 3.x**：块级公式仅支持多行围栏形式（`$$` 独占行开启/闭合）；单行 `$$x$$` 一律按行内公式解析；不做 pandoc 式货币保护（`$5` 不特殊豁免）
 - **PDF 导出**：`exportPdf.ts` 的 `inlineKatexFonts` 把 KaTeX woff2 字体转 base64 内联进导出 HTML——`vividmark-pdf://` 自定义协议窗口加载不到应用内字体，不内联则公式字体缺失
 
+### YAML Frontmatter（2026-08-14）
+
+双端支持，纯函数底座在 `src/lib/markdown/frontmatter.ts`（自 `siteConfig.ts` 迁出并原地再导出，旧导入路径不变）：
+
+- **预览/导出侧**：`parser.ts` 的 `parseMarkdown`/`parseMarkdownAsync` 渲染前 `parseFrontmatter` 剥离——仅文档开头 `---` 围栏生效；**YAML 解析失败保守保留原文**（不强行剥离）；文档中间 `---` 仍是分割线。PDF/站点导出自然继承（站点导出 P1 本就用同一纯函数取 `title`）
+- **大纲去噪**：`outlineUtils.extractOutline` 按行数跳过 frontmatter 行范围（块内 `#` 是 YAML 注释不是标题）；**跳过而非剥离文本**，lineIndex/charIndex 保持源码行号（Source 模式跳转依赖）
+- **WYSIWYG 侧**：`frontmatterPlugin.ts`（remark-frontmatter + `frontmatter` atom 块 schema，YAML 源码存 attrs.value）+ `frontmatterView.ts`（只读 nodeview：标签 + pre 原文，编辑走 Source 模式）；解析/序列化靠 micromark-extension-frontmatter + mdast-util-frontmatter，value 逐字节保留
+- **坑：Milkdown `$remark` 的 options 默认 `{}`**——`$remark(id, factory)` 内部 `initialOptions ?? {}` 并原样 `remark.use(plugin, options)`；校验 options 的 remark 插件（如 remark-frontmatter 把 `{}` 当 matter 对象、缺 `type` 字段直接抛 `Missing type in matter {}`）**必须显式传第三参**（frontmatter 传 `'yaml'`）。后续 Alerts/脚注批次接 remark 插件时注意同款坑
+
 ### Markdown 扩展测试模式
 
 **Test Pattern for Container Plugins:**

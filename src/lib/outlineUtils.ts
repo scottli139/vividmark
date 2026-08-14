@@ -2,6 +2,8 @@
  * 大纲工具函数 - 提取大纲并支持点击跳转
  */
 
+import { FRONTMATTER_BLOCK_RE } from './markdown/frontmatter'
+
 export interface OutlineItem {
   level: number
   text: string
@@ -23,8 +25,16 @@ export function extractOutline(content: string): OutlineItem[] {
   // 围栏代码块状态（``` 或 ~~~），代码块内的 # 行不是标题
   let inCodeBlock = false
   let fenceChar = ''
+  // frontmatter 行数（仅文档开头）：块内 `#` 是 YAML 注释不是标题。
+  // 按行数跳过而非剥离文本，保持 lineIndex/charIndex 与源码行号一致（Source 模式跳转依赖）
+  const fmMatch = content.match(FRONTMATTER_BLOCK_RE)
+  const frontmatterLines = fmMatch ? fmMatch[0].replace(/\r?\n$/, '').split('\n').length : 0
 
   lines.forEach((line, lineIndex) => {
+    if (lineIndex < frontmatterLines) {
+      charIndex += line.length + 1 // +1 for newline character
+      return
+    }
     const fenceMatch = line.match(/^\s*(`{3,}|~{3,})/)
     if (fenceMatch) {
       const marker = fenceMatch[1][0]

@@ -223,4 +223,54 @@ describe('wysiwyg markdown round-trip', () => {
       expect(view.state.doc.firstChild?.type.name).toBe('table')
     })
   })
+
+  describe('frontmatter（只读 atom 节点）', () => {
+    const FM_DOC = '---\ntitle: 指南\ndraft: false\n---\n\n# 正文标题\n\n内容'
+
+    it('解析为 frontmatter 节点，YAML 原文逐字节存 attrs.value', async () => {
+      const ed = await createEditor(FM_DOC)
+      const view = ed.action((ctx) => ctx.get(editorViewCtx))
+
+      const first = view.state.doc.firstChild!
+      expect(first.type.name).toBe('frontmatter')
+      expect(first.attrs.value).toBe('title: 指南\ndraft: false')
+    })
+
+    it('往返序列化保留 frontmatter 围栏与原文', async () => {
+      const ed = await createEditor(FM_DOC)
+      const out = ed.action(getMarkdown())
+
+      expect(out).toMatch(/^---\ntitle: 指南\ndraft: false\n---/)
+      expect(out).toContain('# 正文标题')
+      expect(out).toContain('内容')
+    })
+
+    it('整篇仅 frontmatter 时往返不丢失', async () => {
+      const ed = await createEditor('---\ntitle: only\n---\n')
+      const out = ed.action(getMarkdown())
+
+      expect(out).toMatch(/^---\ntitle: only\n---/)
+    })
+
+    it('二次往返稳定（序列化不动点）', async () => {
+      const ed = await createEditor(FM_DOC)
+      const first = ed.action(getMarkdown())
+      ed.action(replaceAll(first, true))
+      const second = ed.action(getMarkdown())
+
+      expect(second).toBe(first)
+    })
+
+    it('文档中间的 --- 不解析为 frontmatter（仍是分割线）', async () => {
+      const ed = await createEditor('# A\n\n---\n\n# B')
+      const view = ed.action((ctx) => ctx.get(editorViewCtx))
+
+      let hasFrontmatter = false
+      view.state.doc.descendants((node) => {
+        if (node.type.name === 'frontmatter') hasFrontmatter = true
+        return true
+      })
+      expect(hasFrontmatter).toBe(false)
+    })
+  })
 })

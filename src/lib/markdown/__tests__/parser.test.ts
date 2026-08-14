@@ -692,3 +692,67 @@ describe('parseMarkdown - Task Lists', () => {
     expect(result).toContain('[not a task]')
   })
 })
+
+// ==================== frontmatter 剥离 ====================
+
+describe('frontmatter 剥离', () => {
+  it('剥离文档开头的 YAML frontmatter，正文正常渲染', () => {
+    const markdown = '---\ntitle: 指南\ndraft: false\n---\n# 正文标题\n内容'
+    const result = parseMarkdown(markdown)
+    // frontmatter 不渲染（不出现 --- 分隔线 / title 文本）
+    expect(result).not.toContain('<hr')
+    expect(result).not.toContain('title')
+    expect(result).not.toContain('draft')
+    // 正文不受影响
+    expect(result).toContain('<h1')
+    expect(result).toContain('正文标题')
+  })
+
+  it('整篇仅 frontmatter 时渲染为空', () => {
+    const result = parseMarkdown('---\ntitle: only\n---\n')
+    expect(result).not.toContain('title')
+    expect(result).not.toContain('<hr')
+  })
+
+  it('YAML 解析失败时保守保留原文（不剥离）', () => {
+    const markdown = '---\ntitle: [unclosed\n---\n# 标题'
+    const result = parseMarkdown(markdown)
+    // 未剥离：开头 --- 渲染为分割线，frontmatter 内容按正文渲染
+    expect(result).toContain('<hr')
+  })
+
+  it('文档中间的 --- 不是 frontmatter（仍是分割线）', () => {
+    const markdown = '第一段\n\n---\n\ntitle: 不是 frontmatter'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<hr')
+    expect(result).toContain('title: 不是 frontmatter')
+  })
+
+  it('frontmatter 前面有内容（非文档开头）不剥离', () => {
+    const markdown = '\n---\ntitle: x\n---\n正文'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('title')
+  })
+
+  it('无闭合 --- 围栏按正文处理', () => {
+    const markdown = '---\ntitle: x\n# 标题'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('title')
+  })
+
+  it('frontmatter 内的任务列表语法不影响正文任务索引', () => {
+    const markdown = '---\ntitle: "- [ ] 不是任务"\n---\n- [ ] 真任务'
+    const result = parseMarkdown(markdown)
+    // 正文任务从 index 0 开始（frontmatter 内的 - [ ] 已被剥离，不占索引）
+    expect(result).toContain('data-task-index="0"')
+    expect(result).not.toContain('不是任务')
+  })
+
+  it('parseMarkdownAsync 同样剥离 frontmatter', async () => {
+    const markdown = '---\ntitle: 指南\n---\n# 正文标题'
+    const result = await parseMarkdownAsync(markdown)
+    expect(result).not.toContain('title')
+    expect(result).toContain('<h1')
+    expect(result).toContain('正文标题')
+  })
+})

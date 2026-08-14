@@ -107,7 +107,7 @@ graph TD; A-->B
 | --- | --- | --- |
 | 批次 1 | GitHub Alerts（预览装饰 + WYSIWYG CSS 装饰） | 0.5 天 |
 | 批次 2 | 脚注（双端，含往返测试） | 1 天 |
-| 批次 3 | frontmatter（预览剥离 + WYSIWYG 只读 atom 节点） | 1 天 |
+| 批次 3 | frontmatter（预览剥离 + WYSIWYG 只读 atom 节点）✅ 2026-08-14 | 1 天 |
 | 批次 4 | Mermaid（复用 PlantUML 基建全链路） | 1.5 天 |
 | 批次 5 | 排版增强批：`==` / `^` / `~` / emoji（预览侧先行，WYSIWYG 逐个评估） | 1 天 |
 

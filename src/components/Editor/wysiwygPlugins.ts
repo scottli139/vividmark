@@ -6,6 +6,8 @@ import { listener } from '@milkdown/kit/plugin/listener'
 import { admonitionSchema, remarkAdmonitionPlugin } from './admonitionPlugin'
 import { admonitionView } from './admonitionView'
 import { codeHighlightPlugin } from './codeHighlightPlugin'
+import { frontmatterSchema, remarkFrontmatterPlugin } from './frontmatterPlugin'
+import { frontmatterView } from './frontmatterView'
 import { hardbreakCleanupPlugin } from './hardbreakCleanupPlugin'
 import { hardbreakView } from './hardbreakView'
 import { strictBrParserPlugin } from './strictBrParserPlugin'
@@ -66,6 +68,10 @@ export const wysiwygPlugins: MilkdownPlugin[] = [
   mathInlineView,
   mathBlockView,
   mathInlineInputRule,
+  // frontmatter：micromark 层解析（仅文档开头 `---` 围栏），schema 顺序约束同 admonition
+  ...remarkFrontmatterPlugin,
+  ...frontmatterSchema,
+  frontmatterView,
   codeHighlightPlugin,
   wysiwygShortcutPlugin,
   strictBrParserPlugin,
