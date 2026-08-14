@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://scottli139.github.io/vividmark/sitemap.xml
