@@ -109,10 +109,12 @@ test.describe('Context Menu — WYSIWYG mode', () => {
   })
 
   test('right-click shows menu without Find (known limitation)', async ({ page }) => {
-    await page.locator('.ProseMirror').click({ button: 'right' })
-
     const menu = page.locator('[role="menu"]').first()
-    await expect(menu).toBeVisible()
+    // 并行全量跑时 .ProseMirror 可见但 contextmenu 监听可能尚未挂上，右键重试兜底
+    await expect(async () => {
+      await page.locator('.ProseMirror').click({ button: 'right' })
+      await expect(menu).toBeVisible({ timeout: 1500 })
+    }).toPass()
     await expect(page.getByRole('menuitem', { name: 'Undo' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Paragraph' })).toBeVisible()
     await expect(page.getByRole('menuitem', { name: 'Insert' })).toBeVisible()
