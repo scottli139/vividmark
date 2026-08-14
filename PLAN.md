@@ -281,6 +281,16 @@ logger.error('Failed to sync:', error)
 - [x] **文件关联（Open With）** ✅：`bundle.fileAssociations` 声明 md/markdown/mdown/mkd；`RunEvent::Opened` → 排队 + `file-open-request` 事件 → 前端打开（冷启动队列补偿）；仅打包安装后生效
 - [x] **侧边栏精致化** ✅：实心「打开文件夹」按钮、最近文件行 hover 底色/圆角/大图标、过滤框内嵌搜索图标、空态居中插画、大纲行 hover 底色、文件树选中态改 accent 淡底圆角行
 
+#### P6 — 极简工具栏与 macOS 窗口修复 ✅ (已完成，2026-08-14)
+
+> 用户反馈：红绿灯不居中（先正后跳）、红灯无法关窗、工具栏仍不够简洁、菜单折行、hover 太弱。
+
+- [x] **窗口无法关闭修复** ✅：tauri 2.10 ACL 收紧致 `allow-destroy` 非默认，`onCloseRequested` 未 preventDefault 后的 JS destroy() 被静默拒绝——capabilities 补授；文件菜单 Close Window 显式中文文案
+- [x] **红绿灯垂直居中** ✅：创建时 trafficLightPosition 生效，但前端 setTitle 触发 AppKit 重置按钮位置——新增 `set_window_title` 命令（titlebar.rs），设题后显式重排红绿灯
+- [x] **工具栏三轮精简** ✅：只剩 ⋮更多菜单；undo/redo 归编辑菜单、主题三态入更多菜单、视图模式移状态栏点按下拉（Dropdown 加 openUp）、侧栏开关移状态栏左侧；e2e 选择器迁移（viewMode.ts helper）
+- [x] **侧栏视觉统一** ✅：OpenFolderButton 公共组件（侧栏/文件树空态共用，ghost 样式替代实心）、字号/颜色层级细化
+- [x] **菜单细节** ✅：菜单项 whitespace-nowrap 不折行；--hover-bg 双主题加强，三按钮 hover 统一为圆角底色
+
 ---
 
 ## 下一步行动
