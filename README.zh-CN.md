@@ -56,6 +56,7 @@
 
 - **mkdocs 风格布局** - 吸顶标题栏、可折叠侧边导航、每页内置浅/深色切换
 - **导航自动推导** - 目录树即导航；数字前缀（`01-intro.md`）控制排序并从显示名剥离；`README.md`/`index.md` 自动成为所在章节的首页
+- **感知 MkDocs 配置** - 目录中存在 `mkdocs.yml` 时按配置导出：`site_name` 作站点名、`docs_dir` 收敛内容范围、`nav` 原文驱动侧边导航（含外链条目）——未收录进 nav 的页面照常导出，只是不进侧栏。YAML frontmatter 自动剥离不渲染，其 `title` 用作页面标题
 - **链接安全可靠** - 跨页 `.md` 互链自动重写为 `.html`，标题生成 GitHub 风格锚点；图片与附件按原位置镜像复制，相对路径零改动可用
 - **随处可部署** - GitHub Pages（内置 `.nojekyll`）、Netlify、Nginx，或直接双击 `index.html` 本地浏览——输出是与应用内预览同一渲染引擎产出的纯静态 HTML
 

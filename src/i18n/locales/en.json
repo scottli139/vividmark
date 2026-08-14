@@ -227,7 +227,9 @@
     "exportPdfFailed": "Failed to export PDF",
     "exportSiteSuccess": "Site exported to: {{path}}",
     "exportSiteFailed": "Failed to export site",
-    "exportSiteNoPages": "No Markdown files found in the opened folder"
+    "exportSiteNoPages": "No Markdown files found in the opened folder",
+    "exportSiteSuccessMkdocs": "Site exported to: {{path}} (MkDocs config detected; navigation follows mkdocs.yml)",
+    "exportSiteSuccessVuepress": "Site exported to: {{path}} (VuePress project detected; navigation derived from directory structure)"
   },
   "site": {
     "home": "Home",

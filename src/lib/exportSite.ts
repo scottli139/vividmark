@@ -5,19 +5,29 @@ import i18n from '../i18n'
 import { useEditorStore } from '../stores/editorStore'
 import { alertDialog } from './dialog'
 import { collectDocumentCss } from './exportPdf'
-import { readDirectory } from './fileTreeUtils'
+import { pathExists, readDirectory } from './fileTreeUtils'
 import { isTauri } from './imageSrc'
 import { createLogger } from './logger'
 import { parseMarkdownAsync } from './markdown/parser'
 import {
+  detectSiteFlavor,
+  frontmatterTitle,
+  parseFrontmatter,
+  type FlavorIo,
+  type SiteFlavor,
+} from './siteConfig'
+import {
   addHeadingIds,
+  buildNavFromMkdocsNav,
   buildNavModel,
   collectSiteEntries,
+  fallbackPageTitle,
   mdToHtmlPath,
   pageTitleFromMarkdown,
   relPrefix,
   renderNavHtml,
   rewriteMarkdownLinks,
+  type SiteNav,
   type SiteNavEntry,
 } from './siteGenerator'
 import { buildRedirectPage, buildSiteCss, buildSitePage } from './siteTemplate'
@@ -28,8 +38,9 @@ const logger = createLogger('ExportSite')
  * 「导出为网站」编排层：把打开的文件夹渲染为可直接部署的静态站点包。
  *
  * 纯逻辑（目录→页面映射、导航、链接重写）在 siteGenerator.ts（可单测）；
+ * mkdocs/vuepress 配置感知（风味探测、mkdocs.yml 解析、frontmatter）在 siteConfig.ts；
  * 页面框架在 siteTemplate.ts；写盘走 Rust export_site 命令（原生复制二进制资产，
- * 不需要 plugin-fs 写权限）。
+ * 不需要 plugin-fs 写权限）。方案见 docs/site-export-config-plan.md。
  */
 
 interface FileInfo {
@@ -69,6 +80,13 @@ function flattenNavTitles(entries: SiteNavEntry[], out = new Map<string, string>
   return out
 }
 
+/** 成功提示按风味选择 i18n key（已决策：提示带一句配置来源，不打断流程、不加确认框） */
+function successMessageKey(flavor: SiteFlavor): string {
+  if (flavor === 'mkdocs') return 'messages.exportSiteSuccessMkdocs'
+  if (flavor === 'vuepress') return 'messages.exportSiteSuccessVuepress'
+  return 'messages.exportSiteSuccess'
+}
+
 /**
  * 导出当前打开的文件夹为静态站点。
  * 流程：选输出目录 → 读目录树 → 渲染全部页面 → Rust 写盘 → 结果提示。
@@ -98,12 +116,31 @@ export async function exportSite(): Promise<boolean> {
     return false
   }
 
-  const siteTitle = baseName(openedFolder)
-  const outputDir = `${picked}/${siteTitle}-site`
-
   try {
+    // 风味探测：mkdocs > vuepress > plain（IO 走现有 Tauri 命令封装）
+    const io: FlavorIo = {
+      fileExists: pathExists,
+      readTextFile: async (path) => (await invoke<FileInfo>('read_file', { path })).content,
+    }
+    const flavorInfo = await detectSiteFlavor(openedFolder, io)
+    if (flavorInfo.warning) logger.warn('Site flavor detection:', flavorInfo.warning)
+    if (flavorInfo.flavor !== 'plain') {
+      logger.info('Site flavor detected:', {
+        flavor: flavorInfo.flavor,
+        docsRoot: flavorInfo.docsRoot,
+        configPath: flavorInfo.mkdocsConfigPath,
+      })
+    }
+
+    // mkdocs 风味站点名取 site_name；导出范围收敛到 docs_dir（'' = 打开目录本身）
+    const siteTitle = flavorInfo.mkdocsConfig?.siteName ?? baseName(openedFolder)
+    const outputDir = `${picked}/${siteTitle}-site`
+    const docsRootAbs = flavorInfo.docsRoot
+      ? `${openedFolder}/${flavorInfo.docsRoot}`
+      : openedFolder
+
     // 原始树（不做前端的 md-only 过滤——资产也要复制；Rust 侧已跳过隐藏/node_modules/target）
-    const tree = await readDirectory(openedFolder, true)
+    const tree = await readDirectory(docsRootAbs, true)
     const { pages, assets } = collectSiteEntries(tree)
     if (pages.length === 0) {
       logger.timeEnd('exportSite')
@@ -111,25 +148,36 @@ export async function exportSite(): Promise<boolean> {
       return false
     }
 
-    // 并行读入全部页面源码并提取 H1 标题
+    // 并行读入全部页面源码：剥离 frontmatter（不渲染）；标题链 frontmatter title → 首个 H1
     const contents = new Map<string, string>()
     const titles = new Map<string, string>()
     await Promise.all(
       pages.map(async (page) => {
         const info = await invoke<FileInfo>('read_file', { path: page.sourcePath })
-        contents.set(page.sourcePath, info.content)
-        const h1 = pageTitleFromMarkdown(info.content)
-        if (h1) titles.set(page.sourcePath, h1)
+        const { data, body } = parseFrontmatter(info.content)
+        contents.set(page.sourcePath, body)
+        const title = frontmatterTitle(data) ?? pageTitleFromMarkdown(body)
+        if (title) titles.set(page.sourcePath, title)
       })
     )
 
-    // 根 README/index 无 H1 时注入「首页/Home」作为导航与标题回退
+    // 根 README/index 无标题时注入「首页/Home」作为导航与标题回退
     const rootIndexPage = pages.find((p) => mdToHtmlPath(p.relPath) === 'index.html')
     if (rootIndexPage && !titles.has(rootIndexPage.sourcePath)) {
       titles.set(rootIndexPage.sourcePath, i18n.t('site.home'))
     }
 
-    const nav = buildNavModel(tree, titles)
+    // 导航：mkdocs 风味按 nav 配置原文（策展白名单，不追加）；其余按目录结构自动推导
+    let nav: SiteNav
+    if (flavorInfo.flavor === 'mkdocs' && flavorInfo.mkdocsConfig?.nav?.length) {
+      const built = buildNavFromMkdocsNav(flavorInfo.mkdocsConfig.nav, pages)
+      nav = built.nav
+      if (built.missingPaths.length > 0) {
+        logger.warn('mkdocs nav 指向的文件不存在，已跳过:', built.missingPaths)
+      }
+    } else {
+      nav = buildNavModel(tree, titles)
+    }
     const titleByPath = flattenNavTitles(nav.entries)
 
     // 渲染页面：保留相对图片路径（资产镜像复制），加标题 id，重写 .md 互链；
@@ -142,7 +190,7 @@ export async function exportSite(): Promise<boolean> {
           inlinePlantUml: true,
         })
         body = rewriteMarkdownLinks(addHeadingIds(body))
-        return { htmlPath, body }
+        return { htmlPath, body, page }
       })
     )
     const hasKatex = renderedPages.some((p) => p.body.includes('class="katex"'))
@@ -154,16 +202,20 @@ export async function exportSite(): Promise<boolean> {
       // GitHub Pages 兼容：关闭 Jekyll 处理
       { path: '.nojekyll', content: '' },
     ]
-    for (const page of renderedPages) {
+    for (const rendered of renderedPages) {
       files.push({
-        path: page.htmlPath,
+        path: rendered.htmlPath,
         content: buildSitePage({
-          title: titleByPath.get(page.htmlPath) ?? page.htmlPath,
+          // 页面 <title> 解析链：nav 标题 → frontmatter/H1 → 文件名回退
+          title:
+            titleByPath.get(rendered.htmlPath) ??
+            titles.get(rendered.page.sourcePath) ??
+            fallbackPageTitle(rendered.page.relPath),
           siteTitle,
           themeToggleLabel: i18n.t('site.toggleTheme'),
-          navHtml: renderNavHtml(nav.entries, page.htmlPath),
-          bodyHtml: page.body,
-          relPrefix: relPrefix(page.htmlPath),
+          navHtml: renderNavHtml(nav.entries, rendered.htmlPath),
+          bodyHtml: rendered.body,
+          relPrefix: relPrefix(rendered.htmlPath),
           lang: language,
         }),
       })
@@ -190,10 +242,11 @@ export async function exportSite(): Promise<boolean> {
     logger.timeEnd('exportSite')
     logger.info('Site exported:', {
       outputDir,
+      flavor: flavorInfo.flavor,
       pages: renderedPages.length,
       written: result.written,
     })
-    await alertDialog(i18n.t('messages.exportSiteSuccess', { path: outputDir }))
+    await alertDialog(i18n.t(successMessageKey(flavorInfo.flavor), { path: outputDir }))
     return true
   } catch (error) {
     logger.timeEnd('exportSite')

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import type { FileTreeItem } from '../fileTreeUtils'
 import {
   addHeadingIds,
+  buildNavFromMkdocsNav,
   buildNavModel,
   collectSiteEntries,
   compareNavNames,
@@ -15,7 +16,9 @@ import {
   rewriteMarkdownLinks,
   slugifyHeading,
   stripOrderPrefix,
+  type SiteFileEntry,
 } from '../siteGenerator'
+import type { MkdocsNavItem } from '../siteConfig'
 
 function dir(name: string, children: FileTreeItem[]): FileTreeItem {
   return { name, path: `/docs/${name}`, isDirectory: true, children }
@@ -103,7 +106,7 @@ describe('pageTitleFromMarkdown', () => {
   it('无 H1 或 H2 在前时返回 null', () => {
     expect(pageTitleFromMarkdown('no heading')).toBeNull()
     expect(pageTitleFromMarkdown('## Sub\n# Later')).toBeNull()
-    expect(pageTitleFromMarkdown('---\nfrontmatter\n---\n# Title')).toBeNull()
+    // frontmatter 场景的行为变更见下方「pageTitleFromMarkdown 跳过 frontmatter」describe
   })
 })
 
@@ -216,5 +219,98 @@ describe('relPrefix', () => {
     expect(relPrefix('index.html')).toBe('')
     expect(relPrefix('guide/intro.html')).toBe('../')
     expect(relPrefix('a/b/c.html')).toBe('../../')
+  })
+})
+
+// ==================== mkdocs nav 驱动导航（配置感知，见 site-export-config-plan.md） ====================
+
+describe('buildNavFromMkdocsNav', () => {
+  const pages: SiteFileEntry[] = [
+    { sourcePath: '/repo/docs/svcsdk/README.md', relPath: 'svcsdk/README.md' },
+    { sourcePath: '/repo/docs/svcsdk/win.md', relPath: 'svcsdk/win.md' },
+    { sourcePath: '/repo/docs/README.md', relPath: 'README.md' },
+    { sourcePath: '/repo/docs/hidden/notes.md', relPath: 'hidden/notes.md' },
+  ]
+
+  const mkdocsNav: MkdocsNavItem[] = [
+    { title: '首页', path: 'svcsdk/README.md' },
+    {
+      title: '会捷通 SDK (SVC)',
+      children: [{ title: 'Windows 版本 (C++)', path: 'svcsdk/win.md' }],
+    },
+    { title: '公司主页', url: 'http://www.hexmeet.com' },
+  ]
+
+  it('标题/顺序/分组照抄 nav 原文，路径映射 htmlPath，外链成 external 条目', () => {
+    const { nav, missingPaths } = buildNavFromMkdocsNav(mkdocsNav, pages)
+    expect(missingPaths).toEqual([])
+    expect(nav.entries.map((e) => e.type)).toEqual(['page', 'dir', 'external'])
+    // README.md → 所在目录 index.html
+    expect(nav.entries[0]).toMatchObject({ title: '首页', htmlPath: 'svcsdk/index.html' })
+    expect(nav.entries[1].children?.[0]).toMatchObject({
+      title: 'Windows 版本 (C++)',
+      htmlPath: 'svcsdk/win.html',
+    })
+    expect(nav.entries[2]).toMatchObject({
+      title: '公司主页',
+      externalUrl: 'http://www.hexmeet.com',
+    })
+    // 重定向首页目标 = nav 第一个页面
+    expect(nav.firstHtmlPath).toBe('svcsdk/index.html')
+  })
+
+  it('未收录页面不进导航（策展白名单，不追加）', () => {
+    const { nav } = buildNavFromMkdocsNav(mkdocsNav, pages)
+    const html = renderNavHtml(nav.entries, 'svcsdk/index.html')
+    expect(html).not.toContain('hidden/')
+    expect(html).not.toContain('隐藏')
+  })
+
+  it('homeHtmlPath 以页面集为准：根 README 存在即有，无论是否在 nav', () => {
+    const { nav } = buildNavFromMkdocsNav(mkdocsNav, pages)
+    expect(nav.homeHtmlPath).toBe('index.html')
+    const withoutRootReadme = pages.filter((p) => p.relPath !== 'README.md')
+    expect(buildNavFromMkdocsNav(mkdocsNav, withoutRootReadme).nav.homeHtmlPath).toBeNull()
+  })
+
+  it('nav 指向的文件不存在 → 跳过并记入 missingPaths；组内全缺失整组跳过', () => {
+    const nav: MkdocsNavItem[] = [
+      { title: '有效', path: 'svcsdk/win.md' },
+      { title: '缺失', path: 'ghost.md' },
+      { title: '全缺失组', children: [{ title: '也缺失', path: 'ghost2.md' }] },
+    ]
+    const { nav: model, missingPaths } = buildNavFromMkdocsNav(nav, pages)
+    expect(missingPaths).toEqual(['ghost.md', 'ghost2.md'])
+    expect(model.entries).toHaveLength(1)
+    expect(model.entries[0].title).toBe('有效')
+  })
+
+  it('nav 无页面时 firstHtmlPath 退回页面集第一个', () => {
+    const nav: MkdocsNavItem[] = [{ title: '外链', url: 'https://a.com' }]
+    const { nav: model } = buildNavFromMkdocsNav(nav, pages)
+    expect(model.firstHtmlPath).toBe('svcsdk/index.html')
+  })
+})
+
+describe('renderNavHtml external 条目', () => {
+  it('新窗口打开 + 外链样式 + rel 安全属性', () => {
+    const html = renderNavHtml(
+      [{ type: 'external', title: '公司主页', externalUrl: 'https://www.hexmeet.com' }],
+      'index.html'
+    )
+    expect(html).toContain('href="https://www.hexmeet.com"')
+    expect(html).toContain('target="_blank"')
+    expect(html).toContain('rel="noopener noreferrer"')
+    expect(html).toContain('class="external"')
+  })
+})
+
+describe('pageTitleFromMarkdown 跳过 frontmatter', () => {
+  it('frontmatter 后的 H1 正常提取', () => {
+    expect(pageTitleFromMarkdown('---\ntitle: x\n---\n# 真标题\n正文')).toBe('真标题')
+  })
+
+  it('frontmatter 不再被误认为正文内容（无 H1 返回 null）', () => {
+    expect(pageTitleFromMarkdown('---\ntitle: x\n---\n正文第一段')).toBeNull()
   })
 })

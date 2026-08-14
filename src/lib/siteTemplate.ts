@@ -94,6 +94,12 @@ html, body {
   background: var(--hover-bg);
   font-weight: 500;
 }
+.site-nav-list a.external::after {
+  content: "↗";
+  margin-left: 4px;
+  font-size: 11px;
+  opacity: 0.55;
+}
 .site-nav-list summary {
   padding: 5px 10px;
   margin: 1px 0;

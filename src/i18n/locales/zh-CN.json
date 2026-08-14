@@ -227,7 +227,9 @@
     "exportPdfFailed": "导出 PDF 失败",
     "exportSiteSuccess": "站点已导出到：{{path}}",
     "exportSiteFailed": "导出网站失败",
-    "exportSiteNoPages": "打开的文件夹中没有 Markdown 文件"
+    "exportSiteNoPages": "打开的文件夹中没有 Markdown 文件",
+    "exportSiteSuccessMkdocs": "站点已导出到：{{path}}（检测到 MkDocs 配置，导航按 mkdocs.yml 生成）",
+    "exportSiteSuccessVuepress": "站点已导出到：{{path}}（检测到 VuePress 项目，导航按目录结构生成）"
   },
   "site": {
     "home": "首页",
