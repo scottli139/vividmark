@@ -1492,3 +1492,15 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 
 - **切换视图模式后图不显示**：预览容器只在 preview/split 模式挂载（Editor.tsx JSX 条件渲染），占位渲染 effect 依赖只有 `[renderedHtml, isDarkMode]`——从 WYSIWYG/Source 切入时容器是新挂载但依赖未变，effect 不重跑，占位符永远停在加载态。首版 e2e 能过纯属 120ms 防抖让 renderedHtml 落在切换之后的时序运气。修复：deps 补 `viewMode`；回归测试「内容就绪后静置再切模式」。**教训：effect 依赖必须覆盖「容器可用性」的来源。**
 - **行内正则破坏围栏/行内代码**：`@startuml...@enduml` 行内替换正则不理解 Markdown 结构——围栏代码块里的 plantuml 源码（带标记是常态写法）和行内代码里的 `@startuml` 提及（如语法说明文档）都会被误匹配、嵌套破坏（此问题在在线服务时代就潜伏，测试从未覆盖「围栏内含标记」场景）。修复：替换前 `FENCE_BLOCK_REGEX`（```/~~~ 围栏）+ `INLINE_CODE_REGEX`（单反引号单行 span）掩码代码区，替换后还原（编码进占位符 data 属性前先还原）；未闭合围栏不掩码（罕见用户错误，接受）。
+
+---
+
+## 2026-08-14 SEO 与推广运营笔记
+
+非技术实现，属发布/运营知识，随发布流程一并参考：
+
+- **Search Console 资源 URL 必须填站点根目录**（`https://scottli139.github.io/vividmark/`）；误填 `.../sitemap.xml/` 会导致 HTML 验证文件/meta 无处可放。验证 meta token 全账号通用，重开资源不用换 token。提交 sitemap 后 "Couldn't fetch" 是过渡态，数小时~数天自动转 Success，不用重提。
+- **Pages 站点 SEO 件**：`docs/index*.html` 头部（关键词 title/description、OG/Twitter 卡片、JSON-LD SoftwareApplication、中英 hreflang）+ `docs/sitemap.xml`（含 hreflang 注解）+ `docs/robots.txt` + `docs/images/og-image.png`（1200×630，`sips -Z 1200` 后 `-c 630 1200` 从截图裁）。**坑：JSON-LD 里有 `softwareVersion` 字段，发版 bump 三处版本号时需同步这两处。**
+- **AlternativeTo**：新注册账号须满 7 天才能 "Suggest new application"（反垃圾）；listing 审核数天~一周；通过后到 Typora/Obsidian/MarkText 等页面 "Suggest alternative" 挂载。外链 dofollow、DR≈80，是 "typora alternative" 搜索词的主要入口。
+- **awesome-markdown-editors 2026 新政策**：新条目一律先加 `UPCOMING.md`（不再直接进 README），必须附源码链接；无源码项目进 `COMMERCIAL.md`。
+- **Baidu 对 github.io 收录极差**（爬虫基本不抓）。中文流量主渠道是 HelloGitHub（GitHub issue 自荐，人工月刊，选中后 1~2 期刊出）与社区投稿（V2EX/掘金/少数派）；若需 Baidu 收录中文站点，得用 Gitee Pages 或自有域名镜像。

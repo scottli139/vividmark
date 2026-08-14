@@ -318,7 +318,7 @@ logger.error('Failed to sync:', error)
 - **文件变更监控** - 外部修改自动重载（Phase 5；与多窗口/自动保存的冲突策略需同期设计）
 - **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3；宜在语法面定型后梳理覆盖面）
 - **专注模式 / 打字机模式**（Phase 13 P3）
-- **导出 HTML**（Phase 6 / FR-040.2/.3）
+- **导出 HTML**（Phase 6 / FR-040.2/.3；已发 good first issue #5）
 - ~~Mermaid 支持~~（已并入第一波第 7 项；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
 
 ### 体验与优化
@@ -326,15 +326,21 @@ logger.error('Failed to sync:', error)
 - **性能优化** - 大文件处理（Phase 7）
 - **Split 模式同步滚动精准化** - 当前基于百分比，内容长度差异大时不精准；可考虑基于 heading/段落位置或 caret 位置的智能同步、灵敏度调节
 - ~~**PlantUML 增强** - 本地渲染~~ ✅（2026-08-14：`@plantuml/core` TeaVM 引擎离线渲染 + 暗色适配 + PDF/站点导出内联 SVG，失败回退在线服务；「编辑器内编辑 + 实时预览」已由 WYSIWYG 双区 / Split 覆盖）
-- **Admonitions 增强** - `??? note` 可折叠语法；嵌套支持
+- **Admonitions 增强** - `??? note` 可折叠语法（已发 good first issue #4）；嵌套支持
 
 ### 工程化
 
-- **E2E 测试增强** - 完整用户流程（打开→编辑→保存、拖拽打开、快捷键）
-- **Editor 组件 / fileOps 测试补全**（Phase 12 剩余项）
-- pre-commit hooks (husky + lint-staged)、CONTRIBUTING.md - 可选
+- **E2E 测试增强** - 完整用户流程（打开→编辑→保存、拖拽打开、快捷键；已发 good first issue #3）
+- **Editor 组件 / fileOps 测试补全**（Phase 12 剩余项；已发 good first issue #6）
+- **贡献者基建** ✅（2026-08-14：CONTRIBUTING 双语版、bug/feature issue 表单模板、PR 模板、CODE_OF_CONDUCT、README 贡献区）；pre-commit hooks (husky + lint-staged) - 可选
 - 日志查看面板 / 日志导出 - 可选
 - 启动画面 / 官网横幅图 - 可选
+
+### 社区与推广
+
+- **SEO** ✅（2026-08-14）：Pages 站点关键词 title/description、OG/Twitter 卡片（og-image 1200×630）、JSON-LD 结构化数据、中英 hreflang 互链、sitemap.xml + robots.txt；Search Console 已验证站点并提交 sitemap。待办：Bing Webmaster Tools 提交
+- **站外收录**：awesome-markdown-editors PR mundimark#220（待合并）；HelloGitHub 自荐 521xueweihan/HelloGitHub#3538（人工月刊筛选）；AlternativeTo 待办——新账号 7 天反垃圾限制，2026-08-21 后提交 listing 并挂 Typora/Obsidian/MarkText alternative
+- **社区协作**：Windows/Linux 测试招募 #1（pinned，维护者仅有 macOS）；good first issue #2（i18n 新语言）/ #3 / #4 / #5 / #6；候选未发放：Mermaid（已是第一波第 7 项，不重复发）、文件变更监控、Split 滚动精准化（help wanted 级）
 
 ---
 

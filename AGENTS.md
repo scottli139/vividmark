@@ -34,6 +34,7 @@ Key features:
 | `docs/word-export-plan.md`                                         | Word（docx）导出可行性与实现方案（📋 方案待评审，pandoc 路线）                   |
 | `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（🚧 P1 已落地，P2/P3 待排期）         |
 | `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（📋 待评审：Alerts/脚注/frontmatter/Mermaid/排版批） |
+| `CONTRIBUTING.md`（+ `.zh-CN`）                                    | 贡献指南：环境搭建、提交前检查链、PR 流程、AI 辅助贡献政策                       |
 
 ## Technology Stack
 
