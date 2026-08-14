@@ -14,6 +14,7 @@ describe('Toolbar', () => {
       isDirty: false,
       recentFiles: [],
       isDarkMode: false,
+      themeMode: 'light',
       showSidebar: true,
       viewMode: 'wysiwyg',
       activeBlockId: null,
@@ -30,124 +31,23 @@ describe('Toolbar', () => {
   })
 
   describe('rendering', () => {
-    // 精简后的工具栏：只保留高频操作，文件/格式化入口在原生菜单与右键菜单
-    it('should render high-frequency controls only', () => {
+    // 极简工具栏：只剩更多菜单；侧栏开关移状态栏左侧，撤销/重做到编辑菜单，视图模式到状态栏，暗色到更多菜单
+    it('should render minimal controls only', () => {
       render(<Toolbar />)
-      expect(screen.getByTitle('Toggle Sidebar')).toBeInTheDocument()
-      expect(screen.getByTitle('Undo (Cmd+Z)')).toBeInTheDocument()
-      expect(screen.getByTitle('Redo (Cmd+Shift+Z)')).toBeInTheDocument()
-      expect(screen.getByRole('button', { name: 'WYSIWYG' })).toBeInTheDocument()
-      expect(screen.getByTitle('Toggle Dark Mode')).toBeInTheDocument()
       expect(screen.getByTitle('More')).toBeInTheDocument()
 
       // 已移除的入口
+      expect(screen.queryByTitle('Toggle Sidebar')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Undo (Cmd+Z)')).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Redo (Cmd+Shift+Z)')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'WYSIWYG' })).not.toBeInTheDocument()
+      expect(screen.queryByTitle('Toggle Dark Mode')).not.toBeInTheDocument()
       expect(screen.queryByTitle('Open File (Cmd+O)')).not.toBeInTheDocument()
       expect(screen.queryByTitle('Save (Cmd+S)')).not.toBeInTheDocument()
       expect(screen.queryByTitle('New File (Cmd+N)')).not.toBeInTheDocument()
       expect(screen.queryByTitle('Bold (Cmd+B)')).not.toBeInTheDocument()
       expect(screen.queryByTitle('Insert')).not.toBeInTheDocument()
       expect(screen.queryByTitle('More Formatting')).not.toBeInTheDocument()
-    })
-  })
-
-  describe('undo / redo', () => {
-    it('should dispatch editor-undo / editor-redo events', () => {
-      const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
-      useEditorStore.setState({ canUndo: true, canRedo: true })
-      render(<Toolbar />)
-
-      fireEvent.click(screen.getByTitle('Undo (Cmd+Z)'))
-      fireEvent.click(screen.getByTitle('Redo (Cmd+Shift+Z)'))
-
-      const types = dispatchEventSpy.mock.calls.map((call) => (call[0] as CustomEvent).type)
-      expect(types).toContain('editor-undo')
-      expect(types).toContain('editor-redo')
-
-      dispatchEventSpy.mockRestore()
-    })
-
-    it('should disable undo/redo buttons per store state', () => {
-      render(<Toolbar />)
-      expect(screen.getByTitle('Undo (Cmd+Z)')).toBeDisabled()
-      expect(screen.getByTitle('Redo (Cmd+Shift+Z)')).toBeDisabled()
-    })
-  })
-
-  describe('view mode switching', () => {
-    it('should default to wysiwyg view mode', () => {
-      render(<Toolbar />)
-
-      // WYSIWYG button should be active by default (has active background class)
-      const wysiwygButton = screen.getByRole('button', { name: 'WYSIWYG' })
-      expect(wysiwygButton).toBeInTheDocument()
-      expect(useEditorStore.getState().viewMode).toBe('wysiwyg')
-    })
-
-    it('should switch to source view mode', () => {
-      render(<Toolbar />)
-
-      const sourceButton = screen.getByRole('button', { name: 'Source' })
-      fireEvent.click(sourceButton)
-
-      expect(useEditorStore.getState().viewMode).toBe('source')
-    })
-
-    it('should switch to split view mode', () => {
-      render(<Toolbar />)
-
-      const splitButton = screen.getByRole('button', { name: 'Split' })
-      fireEvent.click(splitButton)
-
-      expect(useEditorStore.getState().viewMode).toBe('split')
-    })
-
-    it('should switch to preview view mode', () => {
-      render(<Toolbar />)
-
-      const previewButton = screen.getByRole('button', { name: 'Preview' })
-      fireEvent.click(previewButton)
-
-      expect(useEditorStore.getState().viewMode).toBe('preview')
-    })
-
-    it('should switch back to wysiwyg view mode', () => {
-      useEditorStore.getState().setViewMode('source')
-      render(<Toolbar />)
-
-      const wysiwygButton = screen.getByRole('button', { name: 'WYSIWYG' })
-      fireEvent.click(wysiwygButton)
-
-      expect(useEditorStore.getState().viewMode).toBe('wysiwyg')
-    })
-  })
-
-  describe('dark mode toggle', () => {
-    it('should toggle dark mode', () => {
-      render(<Toolbar />)
-
-      const darkModeButton = screen.getByTitle('Toggle Dark Mode')
-      fireEvent.click(darkModeButton)
-
-      expect(useEditorStore.getState().isDarkMode).toBe(true)
-
-      fireEvent.click(darkModeButton)
-
-      expect(useEditorStore.getState().isDarkMode).toBe(false)
-    })
-  })
-
-  describe('sidebar toggle', () => {
-    it('should toggle sidebar visibility', () => {
-      render(<Toolbar />)
-
-      const sidebarButton = screen.getByTitle('Toggle Sidebar')
-      fireEvent.click(sidebarButton)
-
-      expect(useEditorStore.getState().showSidebar).toBe(false)
-
-      fireEvent.click(sidebarButton)
-
-      expect(useEditorStore.getState().showSidebar).toBe(true)
     })
   })
 
@@ -174,6 +74,28 @@ describe('Toolbar', () => {
 
       // Verify store was updated
       expect(useEditorStore.getState().language).toBe('zh-CN')
+    })
+  })
+
+  describe('theme switcher', () => {
+    it('should render theme options in more menu with current theme checked', () => {
+      render(<Toolbar />)
+
+      fireEvent.click(screen.getByTitle('More'))
+
+      expect(screen.getByText('Light').closest('button')).toHaveAttribute('aria-checked', 'true')
+      expect(screen.getByText('Dark').closest('button')).toHaveAttribute('aria-checked', 'false')
+      expect(screen.getByText('System').closest('button')).toHaveAttribute('aria-checked', 'false')
+    })
+
+    it('should change theme when selecting menu item', () => {
+      render(<Toolbar />)
+
+      fireEvent.click(screen.getByTitle('More'))
+      fireEvent.click(screen.getByText('Dark'))
+
+      expect(useEditorStore.getState().themeMode).toBe('dark')
+      expect(useEditorStore.getState().isDarkMode).toBe(true)
     })
   })
 

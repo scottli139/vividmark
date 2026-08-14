@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { setViewMode } from './viewMode'
 
 /**
  * WYSIWYG 模式端到端测试（小而稳）
@@ -7,8 +8,8 @@ import { test, expect } from '@playwright/test'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  // 等待应用就绪（工具栏可见）
-  await expect(page.locator('[title="WYSIWYG"]')).toBeVisible()
+  // 等待应用就绪（状态栏视图模式入口可见）
+  await expect(page.getByTestId('statusbar-viewmode')).toBeVisible()
 })
 
 test.describe('WYSIWYG Mode', () => {
@@ -20,7 +21,7 @@ test.describe('WYSIWYG Mode', () => {
   })
 
   test('typing markdown syntax renders as rich text', async ({ page }) => {
-    await page.click('[title="WYSIWYG"]')
+    await setViewMode(page, 'WYSIWYG')
 
     const proseMirror = page.locator('.ProseMirror')
     await expect(proseMirror).toBeVisible()
@@ -40,7 +41,7 @@ test.describe('WYSIWYG Mode', () => {
   })
 
   test('Cmd+B applies strong mark in wysiwyg', async ({ page }) => {
-    await page.click('[title="WYSIWYG"]')
+    await setViewMode(page, 'WYSIWYG')
 
     const proseMirror = page.locator('.ProseMirror')
     await proseMirror.click()
@@ -57,7 +58,7 @@ test.describe('WYSIWYG Mode', () => {
   test('Cmd+/ round-trips between wysiwyg and source with identical content', async ({
     page,
   }) => {
-    await page.click('[title="WYSIWYG"]')
+    await setViewMode(page, 'WYSIWYG')
 
     const proseMirror = page.locator('.ProseMirror')
     await proseMirror.click()

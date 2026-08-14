@@ -76,6 +76,7 @@
     "words": "Words: {{count}}",
     "chars": "Chars: {{count}}",
     "cursor": "Ln {{line}}, Col {{col}}",
+    "viewMode": "View Mode",
     "zoomReset": "Reset zoom"
   },
   "fileTree": {

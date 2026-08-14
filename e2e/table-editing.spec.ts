@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { presetSourceMode } from './sourceMode'
+import { setViewMode } from './viewMode'
 
 // CodeMirror 6 编辑器（contenteditable）
 function editorLocator(page: Page) {
@@ -119,8 +120,8 @@ test.describe('Table Editing', () => {
     await openTableDialog(page)
     await page.click('button:has-text("Insert")')
 
-    // Switch to preview mode
-    await page.click('button:has-text("Preview")')
+    // Switch to preview mode（状态栏下拉）
+    await setViewMode(page, 'Preview')
 
     // Table should be rendered
     await expect(page.locator('table')).toBeVisible()
@@ -135,8 +136,8 @@ test.describe('Table Editing', () => {
     await openTableDialog(page)
     await page.click('button:has-text("Insert")')
 
-    // Switch to split mode
-    await page.click('button:has-text("Split")')
+    // Switch to split mode（状态栏下拉）
+    await setViewMode(page, 'Split')
 
     // Table should be rendered in preview pane
     await expect(page.locator('.markdown-body table')).toBeVisible()
@@ -151,8 +152,8 @@ test.describe('Table Editing', () => {
 | A | B | C |
 | 1 | 2 | 3 |`)
 
-    // Switch to preview mode
-    await page.click('button:has-text("Preview")')
+    // Switch to preview mode（状态栏下拉）
+    await setViewMode(page, 'Preview')
 
     // Table should be rendered with correct alignment
     await expect(page.locator('table')).toBeVisible()
@@ -178,8 +179,8 @@ test.describe('Table Editing', () => {
 | Alice | 25 | NYC |
 | Bob | 30 | LA |`)
 
-    // Switch to preview mode
-    await page.click('button:has-text("Preview")')
+    // Switch to preview mode（状态栏下拉）
+    await setViewMode(page, 'Preview')
 
     // Verify edited content is rendered
     await expect(page.locator('table')).toBeVisible()

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { presetSourceMode } from './sourceMode'
+import { setViewMode } from './viewMode'
 
 // CodeMirror 6 编辑器（contenteditable）
 function editorLocator(page: Page) {
@@ -29,8 +30,7 @@ test.describe('Task List (Checkbox) Feature', () => {
 
   test('should render task list in preview mode', async ({ page }) => {
     // Switch to source mode and add task list content
-    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
 
     // Find editor and set content
     const editor = editorLocator(page)
@@ -38,8 +38,7 @@ test.describe('Task List (Checkbox) Feature', () => {
 - [x] Checked task`)
 
     // Switch to preview mode
-    const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
-    await previewButton.click()
+    await setViewMode(page, 'Preview')
 
     // Verify task list is rendered
     await expect(page.locator('.task-list-item')).toHaveCount(2)
@@ -56,15 +55,13 @@ test.describe('Task List (Checkbox) Feature', () => {
 
   test('should toggle checkbox from unchecked to checked in preview mode', async ({ page }) => {
     // Switch to source mode and add task list
-    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
 
     const editor = editorLocator(page)
     await editor.fill('- [ ] Task to check')
 
     // Switch to preview mode
-    const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
-    await previewButton.click()
+    await setViewMode(page, 'Preview')
 
     // Verify initial state
     const checkbox = page.locator('.task-checkbox').first()
@@ -81,21 +78,19 @@ test.describe('Task List (Checkbox) Feature', () => {
     await expect(checkbox).toBeChecked()
 
     // Switch back to source mode to verify markdown was updated
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
     await expectEditorText(page, '- [x] Task to check')
   })
 
   test('should toggle checkbox from checked to unchecked in preview mode', async ({ page }) => {
     // Switch to source mode and add checked task list
-    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
 
     const editor = editorLocator(page)
     await editor.fill('- [x] Task to uncheck')
 
     // Switch to preview mode
-    const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
-    await previewButton.click()
+    await setViewMode(page, 'Preview')
 
     // Verify initial state
     const checkbox = page.locator('.task-checkbox').first()
@@ -112,14 +107,13 @@ test.describe('Task List (Checkbox) Feature', () => {
     await expect(checkbox).not.toBeChecked()
 
     // Switch back to source mode to verify markdown was updated
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
     await expectEditorText(page, '- [ ] Task to uncheck')
   })
 
   test('should toggle multiple checkboxes correctly', async ({ page }) => {
     // Switch to source mode and add multiple tasks
-    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
 
     const editor = editorLocator(page)
     await editor.fill(`- [ ] Task 1
@@ -127,8 +121,7 @@ test.describe('Task List (Checkbox) Feature', () => {
 - [ ] Task 3`)
 
     // Switch to preview mode
-    const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
-    await previewButton.click()
+    await setViewMode(page, 'Preview')
 
     // Get all checkboxes
     const checkbox1 = page.locator('.task-checkbox').nth(0)
@@ -156,7 +149,7 @@ test.describe('Task List (Checkbox) Feature', () => {
     await expect(checkbox3).toBeChecked()
 
     // Verify final markdown
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
     await expectEditorText(
       page,
       `- [x] Task 1
@@ -167,16 +160,14 @@ test.describe('Task List (Checkbox) Feature', () => {
 
   test('should toggle checkboxes in split mode', async ({ page }) => {
     // Switch to source mode and add task list
-    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
 
     const editor = editorLocator(page)
     await editor.fill(`- [ ] Task 1
 - [x] Task 2`)
 
     // Switch to split mode
-    const splitButton = page.locator('button').filter({ hasText: /^Split$/ })
-    await splitButton.click()
+    await setViewMode(page, 'Split')
 
     // Get checkbox in preview pane
     const checkbox = page.locator('.task-checkbox').first()
@@ -199,15 +190,13 @@ test.describe('Task List (Checkbox) Feature', () => {
 
   test('should handle task list with markdown formatting', async ({ page }) => {
     // Switch to source mode
-    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
-    await sourceButton.click()
+    await setViewMode(page, 'Source')
 
     const editor = editorLocator(page)
     await editor.fill('- [ ] Task with **bold** text')
 
     // Switch to preview mode
-    const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
-    await previewButton.click()
+    await setViewMode(page, 'Preview')
 
     // Verify bold text is rendered
     await expect(page.locator('.task-content strong')).toHaveText('bold')

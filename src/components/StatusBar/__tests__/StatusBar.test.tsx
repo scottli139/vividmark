@@ -16,6 +16,19 @@ describe('StatusBar', () => {
     })
   })
 
+  it('should toggle sidebar via statusbar button', () => {
+    useEditorStore.setState({ showSidebar: true })
+
+    render(<StatusBar />)
+
+    const toggle = screen.getByTestId('statusbar-sidebar-toggle')
+    fireEvent.click(toggle)
+    expect(useEditorStore.getState().showSidebar).toBe(false)
+
+    fireEvent.click(toggle)
+    expect(useEditorStore.getState().showSidebar).toBe(true)
+  })
+
   it('should display word and character counts', () => {
     render(<StatusBar />)
 
@@ -51,6 +64,29 @@ describe('StatusBar', () => {
     render(<StatusBar />)
 
     expect(screen.getByText('Source')).toBeInTheDocument()
+  })
+
+  it('should switch view mode via dropdown', () => {
+    render(<StatusBar />)
+
+    // 点按状态栏模式文字打开下拉
+    fireEvent.click(screen.getByTestId('statusbar-viewmode'))
+
+    // 当前模式（source）勾选，其余不勾选；带快捷键标注
+    expect(screen.getByRole('menuitemcheckbox', { name: /Source/ })).toHaveAttribute(
+      'aria-checked',
+      'true'
+    )
+    expect(screen.getByRole('menuitemcheckbox', { name: /Preview/ })).toHaveAttribute(
+      'aria-checked',
+      'false'
+    )
+    expect(screen.getByText(/Alt\+2/)).toBeInTheDocument()
+
+    // 选择预览模式
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Preview/ }))
+    expect(useEditorStore.getState().viewMode).toBe('preview')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('should display zoom percentage and reset to 100% on click', () => {

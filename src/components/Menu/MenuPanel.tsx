@@ -88,7 +88,7 @@ function Submenu({ item, open, onOpen, onSelect }: SubmenuProps) {
             {item.icon}
           </span>
         )}
-        <span className="flex-1">{item.label}</span>
+        <span className="flex-1 whitespace-nowrap">{item.label}</span>
         <svg
           className="w-3 h-3 text-[var(--color-text-secondary)]"
           fill="none"
@@ -167,9 +167,11 @@ function MenuItems({ items, onSelect, openSubmenuId, onOpenSubmenu }: MenuItemsP
                 {item.icon}
               </span>
             )}
-            <span className="flex-1">{item.label}</span>
+            <span className="flex-1 whitespace-nowrap">{item.label}</span>
             {item.shortcut && (
-              <span className="text-xs text-[var(--color-text-secondary)]">{item.shortcut}</span>
+              <span className="text-xs whitespace-nowrap text-[var(--color-text-secondary)]">
+                {item.shortcut}
+              </span>
             )}
           </button>
         )

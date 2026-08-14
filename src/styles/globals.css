@@ -209,7 +209,7 @@ code {
   --color-text-secondary: #6b7280;
   /* 弱化文本与交互态背景 */
   --color-text-muted: #9ca3af;
-  --hover-bg: #f3f4f6;
+  --hover-bg: #e5e7eb;
   --active-bg: #ffffff;
 }
 
@@ -227,7 +227,7 @@ code {
   --color-text-secondary: #9ca3af;
   /* 弱化文本与交互态背景 */
   --color-text-muted: #6b7280;
-  --hover-bg: #1f2937;
+  --hover-bg: #2c3846;
   --active-bg: #374151;
 }
 

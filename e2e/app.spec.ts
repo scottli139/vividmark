@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { presetSourceMode } from './sourceMode'
+import { setViewMode } from './viewMode'
 
 test.describe('VividMark Application', () => {
   test.beforeEach(async ({ page }) => {
@@ -17,9 +18,14 @@ test.describe('VividMark Application', () => {
   })
 
   test('should toggle dark mode', async ({ page }) => {
-    const darkModeButton = page.locator('button[title="Toggle Dark Mode"]')
-    await darkModeButton.click()
-    await expect(darkModeButton).toBeVisible()
+    // 暗色开关已移入更多菜单（主题三选项：Light / Dark / System）
+    await page.click('button[title="More"]')
+    await page.click('button:has-text("Dark")')
+    await expect(page.locator('html')).toHaveClass(/dark/)
+
+    await page.click('button[title="More"]')
+    await page.click('button:has-text("Light")')
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
   })
 
   test('should toggle sidebar', async ({ page }) => {
@@ -40,22 +46,17 @@ test.describe('VividMark Application', () => {
   })
 
   test('should switch view modes', async ({ page }) => {
-    const sourceButton = page.locator('button').filter({ hasText: /^Source$/ })
-    const splitButton = page.locator('button').filter({ hasText: /^Split$/ })
-    const previewButton = page.locator('button').filter({ hasText: /^Preview$/ })
+    // 极简工具栏后，视图模式切换在状态栏右侧下拉
+    const modeTrigger = page.getByTestId('statusbar-viewmode')
 
-    // Click Split mode
-    await splitButton.click()
+    await setViewMode(page, 'Split')
+    await expect(modeTrigger).toHaveText('Split')
 
-    // Click Preview mode
-    await previewButton.click()
+    await setViewMode(page, 'Preview')
+    await expect(modeTrigger).toHaveText('Preview')
 
-    // Click Source mode
-    await sourceButton.click()
-
-    await expect(sourceButton).toBeVisible()
-    await expect(splitButton).toBeVisible()
-    await expect(previewButton).toBeVisible()
+    await setViewMode(page, 'Source')
+    await expect(modeTrigger).toHaveText('Source')
   })
 
   test('should display outline in sidebar', async ({ page }) => {
@@ -71,12 +72,12 @@ test.describe('VividMark Application', () => {
   })
 
   test('should have high-frequency toolbar buttons only', async ({ page }) => {
-    // 精简后的工具栏：侧边栏切换 / 撤销重做 / 视图切换 / 暗色 / 更多菜单
-    await expect(page.locator('button[title="Toggle Sidebar"]')).toBeVisible()
-    await expect(page.locator('button[title="Undo (Cmd+Z)"]')).toBeVisible()
-    await expect(page.locator('button[title="Redo (Cmd+Shift+Z)"]')).toBeVisible()
-    await expect(page.locator('button[title="Toggle Dark Mode"]')).toBeVisible()
+    // 极简工具栏：只剩更多菜单；侧栏开关在状态栏，撤销重做/暗色入菜单
     await expect(page.locator('button[title="More"]')).toBeVisible()
+    await expect(page.locator('button[title="Toggle Sidebar"]')).toBeVisible()
+    await expect(page.locator('button[title="Undo (Cmd+Z)"]')).not.toBeVisible()
+    await expect(page.locator('button[title="Redo (Cmd+Shift+Z)"]')).not.toBeVisible()
+    await expect(page.locator('button[title="Toggle Dark Mode"]')).not.toBeVisible()
 
     // 文件操作与格式化按钮已移到原生菜单/右键菜单
     await expect(page.locator('button[title="Bold (Cmd+B)"]')).not.toBeVisible()

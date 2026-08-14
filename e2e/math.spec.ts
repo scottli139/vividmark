@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { presetSourceMode } from './sourceMode'
+import { setViewMode } from './viewMode'
 
 /**
  * 数学公式（KaTeX）端到端测试
@@ -9,7 +10,7 @@ import { presetSourceMode } from './sourceMode'
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/')
-  await expect(page.locator('[title="WYSIWYG"]')).toBeVisible()
+  await expect(page.getByTestId('statusbar-viewmode')).toBeVisible()
 })
 
 test.describe('Math (KaTeX)', () => {
@@ -59,7 +60,7 @@ test.describe('Math (KaTeX)', () => {
     await page.keyboard.press('Enter')
     await page.keyboard.type('| x | $S=1$ |')
 
-    await page.click('[title="WYSIWYG"]')
+    await setViewMode(page, 'WYSIWYG')
     await expect(page.locator('.math-inline')).toBeVisible()
 
     // PM 为 atom 行内节点插入的 separator/trailingBreak 曾把行高撑到 ~80px（两行空白）；

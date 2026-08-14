@@ -76,6 +76,7 @@
     "words": "字数：{{count}}",
     "chars": "字符：{{count}}",
     "cursor": "行 {{line}}，列 {{col}}",
+    "viewMode": "视图模式",
     "zoomReset": "重置缩放"
   },
   "fileTree": {

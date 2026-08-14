@@ -12,6 +12,8 @@ interface DropdownProps {
   title?: string
   /** 面板对齐方式，right 供工具栏右侧菜单使用 */
   align?: 'left' | 'right'
+  /** 向上弹出（状态栏等底部场景） */
+  openUp?: boolean
   /** 面板宽度类名，如 w-48 */
   widthClass?: string
   /** 触发按钮附加类名 */
@@ -25,6 +27,7 @@ export function Dropdown({
   trigger,
   title,
   align = 'left',
+  openUp = false,
   widthClass,
   triggerClassName,
 }: DropdownProps) {
@@ -60,7 +63,7 @@ export function Dropdown({
   }
 
   const panelClassName =
-    `absolute top-full mt-1 ${align === 'right' ? 'right-0' : 'left-0'}` +
+    `absolute ${openUp ? 'bottom-full mb-1' : 'top-full mt-1'} ${align === 'right' ? 'right-0' : 'left-0'}` +
     (widthClass ? ` ${widthClass}` : '')
 
   return (
@@ -68,7 +71,7 @@ export function Dropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-1.5 rounded hover:bg-[var(--editor-border)]/50 transition-colors${
+        className={`p-1.5 rounded-md hover:bg-[var(--hover-bg)] transition-colors${
           triggerClassName ? ` ${triggerClassName}` : ''
         }`}
         title={title}

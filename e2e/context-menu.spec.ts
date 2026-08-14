@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { presetSourceMode } from './sourceMode'
+import { setViewMode } from './viewMode'
 
 /**
  * 编辑器右键菜单端到端测试
@@ -138,14 +139,14 @@ test.describe('Context Menu — WYSIWYG mode', () => {
 
   test('table context group adds a row below', async ({ page }) => {
     // 切到 Source 输入表格 markdown，再切回 WYSIWYG
-    await page.click('button[title="Source"]')
+    await setViewMode(page, 'Source')
     await page.waitForSelector('.cm-content')
     await page.locator('.cm-content').click()
     await page.keyboard.press('ControlOrMeta+a')
     await page.keyboard.press('Backspace')
     await page.keyboard.type('| A | B |\n| --- | --- |\n| 1 | 2 |')
 
-    await page.click('button[title="WYSIWYG"]')
+    await setViewMode(page, 'WYSIWYG')
     const table = page.locator('.ProseMirror table')
     await expect(table).toBeVisible()
     const rowsBefore = await page.locator('.ProseMirror tr').count()
@@ -160,14 +161,14 @@ test.describe('Context Menu — WYSIWYG mode', () => {
   })
 
   test('link context group offers open/copy/remove', async ({ page }) => {
-    await page.click('button[title="Source"]')
+    await setViewMode(page, 'Source')
     await page.waitForSelector('.cm-content')
     await page.locator('.cm-content').click()
     await page.keyboard.press('ControlOrMeta+a')
     await page.keyboard.press('Backspace')
     await page.keyboard.type('[docs](https://example.com)')
 
-    await page.click('button[title="WYSIWYG"]')
+    await setViewMode(page, 'WYSIWYG')
     const link = page.locator('.ProseMirror a')
     await expect(link).toBeVisible()
 
