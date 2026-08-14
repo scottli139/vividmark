@@ -365,6 +365,11 @@ body {
   font-size: 0.9rem;
 }
 
+.visitor-count {
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hero h2 {
