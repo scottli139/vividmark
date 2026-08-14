@@ -198,3 +198,4 @@ Read these before touching editor code — 每条只保留核心约束，展开�
 - 修改了本文件提及的任何约定（命令、结构、工作流）时，同步更新本文件
 - 用户可见的功能变更同步更新 `README.md`（及 `README.zh-CN.md`）
 - 新语法/新渲染能力落地时，同步在 `examples/` 添加对应示例文件（kebab-case，对齐 `math-formulas.md` / `plantuml-diagrams.md` 先例；覆盖全部变体与边界写法，兼作手动验收 fixture）
+- AI 协助的提交，commit message 末尾加模型 trailer（格式 `Model: <模型名>`，如 `Model: Kimi K3 max`），以当次实际使用的模型为准；纯人工提交不加
