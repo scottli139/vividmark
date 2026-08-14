@@ -11,7 +11,7 @@ Key features:
 - Four view modes: WYSIWYG (default, Milkdown/ProseMirror) / Source / Split / Preview
 - CodeMirror 6 source editor: Markdown highlighting, smart list continuation, find & replace
 - Real-time Markdown preview (markdown-it + highlight.js)
-- Markdown extensions: admonitions, PlantUML, task lists, tables, math formulas (KaTeX)
+- Markdown extensions: admonitions, PlantUML（本地引擎离线渲染）, task lists, tables, math formulas (KaTeX)
 - File operations with native dialogs, auto-save (2s idle), drag & drop, recent files
 - Multi-window (Typora-style SDI): one window per document with smart open routing (focus / reuse / new window)
 - Native menubar (File/Edit/Paragraph/Format/View), macOS Dock menu & file associations (Open With)
@@ -32,6 +32,8 @@ Key features:
 | `docs/typst-offline-plan.md`                                       | Typst 离线支持计划（⏸️ 暂停中，2026-08-12 评估转向独立产品）    |
 | `docs/typst-standalone-editor-plan.md`                             | 独立 Typst 编辑器预研（📋 未立项；与 VividMark 分离的产品方向） |
 | `docs/word-export-plan.md`                                         | Word（docx）导出可行性与实现方案（📋 方案待评审，pandoc 路线）  |
+| `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（📋 方案待评审）     |
+| `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（📋 待评审：Alerts/脚注/frontmatter/Mermaid/排版批） |
 
 ## Technology Stack
 
@@ -198,6 +200,7 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **Dual editor cores**: WYSIWYG = Milkdown/ProseMirror（`WysiwygEditor.tsx`），Source/Split = CodeMirror 6（`CodeMirrorEditor.tsx`），都常驻挂载（非激活 hidden）。Markdown 源码是唯一事实来源；两侧事件 handler 与 `canUndo/canRedo` 写入都按 `viewMode` 门控
 - **Milkdown**: `@milkdown/kit` 必须子路径导入；自定义语法（admonition/PlantUML/本地图片/任务列表 checkbox/数学公式）全是纯 DOM `$view` nodeview + `$remark` mdast 变换，往返无损有测试锁定；**commonmark 预设剔除了 `remark-preserve-empty-line`**（它把空段落序列化成独立 `<br />` 行，用户视为垃圾——剔除后空段落 = 普通空行，重载自然折叠；源码已有的 `<br />` 行解析为 html 节点保留）
 - **数学公式（KaTeX）**: 双端实现——markdown-it 侧 `src/lib/markdown/mathPlugin.ts`（自写 inline/block rule），WYSIWYG 侧 `mathPlugin.ts`（remark-math + math_inline/math_block atom schema）+ `mathView.ts`（点击进 textarea 编辑态）；**语法规则严格对齐 micromark-extension-math 3.x**（块级仅多行围栏，单行 `$$x$$` 是行内公式；无 pandoc 货币保护），两侧规则不一致会导致模式切换抖动；PDF 导出经 `exportPdf.ts inlineKatexFonts` 把 woff2 字体转 base64 内联（vividmark-pdf:// 协议窗口加载不到应用字体）
+- **PlantUML 本地渲染（离线）**: 引擎为官方 `@plantuml/core`（TeaVM，MIT），vite-plugin-static-copy 拷到 `vendor/plantuml/`（不进 git），首个 UML 图出现才懒加载。统一入口 `src/lib/plantuml.ts renderPlantUmlSvg`（**引擎共享内部状态，必须串行渲染——Promise 队列 + 缓存 + inflight 去重**；失败回退在线 img）。markdown-it 同步回调只产 `data-plantuml-src` 占位符（行内正则**先掩码围栏/行内代码区**再替换）：预览经 `renderPlantUmlPlaceholders` 渐进渲染（**effect deps 必须含 viewMode**——预览容器只在 preview/split 挂载；dark 随主题重渲染）；导出走 `parseMarkdownAsync { inlinePlantUml: true }` 内联 SVG。WYSIWYG nodeview 双区防抖 + 渲染序号 + 主题订阅（裸 `@startuml` 行内不特殊处理）。**jsdom 无 canvas**：单测注入假引擎，真机冒烟 `e2e/plantuml.spec.ts`；详见 implementation-notes
 - **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
 - **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`
@@ -216,7 +219,7 @@ Read these before touching editor code — details in `docs/implementation-notes
 - **编辑器右键菜单**: 三区域（Source/Preview/WYSIWYG）均已接入，结构对齐 Typora（剪贴板组 + 段落▸/格式▸/插入▸ 子菜单）。菜单项构建是纯函数（`src/lib/contextMenu.ts`，id/文案/disabled/快捷键标注），状态用 `src/hooks/useContextMenu.ts`；动作按 id 前缀分发——`format:*` 转发 editor-format 事件总线，剪贴板走 `src/lib/clipboard.ts`（桌面端 `@tauri-apps/plugin-clipboard-manager`，浏览器降级 navigator.clipboard），WYSIWYG 上下文动作（表格行列增删/链接/图片/代码块/`insert:*`）在 `wysiwygContextMenu.ts`（表格删除是自实现 PM transaction，不走 milkdown selectRow/deleteSelectedCells 的 index 语义；表头行禁删；「在上方/下方插入段落」= 在当前顶层块前后插空段落并落入光标）。**WebKit 右键抢选**：WKWebView 在 mousedown→contextmenu 之间抢先写 DOM 词/行选择（不可取消），必须 contextmenu 时折叠选区 + `getSelection().collapse(domAtPos)` 把 DOM 选择压回光标（细节见 implementation-notes）
 - **macOS 融合标题栏**: tauri.conf.json `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS 生效）；`trafficLightPosition: {x:12, y:25.5}` 把红绿灯垂直居中到 48px 工具栏（tao 语义：标题栏高 = 按钮高 14pt + y，按钮贴容器底部；居中公式 y = 目标按钮顶距 + 8.5pt）；App 给 documentElement 加 `is-macos` class（判定走 `src/lib/platform.ts`）；Toolbar 根 `data-tauri-drag-region` + macOS 下 `pl-[78px]`（traffic light 预留）+ 自绘居中标题（<760px 隐藏）。**红绿灯位置会被 setTitle 重置**：创建时 trafficLightPosition 生效，但前端约 1.8s 后 setTitle 会让 AppKit 把按钮弹回默认 y（偏上），tao 的 drawRect 重放不改按钮 y 无法自愈——所以标题必须走 `set_window_title` 命令（titlebar.rs，设题后显式重排红绿灯），前端禁止直接调 setTitle。**窗口类权限坑（tauri 2.10+ ACL 收紧）**：`core:window:allow-start-dragging` / `allow-set-title` / `allow-destroy` 均非默认权限，capabilities 必须显式授予，否则 IPC 被 ACL 静默拒绝（拖拽失效 / 标题恒为初始值 / **窗口无法关闭**——onCloseRequested 的「未 preventDefault 即 destroy()」被拦，红灯/Cmd+W/菜单 Close 全部静默无效，黄绿灯不受影响，0.4.0 曾带此 bug 上架）；② Tauri 的 drag.js 只查 `e.target` 自身属性（无 closest 上溯），子元素覆盖区域不触发——所以 Toolbar 的左/右分组容器也带 `data-tauri-drag-region`
 - **Logging**: use `createLogger('Module')` from `src/lib/logger.ts` (frontend) and `tauri-plugin-log` (backend); logs at `~/Library/Logs/com.vividmark.app/` on macOS
-- **导出为网站（静态站点包）**: 菜单/MoreMenu `export-site`（按 `openedFolder` 门控 enabled）→ `exportSite.ts exportSite()`（选输出目录 → `readDirectory` 原始树 → 渲染 → Rust `export_site` 批量写盘，参照 pdf.rs 拆为 site_export.rs）→ `<picked>/<文件夹名>-site/`。纯逻辑全在 `siteGenerator.ts`（可单测）：**镜像目录结构**（`foo.md`→`foo.html`，资产按原相对位置复制，故图片相对路径零重写）、README/index→所在目录 index.html、数字前缀 `01-` 排序且显示剥离、GitHub 风格标题 id（页内/跨页锚点可用）、`.md` 互链重写为 `.html`；页面框架在 `siteTemplate.ts`（共享 `vividmark-site/site.css` = collectDocumentCss + 框架样式 + KaTeX 字体内联；`.dark` class 浅/深切换，localStorage 持久化；`.nojekyll` 兼容 GitHub Pages）。关键坑：站点渲染用 `parseMarkdown(content, { preserveImages: true })`——经 markdown-it render env 跳过 image rule 的 convertFileSrc，否则相对图片被转成 asset:// 死链
+- **导出为网站（静态站点包）**: 菜单/MoreMenu `export-site`（按 `openedFolder` 门控 enabled）→ `exportSite.ts exportSite()`（选输出目录 → `readDirectory` 原始树 → 渲染 → Rust `export_site` 批量写盘，参照 pdf.rs 拆为 site_export.rs）→ `<picked>/<文件夹名>-site/`。纯逻辑全在 `siteGenerator.ts`（可单测）：**镜像目录结构**（`foo.md`→`foo.html`，资产按原相对位置复制，故图片相对路径零重写）、README/index→所在目录 index.html、数字前缀 `01-` 排序且显示剥离、GitHub 风格标题 id（页内/跨页锚点可用）、`.md` 互链重写为 `.html`；页面框架在 `siteTemplate.ts`（共享 `vividmark-site/site.css` = collectDocumentCss + 框架样式 + KaTeX 字体内联；`.dark` class 浅/深切换，localStorage 持久化；`.nojekyll` 兼容 GitHub Pages）。关键坑：站点渲染用 `parseMarkdownAsync(content, { preserveImages: true, inlinePlantUml: true })`——preserveImages 让 image rule 跳过 convertFileSrc（否则相对图片变 asset:// 死链）；inlinePlantUml 内联 UML SVG（原远程图需联网）
 - **PDF 直存管线**: 菜单/MoreMenu/右键 → `editor-export-pdf` 事件 → `exportPdf.ts exportCurrentDocument()` → 保存对话框 → 序列化应用 CSS + `parseMarkdownAsync` 生成独立 HTML（含打印密度覆盖：14px 字号/紧凑单元格/首列不换行）→ `export_pdf_file` 命令：隐藏 Webview 窗口（`vividmark-pdf://` 自定义协议 serve HTML，`on_page_load` Finished 等渲染，15s 超时兜底）→ macOS `NSPrintOperation(SaveJob)` / Windows `PrintToPdf` 静默写文件；**PDF 书签大纲**：前端从渲染 HTML 提取标题随 `outline` 参数传入，macOS 用 PDFKit 后处理重建（WebKit 不生成 outline；文本提取有兼容表意文字坑，匹配需 NFKC+去空白+部首通配，见 implementation-notes）；Linux/旧 runtime 回退 `print_pdf` 打印对话框。**macOS 关键坑**：必须 `sharedPrintInfo` copy + `canSpawnSeparateThread(true)` + `runOperationModalForWindow`（全新 `NSPrintInfo` + `run()` 会无限分页；`createPDFWithConfiguration` 是整页长截图不分页），细节见 implementation-notes
 
 ## Known Issues
@@ -239,3 +242,4 @@ Read these before touching editor code — details in `docs/implementation-notes
 - 实现细节、踩坑记录写入 `docs/implementation-notes.md`；AGENTS.md 只保留精简指南
 - 修改了本文件提及的任何约定（命令、结构、工作流）时，同步更新本文件
 - 用户可见的功能变更同步更新 `README.md`（及 `README.zh-CN.md`）
+- 新语法/新渲染能力落地时，同步在 `examples/` 添加对应示例文件（kebab-case，对齐 `math-formulas.md` / `plantuml-diagrams.md` 先例；覆盖全部变体与边界写法，兼作手动验收 fixture）

@@ -84,6 +84,7 @@
 - [x] **导出 PDF** ✅ - 支持将 Markdown 导出为 PDF（通过浏览器打印为 PDF）
 - [ ] 导出 HTML
 - [ ] 导出 Word（方案见 `docs/word-export-plan.md`，pandoc 路线已 PoC 验证）
+- [ ] 站点导出配置感知（mkdocs nav 驱动导航 / vuepress best-effort；方案见 `docs/site-export-config-plan.md`）
 - [x] 搜索与替换 ✅（Source/Split 模式，Cmd+F；WYSIWYG 未接，见 Phase 13 P3）
 
 ### Phase 7: 打磨优化 (进行中)
@@ -243,7 +244,8 @@ logger.error('Failed to sync:', error)
 - [ ] 专注模式 / 打字机模式
 - [x] 统一自绘对话框（替换原生 confirm/alert，修复 WKWebView 下 Cancel 失效吞内容）
 - [x] 大纲位置高亮跟随 ✅；文件树搜索与文件管理 ✅；设置面板 ✅（最小可用：主题/语言/侧栏显隐）
-- [ ] KaTeX / Mermaid / PlantUML 离线化；HTML/Word 导出
+- [x] PlantUML 离线化 ✅（2026-08-14：@plantuml/core 本地引擎，全链路 + 暗色 + PDF/站点导出内联 SVG）
+- [ ] Mermaid 支持；HTML/Word 导出
 
 #### 附加修复与品牌（2026-08-04/05）✅
 
@@ -302,14 +304,16 @@ logger.error('Failed to sync:', error)
 - **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3）
 - **专注模式 / 打字机模式**（Phase 13 P3）
 - **导出 HTML / Word**（Phase 6 / 13 P3）
-- **Mermaid / PlantUML 离线化**（Phase 13 P3；KaTeX 本身本地渲染已离线；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
-- **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条
+- **扩展语法支持** - GitHub Alerts / 脚注 / frontmatter / Mermaid / 排版批（盘点与批次见 `docs/syntax-extensions-plan.md`）
+- **站点导出配置感知**（Phase 6；mkdocs nav 驱动导航 / vuepress best-effort，方案见 `docs/site-export-config-plan.md`）
+- **Mermaid 支持**（Phase 13 P3 / FR-021.5；PlantUML 已离线化 ✅ 2026-08-14，复用其占位符 + 异步渲染基建；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
+- **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条、`@startuml` 裸行内形态支持（当前显示为源码文本，渲染仅 Source/Preview/Split）
 
 ### 体验与优化
 
 - **性能优化** - 大文件处理（Phase 7）
 - **Split 模式同步滚动精准化** - 当前基于百分比，内容长度差异大时不精准；可考虑基于 heading/段落位置或 caret 位置的智能同步、灵敏度调节
-- **PlantUML 增强** - 本地渲染（plantuml.jar 或 WASM，当前依赖在线服务）；编辑器内编辑 + 实时预览
+- ~~**PlantUML 增强** - 本地渲染~~ ✅（2026-08-14：`@plantuml/core` TeaVM 引擎离线渲染 + 暗色适配 + PDF/站点导出内联 SVG，失败回退在线服务；「编辑器内编辑 + 实时预览」已由 WYSIWYG 双区 / Split 覆盖）
 - **Admonitions 增强** - `??? note` 可折叠语法；嵌套支持
 
 ### 工程化
