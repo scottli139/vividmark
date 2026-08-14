@@ -170,6 +170,7 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 | FR-020.7 | 支持自定义标题 `::: tip 自定义标题` | P1 | ✅ |
 | FR-020.8 | 可折叠 Admonitions `??? note` | P2 | ⬜ |
 | FR-020.9 | 嵌套 Admonitions 支持 | P2 | ⬜ |
+| FR-020.10 | MkDocs `!!!` admonition 语法兼容（双端，源码围栏保持往返） | P2 | ⬜ |
 
 #### 3.3.2 图表支持 [FR-021]
 
@@ -191,6 +192,18 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 | FR-022.4 | 预览时正确显示本地图片 | P0 | ✅ |
 | FR-022.5 | 支持网络图片 URL | P1 | ✅ |
 | FR-022.6 | 图片拖拽调整大小 | P2 | ⬜ |
+
+#### 3.3.4 语法扩展兼容 [FR-023]
+
+> 盘点与实现方案见 `docs/syntax-extensions-plan.md`；均要求预览/WYSIWYG 双端，WYSIWYG 侧源码往返无损。
+
+| ID | 需求描述 | 优先级 | 状态 |
+|:---:|---------|:------:|:----:|
+| FR-023.1 | GitHub Alerts（`> [!NOTE]` 等五类，复用 admonition 视觉） | P1 | ⬜ |
+| FR-023.2 | 脚注（`[^id]` 引用与定义，文末集中渲染 + 回链） | P1 | ⬜ |
+| FR-023.3 | YAML frontmatter（预览剥离不渲染；WYSIWYG 只读节点，保存不丢） | P1 | ⬜ |
+| FR-023.4 | 高亮 `==mark==` / 上标 `^sup^` / 下标 `~sub~` / emoji 短码 | P2 | ⬜ |
+| FR-023.5 | 图片尺寸语法（方言选型待定：pandoc `=WxH` vs Obsidian `\|width`） | P3 | ⬜ |
 
 ### 3.4 用户界面功能
 
@@ -228,12 +241,14 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 
 | ID | 需求描述 | 优先级 | 状态 |
 |:---:|---------|:------:|:----:|
-| FR-040.1 | 导出为 PDF | P1 | ⬜ |
+| FR-040.1 | 导出为 PDF | P1 | ✅ |
 | FR-040.2 | 导出为 HTML（独立文件） | P1 | ⬜ |
 | FR-040.3 | 导出为 HTML（带样式） | P1 | ⬜ |
 | FR-040.4 | 导出为 Word (.docx) | P2 | ⬜ |
 | FR-040.5 | 导出时包含图片资源 | P1 | ⬜ |
 | FR-040.6 | 打印预览与打印 | P1 | ⬜ |
+| FR-040.7 | 导出打开文件夹为静态网站（镜像结构 + 自动导航 + 资产复制） | P2 | ✅ |
+| FR-040.8 | 站点导出配置感知（mkdocs nav/docs_dir 驱动；vuepress best-effort；方案见 `docs/site-export-config-plan.md`） | P2 | ⬜ |
 
 ---
 

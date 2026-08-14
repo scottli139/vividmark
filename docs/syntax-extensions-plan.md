@@ -111,7 +111,16 @@ graph TD; A-->B
 | 批次 4 | Mermaid（复用 PlantUML 基建全链路） | 1.5 天 |
 | 批次 5 | 排版增强批：`==` / `^` / `~` / emoji（预览侧先行，WYSIWYG 逐个评估） | 1 天 |
 
-批次间无依赖，可按反馈插单；与站点导出配置感知方案（P1–P3）并行不冲突。
+批次间逻辑依赖少，但**物理上必须串行**（见下节依赖约束），可按反馈插单。
+
+## 🔗 依赖与顺序约束（2026-08-14 补充）
+
+1. **语法批次串行**：`parser.ts` / `wysiwygPlugins.ts` 是全部批次的共同热点；remark 插件注册顺序敏感（`admonitionPlugin.ts` 已有「必须在 remarkLineBreak 之后」的顺序约束注释）。批次不并行开分支，每批落地后跑全量往返测试（`wysiwygRoundtrip.test.ts`）
+2. **批次 3 frontmatter 拆三层**：`parseFrontmatter` 纯函数（与站点导出配置感知 P1 共用，随其落地，nav 标题优先级依赖它）→ 3a 预览剥离（此后近免费）→ 3b WYSIWYG 只读 atom 节点（往返测试重头，可独立排期）
+3. **批次 4 Mermaid 的导出侧接入**（`exportPdf.ts` / `exportSite.ts` 内联 SVG）必须等站点导出配置感知 P1–P3 定型——两案同改 `exportSite.ts` 编排层，先做完站点导出再做 Mermaid 内联，避免互相返工
+4. **Word 导出**（`docs/word-export-plan.md`）排在语法线收尾之后：`wordPreprocess` 的语法映射一次覆盖到位（脚注 pandoc 原生、Alerts 降级 blockquote、`==mark==`/emoji 有 pandoc 扩展）；提前做则每条新语法都要回补
+5. **WYSIWYG 补全**（slash menu / 悬浮格式条）排在语法批次之后：插入入口需覆盖新语法（Alerts 类型选择、脚注、`==` 等），先做菜单会二次返工
+6. **关联测试面**：Split 滚动同步精准化需把「脚注集中渲染到文末」纳入位置映射测试用例；主题系统 CSS 主题包宜在语法面定型后梳理覆盖面（新语法样式一律走 CSS 变量，既定约定已把耦合降为软）
 
 ## 🔧 实施约定
 
@@ -124,6 +133,6 @@ graph TD; A-->B
 
 ## ❓ 待决策事项
 
-1. **批次启动顺序确认**：建议按推荐批次 1→5；若站点导出配置感知先落地，脚注/frontmatter 优先级自然提前（mkdocs 仓库高频）
+1. ~~批次启动顺序确认~~ **已收敛（2026-08-14）**：执行顺序按「依赖与顺序约束」与 `PLAN.md` 第一波排布——站点导出 P1 先行（frontmatter 纯函数随之落地），Alerts/脚注随后，Mermaid 等导出管线定型，Word 导出在语法线收尾后
 2. **图片尺寸方言选型**：pandoc `=WxH` vs Obsidian `|width`——影响图片管线设计，单独决策
-3. **emoji WYSIWYG 侧是否做**：预览侧先行后按反馈定（纯预览已能满足大部分场景）
+3. ~~emoji WYSIWYG 侧是否做~~ **已决策（2026-08-14）**：预览侧先行（markdown-it-emoji，源码保持文本零往返风险）；WYSIWYG 侧按反馈再评估

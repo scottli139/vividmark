@@ -299,15 +299,27 @@ logger.error('Failed to sync:', error)
 
 ### 功能开发
 
-- **文件变更监控** - 外部修改自动重载（Phase 5）
+**第一波（约 9 天，顺序含依赖约束，依据见两份方案文档的「依赖与顺序约束」章节）：**
+
+1. **站点导出配置感知 P1** — mkdocs 核心（风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 纯函数）；`yaml` 依赖已拍板（2026-08-14），无阻塞项。方案 `docs/site-export-config-plan.md`
+2. **frontmatter 双端**（语法批次 3：预览剥离 + WYSIWYG 只读 atom 节点；纯函数随上项落地）
+3. **站点导出配置感知 P2** — `!!!` admonition 双端 + `exclude_docs`（FR-020.10）
+4. **GitHub Alerts**（语法批次 1 / FR-023.1；0.5 天，可提前热身）
+5. **脚注**（语法批次 2 / FR-023.2）
+6. **站点导出配置感知 P3** — vuepress best-effort；站点导出管线至此定型
+7. **Mermaid**（语法批次 4 / FR-021.5；复用 PlantUML 占位符 + 懒加载基建；导出侧内联须等上项定型）
+8. **排版批**（语法批次 5 / FR-023.4：`==` / `^` / `~` / emoji 预览侧先行）
+
+**后续波次：**
+
+- **Word 导出**（Phase 6 / FR-040.4；pandoc 路线 PoC 已验证；排在语法线收尾后，`wordPreprocess` 语法映射一次覆盖到位——方案 `docs/word-export-plan.md`）
+- **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条（排在语法批次之后，插入入口覆盖新语法）、`@startuml` 裸行内形态支持（当前显示为源码文本，渲染仅 Source/Preview/Split）
 - **多窗口会话恢复** - 重启后重开窗口组（多窗口二期项，含 Windows/Linux 单实例 + argv 文件关联）
-- **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3）
+- **文件变更监控** - 外部修改自动重载（Phase 5；与多窗口/自动保存的冲突策略需同期设计）
+- **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3；宜在语法面定型后梳理覆盖面）
 - **专注模式 / 打字机模式**（Phase 13 P3）
-- **导出 HTML / Word**（Phase 6 / 13 P3）
-- **扩展语法支持** - GitHub Alerts / 脚注 / frontmatter / Mermaid / 排版批（盘点与批次见 `docs/syntax-extensions-plan.md`）
-- **站点导出配置感知**（Phase 6；mkdocs nav 驱动导航 / vuepress best-effort，方案见 `docs/site-export-config-plan.md`）
-- **Mermaid 支持**（Phase 13 P3 / FR-021.5；PlantUML 已离线化 ✅ 2026-08-14，复用其占位符 + 异步渲染基建；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
-- **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条、`@startuml` 裸行内形态支持（当前显示为源码文本，渲染仅 Source/Preview/Split）
+- **导出 HTML**（Phase 6 / FR-040.2/.3）
+- ~~Mermaid 支持~~（已并入第一波第 7 项；Typst 方案经 2026-08-12 评估维持暂停、倾向转为独立产品，见 `docs/typst-offline-plan.md` 头部结论与 `docs/typst-standalone-editor-plan.md`）
 
 ### 体验与优化
 

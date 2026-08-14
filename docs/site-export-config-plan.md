@@ -184,6 +184,13 @@ function parseFrontmatter(content: string): { data: Record<string, unknown> | nu
 | 3.1 | `.vuepress/public` → 站点根 | 含隐藏目录读取检查点验证 |
 | 3.2 | config title 正则提取 | 站点名尽力而为 |
 
+## 🔗 依赖与顺序约束（2026-08-14 补充）
+
+1. **前置已清**：`yaml` 依赖已拍板引入（2026-08-14），P1 无阻塞待决项，可直接开工
+2. **frontmatter 三层拆分**（与 `docs/syntax-extensions-plan.md` 批次 3 协同）：`parseFrontmatter` 纯函数随本方案 P1 落地（任务 1.4 的 nav 标题注入依赖它）；预览剥离（3a）与 WYSIWYG 只读 atom 节点（3b）是语法方案的独立增量，不阻塞本方案
+3. **热点文件串行**：P2 的 `!!!` 双端支持改动 `parser.ts` / `wysiwygPlugins.ts`（全部语法批次的共同热点，remark 注册顺序敏感），与语法扩展方案的各批次统一排队、不并行分支；P2.2 预处理器挂 `defaultValueCtx` / `replaceAll` 两个 Milkdown 入口（`WysiwygEditor.tsx`）
+4. **导出管线定型顺序**：本方案 P1–P3 期间 `exportSite.ts` 编排层大幅重写；Mermaid（语法方案批次 4）的导出侧内联 SVG（`exportSite.ts` / `exportPdf.ts`）必须等 P3 完成后接入，避免互相返工
+
 ## 🧪 测试计划
 
 **单元测试（Vitest，全部为纯函数）：**
@@ -216,8 +223,8 @@ function parseFrontmatter(content: string): { data: Record<string, unknown> | nu
 
 ## ❓ 待决策事项
 
-1. **双配置命中的提示**：建议在导出成功提示中带一句「已采用 MkDocs 配置」（不打断流程）；是否需要导出前确认对话框？（建议不要）
-2. **vuepress config 受限求值**（stub `require` 后 eval 对象字面量可解析静态 config，含注释也能过）：执行用户仓库 JS 的安全与复杂性权衡——建议不做，正则取 `title` 即可
-3. **`yaml` 新依赖**引入确认（~40KB，零传递依赖）
+1. ~~双配置命中的提示~~ **已决策（2026-08-14）**：导出成功提示带一句「已采用 MkDocs 配置」，不打断流程、不加确认框
+2. ~~vuepress config 受限求值~~ **已决策（2026-08-14）**：不做受限求值，仅正则提取 `title`；导航退回目录推导 + frontmatter
+3. ~~`yaml` 新依赖引入~~ **已决策（2026-08-14）**：引入 `yaml` 包（~40KB，零传递依赖），用于 mkdocs.yml 与 frontmatter 解析
 
 ~~4. mkdocs `!!!` 语法是否进编辑器预览~~ **已决策（2026-08-14）**：进主解析器双端（预览/分栏 + WYSIWYG），语法保持往返，见 P2。
