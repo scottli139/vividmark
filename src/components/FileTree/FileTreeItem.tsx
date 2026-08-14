@@ -89,7 +89,7 @@ function RenameInput({ item, onSubmit, onCancel }: RenameInputProps) {
         }
       }}
       onBlur={cancel}
-      className="flex-1 min-w-0 px-1 text-sm bg-[var(--editor-bg)]
+      className="flex-1 min-w-0 px-1 text-[13px] bg-[var(--editor-bg)]
         text-[var(--color-text)] border border-[var(--accent-color)] rounded outline-none"
     />
   )
@@ -143,12 +143,12 @@ export const FileTreeItem = memo(function FileTreeItem({
         onClick={handleClick}
         onContextMenu={handleContextMenu}
         className={`
-          flex items-center gap-1 px-2 py-1 mx-1 rounded-md cursor-pointer text-sm
+          flex items-center gap-1 px-2 py-1 mx-1 rounded-md cursor-pointer text-[13px]
           transition-colors duration-150
           ${
             isSelected
               ? 'bg-[var(--accent-color)]/15 text-[var(--accent-color)] font-medium'
-              : 'hover:bg-[var(--hover-bg)] text-[var(--color-text)]'
+              : 'hover:bg-[var(--hover-bg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]'
           }
         `}
         style={{ paddingLeft: `${level * 12 + 8}px` }}

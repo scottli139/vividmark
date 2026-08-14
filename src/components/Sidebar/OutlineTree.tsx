@@ -46,12 +46,12 @@ function OutlineTreeNode({
         ref={isActive ? activeItemRef : undefined}
         onClick={() => onHeadingClick(node)}
         className={`
-          flex items-center rounded-md border-l-2 text-sm transition-colors duration-150
+          flex items-center rounded-md border-l-2 text-[13px] transition-colors duration-150
           py-0.5 pr-1 cursor-pointer
           ${
             isActive
               ? 'bg-[var(--active-bg)] border-[var(--accent-color)]'
-              : 'border-transparent text-[var(--color-text)] hover:bg-[var(--hover-bg)]'
+              : 'border-transparent text-[var(--color-text-secondary)] hover:bg-[var(--hover-bg)] hover:text-[var(--color-text)]'
           }
         `}
         style={{ paddingLeft: `${(node.level - 1) * 12}px` }}

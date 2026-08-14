@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
-import { open } from '@tauri-apps/plugin-dialog'
 import { useTranslation } from 'react-i18next'
 import type { FileTreeItem } from '../../lib/fileTreeUtils'
 import {
@@ -25,11 +24,13 @@ import {
   copyNameCandidate,
 } from '../../lib/fileTreeUtils'
 import { openFileByPath } from '../../lib/fileOps'
+import { openFolderDialog } from '../../lib/openFolderDialog'
 import { writeClipboardText } from '../../lib/clipboard'
 import { isMacOS } from '../../lib/platform'
 import { confirmDialog, alertDialog } from '../../lib/dialog'
 import { useEditorStore } from '../../stores/editorStore'
 import { ContextMenu, type MenuItem } from '../Menu'
+import { OpenFolderButton } from '../OpenFolderButton'
 import { FileTreeItem as FileTreeItemComponent } from './FileTreeItem'
 import type { CreatingState } from './FileTreeItem'
 import { InlineNameInput } from './InlineNameInput'
@@ -108,18 +109,6 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
     },
     [openedFolder, items, loadDirectory]
   )
-
-  // 打开文件夹对话框
-  const handleOpenFolder = useCallback(async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-    })
-
-    if (selected && typeof selected === 'string') {
-      setOpenedFolder(selected)
-    }
-  }, [setOpenedFolder])
 
   // 关闭文件夹
   const handleCloseFolder = useCallback(() => {
@@ -294,19 +283,11 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
           break
         }
         case 'open-folder':
-          void handleOpenFolder()
+          void openFolderDialog()
           break
       }
     },
-    [
-      contextMenu,
-      openedFolder,
-      startCreating,
-      handleSelect,
-      handleDuplicate,
-      handleDelete,
-      handleOpenFolder,
-    ]
+    [contextMenu, openedFolder, startCreating, handleSelect, handleDuplicate, handleDelete]
   )
 
   // 重命名提交：同步 store（当前打开文件）并刷新定位
@@ -385,28 +366,11 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
     return parts[parts.length - 1] || openedFolder
   }, [openedFolder])
 
-  // 如果没有打开的文件夹，显示提示
+  // 如果没有打开的文件夹，显示打开入口（与 Sidebar 最近文件视图共用同一幽灵按钮）
   if (!openedFolder) {
     return (
       <div className="p-3">
-        <button
-          onClick={handleOpenFolder}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2
-            text-sm font-medium text-[var(--accent-color)]
-            border border-[var(--accent-color)] rounded
-            hover:bg-[var(--accent-color)] hover:text-white
-            transition-colors duration-150"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-            />
-          </svg>
-          {t('fileTree.openFolder')}
-        </button>
+        <OpenFolderButton />
       </div>
     )
   }
@@ -416,7 +380,7 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
       {/* 文件夹标题栏 */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--editor-border)]">
         <span
-          className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider truncate flex-1"
+          className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider truncate flex-1"
           title={openedFolder ?? undefined}
         >
           {folderName}
@@ -445,8 +409,8 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder={t('fileTree.filterPlaceholder')}
-          className="w-full px-2 py-1 text-sm bg-[var(--editor-bg)]
-            text-[var(--color-text)] border border-[var(--editor-border)] rounded
+          className="w-full px-2 py-1 text-[13px] bg-[var(--editor-bg)]
+            text-[var(--color-text)] border border-[var(--editor-border)] rounded-md
             outline-none focus:border-[var(--accent-color)]"
         />
       </div>
@@ -457,7 +421,7 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
         onContextMenu={handleBlankContextMenu}
       >
         {isLoading ? (
-          <div className="p-4 text-center text-sm text-[var(--color-text-secondary)]">
+          <div className="p-4 text-center text-[13px] text-[var(--color-text-secondary)]">
             <svg
               className="w-5 h-5 mx-auto mb-2 animate-spin"
               fill="none"
@@ -481,7 +445,7 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
             {t('fileTree.loading')}
           </div>
         ) : error ? (
-          <div className="p-4 text-center text-sm text-red-500">
+          <div className="p-4 text-center text-[13px] text-red-500">
             <svg
               className="w-5 h-5 mx-auto mb-2"
               fill="none"
@@ -498,7 +462,7 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
             {error}
           </div>
         ) : visibleItems.length === 0 && !creating ? (
-          <div className="p-4 text-center text-sm text-[var(--color-text-muted)]">
+          <div className="p-4 text-center text-[13px] text-[var(--color-text-muted)]">
             {t(query.trim() ? 'fileTree.noMatches' : 'fileTree.emptyFolder')}
           </div>
         ) : (

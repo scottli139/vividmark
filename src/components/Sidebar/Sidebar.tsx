@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { open } from '@tauri-apps/plugin-dialog'
 import { invoke } from '@tauri-apps/api/core'
 import {
   SIDEBAR_MAX_WIDTH,
@@ -23,6 +22,7 @@ import {
 } from '../../lib/outlineUtils'
 import { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import { FileTree } from '../FileTree'
+import { OpenFolderButton } from '../OpenFolderButton'
 import { OutlineTree } from './OutlineTree'
 import { useResizable } from '../../hooks/useResizable'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -40,7 +40,6 @@ export function Sidebar() {
     sidebarWidth,
     setSidebarWidth,
     openedFolder,
-    setOpenedFolder,
     cursorLine,
     viewMode,
     activeHeadingIndex,
@@ -169,18 +168,6 @@ export function Sidebar() {
     [recentMenu, removeRecentFile, handleRecentFileClick]
   )
 
-  // 打开文件夹（与 FileTree 未打开状态的入口一致）
-  const handleOpenFolder = useCallback(async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-    })
-
-    if (selected && typeof selected === 'string') {
-      setOpenedFolder(selected)
-    }
-  }, [setOpenedFolder])
-
   // 点击大纲项 - 派发事件通知 Editor 滚动
   const handleHeadingClick = useCallback((heading: OutlineItem) => {
     window.dispatchEvent(
@@ -237,7 +224,7 @@ export function Sidebar() {
           // 大纲视图
           <div className="p-3 flex-1 overflow-y-auto overflow-x-hidden">
             {headings.length === 0 ? (
-              <div className="text-sm text-[var(--color-text-muted)] italic">
+              <div className="text-[13px] text-[var(--color-text-muted)] italic">
                 {t('sidebar.noHeadings')}
               </div>
             ) : (
@@ -257,25 +244,12 @@ export function Sidebar() {
         ) : (
           // 文件视图（未打开文件夹）：打开文件夹入口 + 最近文件
           <div className="p-3 flex-1 overflow-y-auto overflow-x-hidden">
-            <button
-              onClick={handleOpenFolder}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 mb-4
-                text-sm font-medium text-white bg-[var(--accent-color)] rounded-md
-                hover:opacity-90 active:opacity-80 transition-opacity duration-150"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                />
-              </svg>
-              {t('fileTree.openFolder')}
-            </button>
+            <div className="mb-3">
+              <OpenFolderButton />
+            </div>
 
             <div className="flex items-center justify-between mb-2 px-1">
-              <h3 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
+              <h3 className="text-[11px] font-medium text-[var(--color-text-muted)] uppercase tracking-wider">
                 {t('sidebar.recentFiles')}
               </h3>
               {recentFiles.length > 0 && (
@@ -309,7 +283,7 @@ export function Sidebar() {
                   value={recentFilter}
                   onChange={(e) => setRecentFilter(e.target.value)}
                   placeholder={t('sidebar.filterRecent')}
-                  className="w-full pl-7 pr-2 py-1.5 text-sm bg-[var(--editor-bg)]
+                  className="w-full pl-7 pr-2 py-1.5 text-[13px] bg-[var(--editor-bg)]
                     text-[var(--color-text)] border border-[var(--editor-border)] rounded-md
                     outline-none focus:border-[var(--accent-color)]"
                 />
@@ -331,7 +305,7 @@ export function Sidebar() {
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                   />
                 </svg>
-                <div className="text-sm">{t('sidebar.noRecentFiles')}</div>
+                <div className="text-[13px]">{t('sidebar.noRecentFiles')}</div>
               </div>
             ) : (
               <ul className="space-y-0.5">
@@ -340,11 +314,11 @@ export function Sidebar() {
                     key={file.path}
                     onClick={() => handleRecentFileClick(file)}
                     onContextMenu={(e) => openRecentMenu(e, file)}
-                    className="text-sm text-[var(--color-text)] hover:bg-[var(--hover-bg)] cursor-pointer rounded-md px-2 py-1.5 flex items-center gap-1.5 transition-colors duration-100"
+                    className="text-[13px] text-[var(--color-text-secondary)] hover:bg-[var(--hover-bg)] hover:text-[var(--color-text)] cursor-pointer rounded-md px-2 py-1.5 flex items-center gap-1.5 transition-colors duration-100"
                     title={file.path}
                   >
                     <svg
-                      className="w-4 h-4 flex-shrink-0 text-[var(--color-text-muted)]"
+                      className="w-3.5 h-3.5 flex-shrink-0 text-[var(--color-text-muted)]"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"

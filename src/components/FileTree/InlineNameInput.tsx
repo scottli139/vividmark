@@ -37,7 +37,7 @@ export function InlineNameInput({ level, isDirectory, onSubmit, onCancel }: Inli
 
   return (
     <div
-      className="flex items-center gap-1 px-2 py-1 text-sm"
+      className="flex items-center gap-1 px-2 py-1 text-[13px]"
       style={{ paddingLeft: `${level * 12 + 8}px` }}
     >
       {/* 与树行的展开箭头占位对齐 */}
@@ -61,7 +61,7 @@ export function InlineNameInput({ level, isDirectory, onSubmit, onCancel }: Inli
           }
         }}
         onBlur={cancel}
-        className="flex-1 min-w-0 px-1 text-sm bg-[var(--editor-bg)]
+        className="flex-1 min-w-0 px-1 text-[13px] bg-[var(--editor-bg)]
           text-[var(--color-text)] border border-[var(--accent-color)] rounded outline-none"
       />
     </div>

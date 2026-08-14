@@ -8,7 +8,7 @@ export function FileIcon({ type, isSelected }: { type: string; isSelected: boole
     case 'folder':
       return (
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           fill="none"
           stroke={iconColor}
           viewBox="0 0 24 24"
@@ -24,7 +24,7 @@ export function FileIcon({ type, isSelected }: { type: string; isSelected: boole
     case 'folder-open':
       return (
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           fill="none"
           stroke={iconColor}
           viewBox="0 0 24 24"
@@ -40,7 +40,7 @@ export function FileIcon({ type, isSelected }: { type: string; isSelected: boole
     case 'markdown':
       return (
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           fill="none"
           stroke={iconColor}
           viewBox="0 0 24 24"
@@ -56,7 +56,7 @@ export function FileIcon({ type, isSelected }: { type: string; isSelected: boole
     case 'code':
       return (
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           fill="none"
           stroke={iconColor}
           viewBox="0 0 24 24"
@@ -72,7 +72,7 @@ export function FileIcon({ type, isSelected }: { type: string; isSelected: boole
     case 'image':
       return (
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           fill="none"
           stroke={iconColor}
           viewBox="0 0 24 24"
@@ -89,7 +89,7 @@ export function FileIcon({ type, isSelected }: { type: string; isSelected: boole
     case 'yaml':
       return (
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           fill="none"
           stroke={iconColor}
           viewBox="0 0 24 24"
@@ -105,7 +105,7 @@ export function FileIcon({ type, isSelected }: { type: string; isSelected: boole
     default:
       return (
         <svg
-          className="w-4 h-4"
+          className="w-3.5 h-3.5"
           fill="none"
           stroke={iconColor}
           viewBox="0 0 24 24"
