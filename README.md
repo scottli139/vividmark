@@ -239,7 +239,11 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome — bug reports, features, docs, tests and translations alike. See [CONTRIBUTING.md](CONTRIBUTING.md) for the dev setup and PR checklist.
+
+- New here? Start with issues labeled [`good first issue`](https://github.com/scottli139/vividmark/labels/good%20first%20issue)
+- 🤖 This project is 100% AI-built, and **AI-assisted contributions are welcome** — `AGENTS.md` is a ready-made context file for your coding assistant
+- Please follow our [Code of Conduct](CODE_OF_CONDUCT.md)
 
 ## License
 

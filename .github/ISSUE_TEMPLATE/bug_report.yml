@@ -1,0 +1,54 @@
+name: Bug Report / 缺陷报告
+description: Report a bug in VividMark (Chinese or English both fine / 中英文均可)
+title: "[Bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened? / 发生了什么
+      description: A clear description of the bug. / 清晰描述这个 bug。
+      placeholder: When I ..., the app ...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce / 复现步骤
+      placeholder: |
+        1. Open ...
+        2. Type ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / 期望行为
+    validations:
+      required: false
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system / 操作系统
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: VividMark version / 版本号
+      description: Shown in the release you installed, e.g. 0.4.1 / 你安装的版本，如 0.4.1
+      placeholder: "0.4.1"
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else / 其他信息
+      description: Screenshots, sample .md file, error logs. Logs live in ~/Library/Logs/com.vividmark.app/ on macOS. / 截图、示例 md 文件、错误日志（macOS 日志位于 ~/Library/Logs/com.vividmark.app/）
+    validations:
+      required: false
