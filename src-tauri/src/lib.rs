@@ -7,6 +7,7 @@ use tauri::{Manager, WebviewWindow};
 mod menu;
 mod pdf;
 mod site_export;
+mod titlebar;
 mod window_router;
 
 #[cfg(target_os = "macos")]
@@ -1047,7 +1048,8 @@ pub fn run() {
             window_router::report_window_state,
             window_router::open_in_new_window,
             window_router::route_open,
-            window_router::take_startup_open_files
+            window_router::take_startup_open_files,
+            titlebar::set_window_title
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
