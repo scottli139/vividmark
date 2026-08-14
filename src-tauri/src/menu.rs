@@ -78,6 +78,9 @@ struct Labels {
     theme_dark: &'static str,
     theme_system: &'static str,
     window: &'static str,
+    // 仅 macOS 文件菜单使用
+    #[allow(dead_code)]
+    close_window: &'static str,
     // 仅 Windows/Linux 布局使用
     #[allow(dead_code)]
     help: &'static str,
@@ -142,6 +145,7 @@ fn labels(lang: &str) -> Labels {
             theme_dark: "深色",
             theme_system: "跟随系统",
             window: "窗口",
+            close_window: "关闭窗口",
             help: "帮助",
             exit: "退出",
         }
@@ -208,6 +212,7 @@ fn labels(lang: &str) -> Labels {
             theme_dark: "Dark",
             theme_system: "System",
             window: "Window",
+            close_window: "Close Window",
             help: "Help",
             exit: "Exit",
         }
@@ -596,7 +601,7 @@ pub fn build_menu<R: Runtime>(
         let mut file_refs: Vec<&dyn IsMenuItem<R>> =
             file_items.iter().map(|i| i.as_ref()).collect();
         let sep = PredefinedMenuItem::separator(app)?;
-        let close = PredefinedMenuItem::close_window(app, None)?;
+        let close = PredefinedMenuItem::close_window(app, Some(l.close_window))?;
         file_refs.push(&sep);
         file_refs.push(&close);
         let file = Submenu::with_items(app, l.file, true, &file_refs)?;
