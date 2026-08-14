@@ -13,6 +13,8 @@
 - [Windows 路径处理](#windows-路径处理)
 - [Export PDF 详解](#export-pdf-详解)
 - [Logging](#logging)
+- [Tauri Commands 一览](#tauri-commands-一览)
+- [键盘快捷键一览](#键盘快捷键一览)
 - [CI/CD 与发布](#cicd-与发布)
 - [Git 仓库管理](#git-仓库管理)
 - [Typst 离线支持](#typst-离线支持)
@@ -207,6 +209,15 @@ Two syntax entries, both produce placeholders (async local rendering):
 - 每次渲染前调用 `resetTaskIndex()` 重置计数器
 - **重要**: checkbox 和 li 都必须有 `data-task-status` 属性，点击处理时使用 checkbox 上的属性判断状态
 
+### 数学公式 (KaTeX)
+
+双端实现，两侧语法规则必须严格一致（不一致会导致 Source/WYSIWYG 模式切换时公式抖动）：
+
+- **markdown-it 侧**：`src/lib/markdown/mathPlugin.ts`——自写 inline/block rule（不依赖 markdown-it-katex 等第三方插件）
+- **WYSIWYG 侧**：`mathPlugin.ts`（remark-math + `math_inline`/`math_block` atom schema）+ `mathView.ts`（nodeview，点击公式进入 textarea 编辑态）
+- **语法规则严格对齐 micromark-extension-math 3.x**：块级公式仅支持多行围栏形式（`$$` 独占行开启/闭合）；单行 `$$x$$` 一律按行内公式解析；不做 pandoc 式货币保护（`$5` 不特殊豁免）
+- **PDF 导出**：`exportPdf.ts` 的 `inlineKatexFonts` 把 KaTeX woff2 字体转 base64 内联进导出 HTML——`vividmark-pdf://` 自定义协议窗口加载不到应用内字体，不内联则公式字体缺失
+
 ### Markdown 扩展测试模式
 
 **Test Pattern for Container Plugins:**
@@ -355,7 +366,7 @@ viewMode: 'wysiwyg' // 从 'source' 改为 'wysiwyg'
 
 ### Split View Sync Scrolling
 
-**Challenge:** Bidirectional scroll synchronization between textarea (source) and div (preview).
+**Challenge:** Bidirectional scroll synchronization between the source editor and div (preview). 编辑器侧滚动容器是 CodeMirror 的 `view.scrollDOM`（textarea 时代的表述已过时）。
 
 1. **Ref Assignment**: Ensure refs point to scrollable containers, not inner content（同上）
 
@@ -365,12 +376,13 @@ viewMode: 'wysiwyg' // 从 'source' 改为 'wysiwyg'
    const isSyncingScroll = useRef(false)
 
    const handleSourceScroll = useCallback(() => {
+     const sourceEl = cmView.scrollDOM // 编辑器侧滚动容器：CodeMirror view.scrollDOM
      if (!isSyncingScroll.current && previewContainerRef.current) {
        isSyncingScroll.current = true
 
        // Calculate scroll percentage and apply to other side
        const scrollPercentage =
-         textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight || 1)
+         sourceEl.scrollTop / (sourceEl.scrollHeight - sourceEl.clientHeight || 1)
        previewContainer.scrollTop =
          scrollPercentage * (previewContainer.scrollHeight - previewContainer.clientHeight)
 
@@ -588,7 +600,8 @@ src-tauri/src/lib.rs        # Rust 后端 read_directory 命令
 
 - 文件名从工具栏移除，改为显示在窗口标题栏
 - 格式：`文件名 ● - VividMark`（有未保存更改时显示 ●）
-- 使用 `@tauri-apps/api/window` 的 `setTitle` API
+- 标题必须走 `set_window_title` Rust 命令（`src-tauri/src/titlebar.rs`，设题后显式重排红绿灯）；**前端禁止直接调 `@tauri-apps/api/window` 的 setTitle**——会触发 AppKit 把红绿灯按钮弹回默认 y（详见文末「2026-08-14 macOS 红绿灯」一节）
+- `core:window:allow-set-title` 属 tauri 2.10+ 非默认权限，capabilities 必须显式授予；缺失时 IPC 被 ACL 静默拒绝、标题恒为 conf 初始值（曾致 Dock 窗口列表全部显示 "VividMark"）
 
 **语言选择器:**
 
@@ -661,11 +674,11 @@ Typora 式直存：保存对话框 → 静默生成 PDF 文件，无打印对话
 
 ### 平台实现
 
-| 平台  | 机制                                                                                          | 备注                                       |
-| ----- | --------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| macOS | `WKWebView.printOperationWithPrintInfo:` + `NSPrintSaveJob` + `NSPrintJobSavingURL`（objc2） | 需 macOS 11+，否则回退                     |
-| Windows | WebView2 `ICoreWebView2_7::PrintToPdf`（webview2-com）                                      | 需 Runtime 1.0.1518.46+，cast 失败回退     |
-| Linux | 不支持（webkit2gtk 2.0 未绑定 `print_to_pdf`）                                                | `pdf_export_supported` false → 打印对话框  |
+| 平台    | 机制                                                                                         | 备注                                      |
+| ------- | -------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| macOS   | `WKWebView.printOperationWithPrintInfo:` + `NSPrintSaveJob` + `NSPrintJobSavingURL`（objc2） | 需 macOS 11+，否则回退                    |
+| Windows | WebView2 `ICoreWebView2_7::PrintToPdf`（webview2-com）                                       | 需 Runtime 1.0.1518.46+，cast 失败回退    |
+| Linux   | 不支持（webkit2gtk 2.0 未绑定 `print_to_pdf`）                                               | `pdf_export_supported` false → 打印对话框 |
 
 ### macOS 关键坑（spike 实测，macOS 26）
 
@@ -691,12 +704,12 @@ Typora 式直存：保存对话框 → 静默生成 PDF 文件，无打印对话
 
 ### 实现文件
 
-| 文件                          | 说明                                                         |
-| ----------------------------- | ------------------------------------------------------------ |
-| `src-tauri/src/pdf.rs`        | `export_pdf_file` / `pdf_export_supported` 命令 + 协议 handler |
-| `src-tauri/src/lib.rs`        | 协议注册 + `print_pdf`（回退，保持原样）                     |
-| `src/lib/exportPdf.ts`        | 前端导出编排 + 导出 HTML 生成 + 回退逻辑                     |
-| `src/components/Editor/Editor.tsx` | 监听 `editor-export-pdf`                                |
+| 文件                               | 说明                                                           |
+| ---------------------------------- | -------------------------------------------------------------- |
+| `src-tauri/src/pdf.rs`             | `export_pdf_file` / `pdf_export_supported` 命令 + 协议 handler |
+| `src-tauri/src/lib.rs`             | 协议注册 + `print_pdf`（回退，保持原样）                       |
+| `src/lib/exportPdf.ts`             | 前端导出编排 + 导出 HTML 生成 + 回退逻辑                       |
+| `src/components/Editor/Editor.tsx` | 监听 `editor-export-pdf`                                       |
 
 ### 分页 CSS 的实测结论（与 Typora 对比调试）
 
@@ -790,6 +803,66 @@ The Rust backend uses `tauri-plugin-log` for structured logging with comprehensi
 [14:32:15] [read_file] Target path: /Users/xxx/Documents/test.md
 [14:32:15] [read_file] ✓ Success: /Users/xxx/Documents/test.md (15234 bytes, 1234 chars) in 2.1ms (~7.12 MB/s)
 ```
+
+---
+
+## Tauri Commands 一览
+
+Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`，站点导出在 `src-tauri/src/site_export.rs`，多窗口路由在 `src-tauri/src/window_router.rs`，窗口标题在 `src-tauri/src/titlebar.rs`）:
+
+| Command                   | Parameters                | Returns            | Description                                       |
+| ------------------------- | ------------------------- | ------------------ | ------------------------------------------------- |
+| `read_file`               | `path`                    | `FileInfo`         | Read file content                                 |
+| `save_file`               | `path, content`           | `SaveResult`       | Write file content                                |
+| `file_exists`             | `path`                    | `bool`             | Check existence                                   |
+| `read_directory`          | `ReadDirectoryParams`     | `FileTreeItem[]`   | File tree data                                    |
+| `create_file`             | `path`                    | `null`             | Create empty file                                 |
+| `create_folder`           | `path`                    | `null`             | Create directory                                  |
+| `rename_path`             | `oldPath, newPath`        | `null`             | Rename/move file or folder                        |
+| `delete_path`             | `path`                    | `null`             | Delete (folder: recursive)                        |
+| `copy_path`               | `oldPath, newPath`        | `null`             | Copy (folder: recursive)                          |
+| `reveal_in_folder`        | `path`                    | `null`             | Reveal in system file manager                     |
+| `pdf_export_supported`    | —                         | `bool`             | 平台是否支持 PDF 直存（macOS/Windows 支持）       |
+| `export_pdf_file`         | `html, outputPath, title` | `ExportPdfResult`  | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件       |
+| `print_pdf`               | `fileName`                | `ExportPdfResult`  | 打印对话框（PDF 直存不支持时的回退路径）          |
+| `export_site`             | `params(outputDir,files)` | `ExportSiteResult` | 「导出为网站」批量写盘（文本写入 + 资产镜像复制） |
+| `rebuild_menu`            | `lang, recentFiles`       | `null`             | Rebuild native menu (i18n / recent files)         |
+| `set_menu_item_enabled`   | `id, enabled`             | `null`             | Native menu item enabled state                    |
+| `set_menu_item_checked`   | `id, checked`             | `null`             | Native menu check item state                      |
+| `update_dock_menu`        | `lang, recentFiles`       | `null`             | Rebuild macOS Dock menu（其他平台 no-op）         |
+| `report_window_state`     | `path, dirty`             | `null`             | 前端上报本窗口文档状态（窗口注册表）              |
+| `open_in_new_window`      | `path?`                   | `String`(label)    | 新建文档窗口（file-new / 路由新建）               |
+| `route_open`              | `paths`                   | `null`             | 打开路径智能路由（聚焦/复用/新建）                |
+| `take_startup_open_files` | —（按窗口 label）         | `String[]`         | 取走本窗口启动待打开队列                          |
+| `set_window_title`        | `title`                   | `null`             | 设窗口标题并重排红绿灯                            |
+
+新增命令：实现 `#[tauri::command]` → 注册进 `generate_handler![]` → 前端经 `@tauri-apps/api/core` invoke。结构体字段跨桥为 camelCase（`#[serde(rename = "isDirectory")]`）。
+
+## 键盘快捷键一览
+
+带 accelerator 的键在桌面端被 OS 拦截（webview 收不到 keydown）——桌面端快捷键全部由原生菜单事件驱动；`useKeyboardShortcuts.ts` 仅在浏览器 dev/E2E 生效，两者互不重迭。
+
+| Shortcut                           | Action                                 | Implementation                                                                                                            |
+| ---------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `Cmd/Ctrl + O / S / Shift+S`       | Open / Save / Save As                  | 原生菜单（桌面端）/ `useKeyboardShortcuts.ts`（浏览器）                                                                   |
+| `Cmd/Ctrl + N`                     | 新建**窗口**（多窗口 SDI）             | 原生菜单 → open_in_new_window；浏览器端仍为原地新建（`useKeyboardShortcuts.ts`）                                          |
+| `Cmd/Ctrl + Shift+O`               | 打开文件夹                             | 原生菜单（文件菜单）                                                                                                      |
+| `Cmd/Ctrl + /`                     | WYSIWYG ⇄ Source 切换                  | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview） |
+| `Cmd/Ctrl + B / I / K`             | Bold / Italic / Link                   | 原生菜单（格式菜单，桌面端）→ editor-format；浏览器走 CM keymap / Milkdown keymap                                         |
+| `Cmd/Ctrl + 0`                     | 正文（剥掉块级前缀）                   | 原生菜单（段落菜单，桌面端）                                                                                              |
+| `Cmd/Ctrl + 1 ~ 6`                 | Heading 1 ~ 6                          | 原生菜单（段落菜单，桌面端）→ editor-format；浏览器走 CM keymap / `wysiwygShortcutPlugin`（仅 1~3）                       |
+| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（段落菜单，桌面端）→ editor-format                                                                               |
+| `Cmd/Ctrl + Shift+V`               | 粘贴为纯文本                           | 原生菜单（编辑菜单）→ clipboard 读文本 → editor-insert                                                                    |
+| `Cmd/Ctrl + Z / Shift+Z`           | Undo / Redo                            | 原生菜单 → editor-undo/redo；CM / Milkdown history                                                                        |
+| `Cmd/Ctrl + F`                     | Find & replace                         | 原生菜单 → editor-find → `@codemirror/search`                                                                             |
+| `Cmd/Ctrl + =/+ / -`               | Zoom in / out                          | 原生菜单 / `Editor.tsx`                                                                                                   |
+| `Cmd/Ctrl + Shift+0`               | Zoom reset（⌘0 已让位「正文」）        | 原生菜单 / `Editor.tsx`                                                                                                   |
+| `Cmd/Ctrl + ,`                     | Settings                               | 原生菜单（App/File 菜单）                                                                                                 |
+| `Cmd/Ctrl + Shift+B`               | Toggle Sidebar                         | 原生菜单（View 菜单）                                                                                                     |
+| `Ctrl+Cmd + 1 / 2`（仅 macOS）     | 侧栏 文件 / 大纲 tab                   | 原生菜单（View 菜单 check 项）                                                                                            |
+| `Cmd/Ctrl + Alt+1~4`               | WYSIWYG / Source / Split / Preview     | 原生菜单（View 菜单 check 项）                                                                                            |
+| `Cmd/Ctrl + P`                     | Export PDF                             | 原生菜单 / `MoreMenu`                                                                                                     |
+| `Escape`                           | Exit edit mode                         | `Editor.tsx`                                                                                                              |
 
 ---
 
@@ -1042,6 +1115,7 @@ if (lang === 'typst') {
   - **本地图片**：`imageView.ts`——只改 DOM 的 src，节点 attrs 保持原文（序列化无损），解析逻辑共用 `src/lib/imageSrc.ts`。相对路径三种形态（`./x` `../x` 与裸相对路径 `images/x.png`）都经 `resolveToAbsoluteImagePath` 基于 baseDir 解析；裸相对路径曾不解析导致图片 404（2026-08-04 修复，preview 的 `preprocessImages` 同构修复）。
 - **isTauri() 的正确写法**：Tauri v2 运行时总是注入 `window.__TAURI_INTERNALS__`（invoke 依赖它），而 `__TAURI__` 仅在 `withGlobalTauri: true` 时才存在（本项目未开启）。检测 Tauri 环境必须查 `__TAURI_INTERNALS__`——此前查 `__TAURI__` 导致 convertFileSrc 路径在生产环境从未生效（preview 靠 base64 兜底才没暴露）。
   - **任务列表**：`taskListItemView.ts` 纯 DOM nodeview，补上 GFM preset 缺失的可点击 checkbox。
+  - **数学公式**：remark-math + `math_inline`/`math_block` atom schema + `mathView.ts` 点击编辑，见上文「数学公式 (KaTeX)」。
 - **格式化**：`wysiwygFormat.ts` 的 `applyWysiwygFormat` 覆盖 FormatType 全集（toggle 类走 preset 命令；link 无选区插占位并选中；tasklist 三态）；`insertWysiwygSnippet` 把 markdown 片段解析为 PM 节点插入（不退化成纯文本）。
 - **默认模式**：新安装默认 wysiwyg（P0 的强制迁移已删，persist 尊重用户上次选择）。E2E 依赖 source 模式的 spec 用 `e2e/sourceMode.ts` 的 `presetSourceMode(page)` 预置 localStorage。
 - **bundle**：Milkdown 使主 bundle 增至约 2.5MB（gzip 814KB），后续可对 WysiwygEditor 做动态 import。
@@ -1085,32 +1159,38 @@ if (lang === 'typst') {
 这一系列问题（`\` 垃圾行、换行拼接、幻影空行、`<!-- -->` 注释包裹）都发生在 WKWebView + macOS 拼音的组合输入路径上，互相纠缠，最终拆解为六个独立机制：
 
 **1. 幻影节点（`\`/空格垃圾）— strictBrParserPlugin.ts（ignore 语义）**
+
 - 机制：组合输入时浏览器在 DOM 插入无属性 `<br>` 占位（预编辑文本分音节处、块尾），PM 回读时按默认规则解析成 hardbreak 节点（序列化为 `\`）或空格文本。
 - 修复：自定义 `domParser` 视图 prop（readDOMChange 与剪贴板解析都经 `someProp("domParser")` 命中）：`br[data-type="hardbreak"]` → hardbreak 节点（PM 渲染的 hardbreak 必带此属性，回读无损，`data-is-inline` 经 getAttrs 保真）；裸 `<br>` → `ignore: true` 整块跳过（**不产生任何节点或文本**）。
 - 教训：v1 曾用 `getAttrs: false` 拒绝裸 br——落入 leafFallback 变成 `\n` 文本、折叠成空格，空格混进文本流干扰 PM 的 diff 对齐，导致上屏错位（「拼接」回归）。**让幻影消失必须什么都不产生**。
 - 注意：PM Plugin 构造器的 bindProps 会立即读取 props 值（getter 惰性求值不可行）；`$prose` 工厂在 SchemaReady 后执行，`ctx.get(schemaCtx)` 直接可用。
 
 **2. 残留兜底 — hardbreakCleanupPlugin.ts（延迟清理）**
+
 - 规则：①纯 hardbreak 段落删除（唯一子节点时替换为空段落，满足 `block+` 约束）；②文本段落内 ≥2 连续非 inline hardbreak 运行段删除（合法 Shift+Enter 只会产生单个）；③文本块内 ≥3 连续 ASCII 空格删除（macOS 拼音预编辑文本的分音节空格 span 残留；≤2 保留，代码块不动）。
 - 时机：仅 composition-meta 事务；**上屏事务 dispatch 时 PM 仍处于 composing 状态**（compositionend 事件更晚到），此时不能 dispatch——记标记，compositionend 后延迟 50ms 统一清理（晚于 PM 的 scheduleComposeEnd 20ms flush；若新一轮组合已开始则顺延）。
 
 **3. 换行被吞/拼接 — imeEnterGuardPlugin.ts**
+
 - 机制：prosemirror-view 的 `inOrNearComposition` kludge——`safari` 判定（navigator.vendor 含 Apple，WKWebView 命中）下 **compositionend 后 500ms 内第一个非组合态 keydown 被整个忽略**（本意是吞掉 IME 确认上屏时 Safari 补发的配对 Enter）。中文用户「选词上屏→立刻回车」的 Enter 被吞 → 新段落没建成 → 后续文本接到上一行（「拼接」）。插件的 handleKeyDown 看不到这次按键（PM 提前返回），只能从 DOM 事件层补。
 - 修复：view.dom 的 **capture 阶段**监听（先于 PM 冒泡处理器，不依赖注册顺序）；直接读写 PM 的 `input.compositionEndedAt`（不维护镜像状态，与 kludge 天然同步）；命中窗口内 Enter 就 preventDefault + stopImmediatePropagation + 手动执行与正常 Enter 相同的 `wysiwygEnterCommand`——**有且仅有一次分段**。60ms 下界：确认上屏的配对 Enter 与 compositionend 同刻到达，放行给 kludge。代码块内不补偿。
 - 测试注意：jsdom 默认 vendor 就是 "Apple Computer, Inc."，PM 的 safari 标记在模块加载时固化——测试里 kludge 真实生效；补偿事务带 `imeEnterGuardCompensation` meta 供探针计数。
 
 **4. `<!-- -->` 注释包裹 — 不是序列化 bug，是 CodeMirror 的按键冲突**
+
 - 机制：`@codemirror/commands` 的 defaultKeymap 把 **Mod-/ 绑定到 toggleComment**（`<!-- -->` 正是 markdown 的注释语法）。源码模式按 Cmd+/ 想切视图，CM 顺手把当前行/选区注释掉；再按一次又解开（toggle）。admonition 围栏、代码块收尾围栏被裹都是它。
 - 排查手段值得记录：所有序列化路径查无产出者后，给 `store.setContent` 包装调用栈记录，直接指名写入者。
 - 修复：CodeMirrorEditor 装配时从 defaultKeymap 过滤掉 `Mod-/`（模式切换走 window 级监听，CM 不拦截传播，两者都能收到按键）。
 
 **5. 单换行 Enter 模型 — wysiwygFormat.ts 的 wysiwygEnterCommand**
+
 - 用户约定：普通段落 Enter = 行内软换行（isInline:true hardbreak，序列化为单个换行符，行间无空行）；段尾已是换行时再按 → 折叠为新段落（Enter×2 = 新段落，段落语义入口）。列表走 splitListItemCommand（**prosemirror 原版 splitListItem 与 Milkdown 列表自定义 attrs 不兼容，会抛 TransformError**）；代码块/表格交默认。
 - 坑：Milkdown 的 `hardbreakClearMarkPlugin` 在带 `hardbreak` meta 的事务后会把节点 attrs 重置为默认（isInline 被抹成 false）——插入事务**不能带 hardbreak meta**。
 - 渲染：isInline 软换行默认渲染成带空格的 span（不换行，多行会挤成一行）——`hardbreakView.ts` nodeview 统一渲染为 `<br>`（属性保留供解析器回读）。
 - 优先级：wysiwygEnterPlugin 在 wysiwygPlugins 数组首位（keymap 先匹配）。
 
 **6. macOS 智能替换（引号变全角）**
+
 - WKWebView contenteditable 默认启用系统智能替换（弯引号/自动大写），会悄悄改写文档字节。WYSIWYG 根节点设 `autocorrect=off autocapitalize=off`（WysiwygEditor 创建后 setAttribute）；代码块 pre 额外 `spellcheck=false`。CM6 默认已全关（contentAttrs 内置）。
 - **既有垃圾文件**：清理机制只防新增；文件里已存在的 `\`/`<!-- -->` 残留需在源码模式手动删一次。
 - **同类已知残留**：PM kludge 吞的是「第一个 keydown」不区分键——上屏后 500ms 内的第一个 Backspace 也会被吞（按第二次即可），影响轻微未处理。
@@ -1123,7 +1203,6 @@ if (lang === 'typst') {
 ### explodeParagraph 换行保真
 
 - 重拼融合段落时，段间插入**原始 break 节点**而非新建 `isInline:true` 的软换行——此前硬换行（`\`）经过 admonition 解析会被改写成软换行，导致含硬换行的内容每次往返都被悄悄改写。
-
 
 ## 2026-08-04 自绘对话框系统
 
@@ -1204,7 +1283,7 @@ if (lang === 'typst') {
 
 - **MenuPanel 子菜单**：`MenuSubmenuItem { children: MenuItem[] }`（一层嵌套）。子菜单面板挂在触发行的 relative 容器内（`left-full -ml-1` 轻微重叠，hover 平移无间隙不断开）；展开时按触发行 `getBoundingClientRect` 修正：右缘放不下翻到左侧（`right-full`），底部溢出向上收拢。普通项/分隔线 hover 收起已展开子菜单；子菜单触发行的 click 只展开不下发 id。
 - **菜单结构对齐 Typora**：Source = 基础组 + 段落▸（format:h1-h3/quote/list/tasklist/codeblock，全部复用既有 formatTransaction）+ 格式▸；WYSIWYG = 上下文组 + 基础组 + 段落▸（多「正文」`block:paragraph` = setBlockType paragraph）+ 格式▸ + 插入▸（图像/表格/代码块/水平分割线 + 在上方/下方插入段落）。
-- **insert:\* 动作**：`insertWysiwygSnippet`  markdown 解析插入（表格片段复用 `generateTable(2,2)`）；注意 Milkdown 序列化水平分割线为 `***`。
+- **insert:\* 动作**：`insertWysiwygSnippet` markdown 解析插入（表格片段复用 `generateTable(2,2)`）；注意 Milkdown 序列化水平分割线为 `***`。
 - **在上方/下方插入段落**：`$from.before(1)` / `$from.after(1)` 定位当前**顶层块**边界，插空段落 + `TextSelection.near(pos+1)` 落入光标——解决表格/代码块紧贴文档边缘或彼此相邻时无法插出新段落的问题。
 
 ### 空段落序列化为 `<br />` 的问题（2026-08-07）
@@ -1235,17 +1314,27 @@ if (lang === 'typst') {
 - ⌘0 让位给段落菜单「正文」（剥块级前缀）；实际大小改 ⇧⌘0（MoreMenu 标注同步；Editor.tsx 浏览器侧两个组合都接）。
 - `FormatType` 扩 h4-h6/ol/paragraph：CM 侧 `matchBlockPrefix` 统一识别标题/`> `/`- [ ] `/`- `/`\d+. ` 前缀（修复任务项转格式残留 `[ ] ` 的旧 quirk；ol 按实际编号 toggle）；paragraph = 剥前缀专用路径（`formatTransaction` 前置分支，不经 isBlockFormat）。Milkdown 侧 `applyParagraph`：list_item→liftListItem、blockquote→lift、其他→setBlockType(paragraph)。
 
+### 菜单事件流与状态同步要点
+
+- 完整链路：`src-tauri/src/menu.rs` 构建系统菜单（macOS App/文件/编辑/段落/格式/视图/窗口；Windows/Linux 适配）→ `on_menu_event` 经 `emit_to_focused` 定向 emit `native-menu-event` → 前端 `src/lib/nativeMenu.ts` 的 `handleMenuAction` 分发
+- `Menu::get` 只查顶层项；子菜单内的项必须走 lib.rs 的 `find_menu_item` 递归查找
+- muda 的 CheckMenuItem 点击会原生自动翻转勾选，最终态以前端同步（`set_menu_item_checked`/`set_menu_item_enabled`）为准
+- 菜单重建后所有 check/enabled 回到构建默认值，必须重新同步一轮
+- Edit 菜单的 Undo/Redo 用自定义菜单项（系统级 undo 会绕过 CM/Milkdown 的 history）
+- `editor-find` 事件：原生菜单 Find → 前端 → `@codemirror/search` 查找替换面板
+
 ### macOS Dock 右键菜单（objc2）
 
 - Tauri 2.10 / muda 0.17 / tao 0.34 均无 Dock 菜单 API（仅 `set_dock_visibility`）。实现：setup 时取 `NSApplication.sharedApplication().delegate()`（tao 的 AppDelegate 实例）→ `class_addMethod(applicationDockMenu:, "@@:@")` 注入 IMP，返回全局缓存的 `NSMenu`（`Mutex<Option<Retained<NSMenu>>>`，unsafe Send/Sync 包装，全部主线程访问）。
 - 菜单项 target 是 `define_class!` 的 `VividMarkDockMenuTarget`（NSObject 子类，newDocument:/openDocument:/openRecent:/clearRecent:），点击 emit `native-menu-event` **复用前端全部分发**；最近文件路径不经 representedObject（避免 downcast），用 `NSMenuItem.tag` 索引全局路径表。
+- 菜单项动作复用 `native-menu-event` 通道，事件 id 为 `file-new` / `file-open` / `open-recent:*` / `clear-recent`（同样经 `emit_to_focused` 定向到焦点窗口）。
 - 防御：`class_respondsToSelector` 先检测，tao 未来若自带该方法则跳过不覆盖。**tao/tauri 升级需回归验证此点**。
 - 重建：前端 `rebuildMenu` 同订阅点调 `update_dock_menu`（非 macOS 注册 no-op 桩 command）；依赖版本与 tao 0.34 对齐（objc2 0.6 / objc2-app-kit 0.3 / objc2-foundation 0.3），避免双主版本。
 
 ### 文件关联（Open With）
 
 - `tauri.conf.json` `bundle.fileAssociations`（md/markdown/mdown/mkd，role=Editor）→ 打包生成 macOS `CFBundleDocumentTypes`（Open With 列表出现，非默认 handler）、Windows 注册表项、Linux mime。**仅打包安装的 .app 生效**（LaunchServices 在安装/首次启动注册），`pnpm tauri:dev` 验证不了。
-- 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `lib.rs` 改 `build().run(|app, event|)`：路径入队（`PENDING_OPEN_FILES`）+ emit `file-open-request`。前端 `openWith.ts` 先注册监听、再 `take_pending_open_files` 取冷启动积压；热打开走 payload 并顺手清空队列。Windows/Linux 是拉起新进程传 argv（无 Opened 事件），argv/single-instance 留后续。
+- 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `route_open_paths` 窗口路由（聚焦/复用/新建；冷启动入 main 窗口的启动待打开队列）→ 前端 `src/lib/openWith.ts`；启动积压由 `take_startup_open_files` 命令按窗口 label 补取。Windows/Linux 是拉起新进程传 argv（无 Opened 事件），argv 打开未接（后续项，含单实例）。
 - **平台门控坑（v0.2.3 CI 实踩）**：`RunEvent::Opened` 变体本身是 `#[cfg(any(target_os = "macos", target_os = "ios"))]`，Windows/Linux 编译直接 E0599——macOS 本机打包发现不了。事件分支与 `handle_opened_urls` 都需 `#[cfg(target_os = "macos")]` 门控（闭包参数改 `_app/_event` 避免其他平台 unused 警告）。新增平台专属 API 时先在 registry 源码确认其 cfg 条件。
 
 ### 2026-08-07 追加修复（右键误触 resize / 视图菜单混淆项）
@@ -1262,6 +1351,10 @@ if (lang === 'typst') {
 - 菜单/Dock 事件经 `emit_to_focused` 定向 `LAST_FOCUSED`（tauri/muda 菜单事件不携带窗口来源；macOS 菜单点击不改 key window，Windows 点菜单必先聚焦——启发式两端成立）
 - 打开路径路由 `route_open_paths`：已打开→聚焦；干净空窗口→复用（定向 `file-open-request`）；否则新建。**新建分支有 pending 去重**（路径已在某新窗口启动队列则跳过）——防前端重复触发竞态建出重复窗口
 - 菜单 check/enabled 由焦点窗口驱动（nativeMenu.ts 焦点门控 + `onFocusChanged` 全量重同步）；`rebuildMenu` 按 payload 去重（内容未变不重建）——重建 = Rust 整树菜单 + Dock 菜单 + check/enabled 全量重同步，高频重建即风暴
+- `LAST_FOCUSED` 由 `on_window_event` 的 Focused/Destroyed 事件维护
+- 新建窗口走 `create_document_window`：macOS 融合标题栏三件套（titleBarStyle/hiddenTitle/trafficLightPosition）在 builder 里用 cfg 门控复制；新建前有 pending 去重，防重复触发建出重复窗口
+- capabilities 需配 `windows: ["*"]`（窗口 label 动态生成）
+- PDF 导出的隐藏窗口 label（`pdf-export`）排除在打开路由之外
 
 ### 坑 1：React StrictMode 异步 cleanup 竞态 → listener 泄漏（关键）
 
@@ -1273,7 +1366,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 
 ### 坑 3：macOS WKWebView 多窗口 localStorage 不共享
 
-实测：多窗口各自独立 localStorage（storage 事件跨窗口不触发）——跨窗口偏好同步不能用 storage 事件，改为 tauri 事件广播（`prefs-sync`，themeMode/language/recentFiles 三字段；listener 值比较落地防回声）。诊断手段备忘：vite dev server 加临时 middleware（POST /__diag 打印请求体）可把 webview 内不可见的 console 信息导入 dev 终端。
+实测：多窗口各自独立 localStorage（storage 事件跨窗口不触发）——跨窗口偏好同步不能用 storage 事件，改为 tauri 事件广播（`prefs-sync`，themeMode/language/recentFiles 三字段；listener 值比较落地防回声）。诊断手段备忘：vite dev server 加临时 middleware（POST /\_\_diag 打印请求体）可把 webview 内不可见的 console 信息导入 dev 终端。
 
 ### 风暴表现与定位路径
 
@@ -1281,7 +1374,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 
 ## 2026-08-13 导出为网站（静态站点包）
 
-打开文件夹 → 文件菜单/MoreMenu「导出为网站…」→ 选输出位置 → 生成 `<picked>/<文件夹名>-site/` 可直接部署的静态站点（mkdocs 风格：顶栏 + 左侧可折叠导航 + 浅/深色切换）。零外部依赖（不调 Python/mkdocs CLI）。
+打开文件夹 → 文件菜单/MoreMenu「导出为网站…」→ 选输出位置 → 生成 `<picked>/<文件夹名>-site/` 可直接部署的静态站点（mkdocs 风格：顶栏 + 左侧可折叠导航 + 浅/深色切换）。零外部依赖（不调 Python/mkdocs CLI）。前端入口 `exportSite.ts` 的 `exportSite()`（选输出目录 → `readDirectory` 原始树 → 渲染 → Rust 批量写盘）；Rust 侧参照 pdf.rs 拆分为 `src-tauri/src/site_export.rs`。
 
 ### 关键设计
 
@@ -1290,11 +1383,17 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 - **导航推导**（siteGenerator.ts，纯函数）：数字前缀 `01-`/`01_`/`01.` 排序且显示名剥离；README.md/index.md 成为所在目录 index.html 且导航恒排最前（回退标题用目录名；根的无 H1 时注入「首页/Home」）；无根 index 页时生成 meta-refresh 重定向首页；纯资产目录不进导航
 - **页面框架**（siteTemplate.ts）：共享 CSS 文件 `vividmark-site/site.css` = `collectDocumentCss()`（应用同款 .markdown-body/hljs/主题变量，从 exportPdf.ts 导出复用）+ 框架样式（复用 --editor-bg 等变量，`:root`/`.dark` 双定义随收集 CSS 自动带上）；有公式才 `inlineKatexFonts`；`<html>.dark` 切换 + localStorage `vividmark-site-theme` + head 内联防闪烁脚本；目录折叠用 `<details>/<summary>` 零 JS；附 `.nojekyll` 兼容 GitHub Pages
 - **标题 id**：GitHub 风格 slug（Unicode 字母/数字保留、标点剔除、空格转连字符、重名 -1 去重），DOMParser 后处理加到 h1–h6，页内与跨页 `#anchor` 因此可用
-- **菜单接线**：`export-site` 菜单项初始禁用，`syncMenuEnabled` 按 `openedFolder` 同步（仿 file-reveal）；handleMenuAction 直接调 `exportSite()`（文件夹级动作不走 editor-* 事件总线，同 file-open-folder 模式）
+- **菜单接线**：`export-site` 菜单项初始禁用，`syncMenuEnabled` 按 `openedFolder` 同步（仿 file-reveal）；handleMenuAction 直接调 `exportSite()`（文件夹级动作不走 editor-\* 事件总线，同 file-open-folder 模式）
 
 ### 已知限制（首版接受）
 
 - read_directory 深度上限 10；覆盖写不清理旧文件（重复导出残留已删源文件的 HTML）；无站内搜索/页内 TOC；指向导出集合外 `.md` 的链接同样换后缀（部署后本就失效）
+
+### 配置感知（2026-08-14 P1，`siteConfig.ts`）
+
+- 风味探测优先级：mkdocs > vuepress > plain。根 `mkdocs.yml` → mkdocs 风味，`docs_dir` 收敛导出范围；上一级目录的 mkdocs 配置若 `docs_dir` 指回打开目录也采信；存在 `.vuepress` 目录 → vuepress 风味
+- mkdocs 风味的侧边导航 = nav 配置原文（`buildNavFromMkdocsNav`）：策展白名单——不自动追加未收录页面；外链条目新窗口打开；缺文件的条目跳过并记日志
+- 标题链：nav > frontmatter > H1 > 文件名；frontmatter 剥离不渲染；导出成功提示带配置来源
 
 ---
 
@@ -1340,7 +1439,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 
 ### 根因链
 
-1. `tauri.conf.json` 的 `trafficLightPosition {x:12, y:25.5}` 只在**窗口创建时**由 tao 应用一次，初始居中正确。
+1. `tauri.conf.json` 的 `trafficLightPosition {x:12, y:25.5}` 只在**窗口创建时**由 tao 应用一次，初始居中正确。（tao 语义：标题栏高 = 按钮高 14pt + y，按钮贴容器底部；红绿灯垂直居中公式 y = 目标按钮顶距 + 8.5pt，故 48px 工具栏对应 y = 25.5。）
 2. 前端 `Toolbar.tsx` 每次渲染后调 `@tauri-apps/api/window` 的 `setTitle` 同步 Typora 式标题（文件名 ●）。AppKit 的 `setTitle:` 会触发标题栏布局，把 standardWindowButton 重置回默认 frame——trafficLightPosition 的效果被抹掉。
 3. tao 0.34.5 的 `inset_traffic_lights` 逻辑只在 `drawRect` 里重放一次 inset，且只调了按钮容器的 frame、不改按钮 y（实测无法自愈）；tauri 没有运行时重排红绿灯的公开 API。
 
@@ -1387,6 +1486,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 - 预览（Editor.tsx）：`renderPlantUmlPlaceholders(container, {dark})` DOM 渐进渲染（文本先出、SVG 后补）；占位 div 渲染后保留 data 属性，主题切换按新 dark 重跑即可（SVG 颜色渲染期确定，CSS 变量管不到 SVG 内部）。
 - 导出（PDF/站点）：`parseMarkdownAsync` 签名从 `(content, baseDir?)` 改为 `(content, { baseDir?, preserveImages?, inlinePlantUml? })`；`inlinePlantUml: true` 时对 HTML 字符串替换占位符为内联 SVG——PDF 隐藏窗口与导出站点从此零网络依赖（同时修复站点「部署后需联网」的首版限制）。
 - WYSIWYG（plantUmlCodeBlockView.ts）：预览+源码双区不变，预览改本地渲染（500ms 防抖 + 渲染序号防陈旧覆盖 + editorStore `isDarkMode` 订阅重渲染，destroy 时取消订阅并递增序号使进行中渲染失效）。
+- WYSIWYG 侧裸 `@startuml`（非围栏包裹的行内写法）不做特殊处理。
 
 ### 试用回归暴露的两个 bug（当日修复）
 
