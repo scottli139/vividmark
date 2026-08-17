@@ -320,6 +320,20 @@ export function Editor() {
           // 阻止默认行为（在应用内打开）
           e.preventDefault()
 
+          // 页内锚点（脚注引用/回链 `#fn1`/`#fnref1` 等）：预览容器内滚动定位，不走出站
+          if (href.startsWith('#')) {
+            const id = decodeURIComponent(href.slice(1))
+            const container = previewContainerRef.current
+            // 逐元素比对 id，避开 CSS.escape 兼容性（jsdom）与选择器转义问题
+            const anchor = container
+              ? Array.from(container.querySelectorAll<HTMLElement>('[id]')).find(
+                  (el) => el.id === id
+                )
+              : undefined
+            anchor?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            return
+          }
+
           // 使用系统浏览器打开外部链接
           try {
             await open(href)

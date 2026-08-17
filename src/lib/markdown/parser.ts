@@ -1,5 +1,6 @@
 import MarkdownIt from 'markdown-it'
 import container from 'markdown-it-container'
+import footnote from 'markdown-it-footnote'
 import hljs from 'highlight.js'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { convertFileSrc } from '@tauri-apps/api/core'
@@ -161,6 +162,15 @@ md.use(bangAdmonitionPlugin)
 
 // GitHub Alerts（`> [!NOTE]`，core rule 后处理 blockquote token；产出复用现有 admonition HTML/CSS）
 md.use(githubAlertPlugin)
+
+// 脚注（`[^id]` 引用 + `[^id]: 定义`）：文末集中渲染 + 回链。
+// 未引用定义不渲染（同 GitHub）；悬空引用保持字面文本。
+md.use(footnote)
+// 覆写 caption：同一定义的多次引用统一显示 [N]（默认第二次起输出 [N:M]，偏离 GitHub/Typora 观感；
+// 仅改显示文本，href/回链 id 仍走默认 footnote_ref/footnote_anchor 逻辑）
+md.renderer.rules.footnote_caption = function (tokens, idx) {
+  return `[${Number(tokens[idx].meta.id + 1)}]`
+}
 
 // 自定义图片渲染规则
 const defaultImageRender =

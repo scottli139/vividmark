@@ -1039,6 +1039,109 @@ body {
   font-weight: 600;
 }
 
+/* ==================== 脚注（Footnotes） ==================== */
+/* 预览/导出（markdown-it-footnote）：sup.footnote-ref + 文末 .footnotes 区块；
+   WYSIWYG（gfm 预设节点）：sup[data-type="footnote_reference"] / dl[data-type="footnote_definition"]，
+   引用序号由 footnoteDecorations.ts 注入 data-footnote-number（引用首现顺序，与预览编号口径一致） */
+
+/* 预览/导出：引用角标与文末区块 */
+.markdown-body .footnote-ref {
+  scroll-margin-top: 12px;
+}
+
+.markdown-body .footnote-ref a {
+  text-decoration: none;
+}
+
+.markdown-body .footnotes {
+  font-size: 0.875em;
+  color: var(--color-text-muted);
+}
+
+.markdown-body .footnote-item {
+  scroll-margin-top: 12px;
+}
+
+.markdown-body .footnote-item > p {
+  margin: 0.25em 0;
+}
+
+.markdown-body .footnote-backref {
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+/* WYSIWYG：引用角标——有序号时隐藏 label 原文、::before 显示 [N]（预览同款编号） */
+.wysiwyg-editor sup[data-type='footnote_reference'] {
+  color: var(--accent-color);
+  cursor: default;
+  padding: 0 1px;
+  border-radius: 3px;
+}
+
+.wysiwyg-editor sup[data-type='footnote_reference']:hover {
+  background-color: var(--hover-bg);
+}
+
+.wysiwyg-editor sup[data-footnote-number] {
+  font-size: 0; /* 隐藏 label 原文，序号由 ::before 恢复字号显示 */
+}
+
+.wysiwyg-editor sup[data-footnote-number]::before {
+  content: '[' attr(data-footnote-number) ']';
+  font-size: 0.75em;
+}
+
+/* 悬空引用（定义已删）：保持 [^label] 原文形态显示，对应预览的字面文本降级 */
+.wysiwyg-editor sup[data-type='footnote_reference']:not([data-footnote-number]) {
+  color: var(--color-text-muted);
+}
+
+.wysiwyg-editor sup[data-type='footnote_reference']:not([data-footnote-number])::before {
+  content: '[^';
+}
+
+.wysiwyg-editor sup[data-type='footnote_reference']:not([data-footnote-number])::after {
+  content: ']';
+}
+
+/* WYSIWYG：定义块——挂排形态 `[^label]: 内容`（flex 布局同 task-list-item 先例），
+   label 即源码标识符，可见可定位；内容多块时悬挂缩进对齐 */
+.wysiwyg-editor dl[data-type='footnote_definition'] {
+  display: flex;
+  gap: 4px;
+  margin: 0.25em 0;
+  font-size: 0.875em;
+  color: var(--color-text-muted);
+}
+
+.wysiwyg-editor dl[data-type='footnote_definition'] dt {
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.wysiwyg-editor dl[data-type='footnote_definition'] dt::before {
+  content: '[^';
+}
+
+.wysiwyg-editor dl[data-type='footnote_definition'] dt::after {
+  content: ']:';
+}
+
+.wysiwyg-editor dl[data-type='footnote_definition'] dd {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.wysiwyg-editor dl[data-type='footnote_definition'] dd > p:first-child {
+  margin-top: 0;
+}
+
+.wysiwyg-editor dl[data-type='footnote_definition'] dd > :last-child {
+  margin-bottom: 0;
+}
+
 /* ==================== CodeMirror 搜索面板（亮/暗主题可读性） ==================== */
 .cm-panel.cm-search {
   padding: 4px 8px;

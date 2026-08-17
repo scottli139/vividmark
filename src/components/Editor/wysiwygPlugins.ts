@@ -8,6 +8,7 @@ import { admonitionView } from './admonitionView'
 import { codeHighlightPlugin } from './codeHighlightPlugin'
 import { frontmatterSchema, remarkFrontmatterPlugin } from './frontmatterPlugin'
 import { frontmatterView } from './frontmatterView'
+import { footnoteDecorationPlugin } from './footnoteDecorations'
 import { githubAlertDecorationPlugin } from './githubAlertDecorations'
 import { hardbreakCleanupPlugin } from './hardbreakCleanupPlugin'
 import { hardbreakView } from './hardbreakView'
@@ -81,4 +82,6 @@ export const wysiwygPlugins: MilkdownPlugin[] = [
   imeEnterGuardPlugin,
   // GitHub Alerts：blockquote 首行 [!TYPE] 的纯装饰（零 schema 变更，位置无顺序约束）
   githubAlertDecorationPlugin,
+  // 脚注编号：footnote_reference/definition 节点由 gfm 预设自带，此处只做序号装饰
+  footnoteDecorationPlugin,
 ]

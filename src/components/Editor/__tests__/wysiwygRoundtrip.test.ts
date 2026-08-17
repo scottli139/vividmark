@@ -308,4 +308,63 @@ describe('wysiwyg markdown round-trip', () => {
       expect(second).toBe(first)
     })
   })
+
+  describe('脚注（gfm 预设自带节点，remark-gfm 解析/序列化）', () => {
+    it('引用与定义对应关系往返保留', async () => {
+      const ed = await createEditor(
+        '正文引用[^1]与[^note]。\n\n[^1]: 第一条。\n\n[^note]: 命名脚注。'
+      )
+      const out = ed.action(getMarkdown())
+
+      expect(out).toContain('[^1]')
+      expect(out).toContain('[^note]')
+      expect(out).toMatch(/\[\^1\]:\s*第一条。/)
+      expect(out).toMatch(/\[\^note\]:\s*命名脚注。/)
+    })
+
+    it('同一引用多次出现往返保留', async () => {
+      const ed = await createEditor('首次[^1]，再次[^1]。\n\n[^1]: 共享定义。')
+      const out = ed.action(getMarkdown())
+
+      expect(out.match(/\[\^1\](?!:)/g)?.length).toBe(2)
+      expect(out).toContain('[^1]: 共享定义。')
+    })
+
+    it('未被引用的定义往返保留（不丢内容）', async () => {
+      const ed = await createEditor('正文[^1]。\n\n[^1]: 被引用。\n\n[^unused]: 孤立定义。')
+      const out = ed.action(getMarkdown())
+
+      expect(out).toContain('[^unused]: 孤立定义。')
+    })
+
+    it('多行定义（缩进续行）往返保留', async () => {
+      const ed = await createEditor('引用[^1]。\n\n[^1]: 第一行\n    续行内容。')
+      const out = ed.action(getMarkdown())
+
+      expect(out).toContain('第一行')
+      expect(out).toContain('续行内容。')
+    })
+
+    it('定义位置不归一化（书写在中部则保持在中部）', async () => {
+      const ed = await createEditor('前文[^1]。\n\n[^1]: 中部定义。\n\n后文。')
+      const out = ed.action(getMarkdown())
+
+      const refPos = out.indexOf('前文')
+      const defPos = out.indexOf('[^1]: 中部定义。')
+      const tailPos = out.indexOf('后文。')
+      expect(defPos).toBeGreaterThan(refPos)
+      expect(tailPos).toBeGreaterThan(defPos)
+    })
+
+    it('二次往返稳定（序列化不动点）', async () => {
+      const ed = await createEditor(
+        '引用[^a]与[^b]，再引[^a]。\n\n[^a]: 定义 A。\n\n[^b]: 定义 B\n    续行。\n\n[^c]: 孤立。'
+      )
+      const first = ed.action(getMarkdown())
+      ed.action(replaceAll(first, true))
+      const second = ed.action(getMarkdown())
+
+      expect(second).toBe(first)
+    })
+  })
 })

@@ -237,6 +237,16 @@ Two syntax entries, both produce placeholders (async local rendering):
 - **坑：自家序列化产物的两种形态必须容忍**——① Milkdown toMarkdown 把 `[` 转义成 `\[`（防链接误判），保存后的文件标记行是 `\[!NOTE]`；② 行内软换行序列化为 `\`+换行时标记行带 `\` 尾缀。`matchAlertMarkerLine` 正则因此对开括号转义与行尾 `\`/空白均放宽（对 GitHub 严格口径的有意偏差，双端一致性优先）
 - Milkdown 硬换行节点名是 `hardbreak`（非 prosemirror-markdown 的 `hard_break`），PM 侧首行截取按此判定
 
+### 脚注（`[^id]`，2026-08-17）
+
+双端支持（语法批次 2）：
+
+- **WYSIWYG 侧零新增 schema**：Milkdown `gfm` 预设自带 `footnote_reference`（行内 atom，attrs.label）/ `footnote_definition`（块，`block+`，dl>dt+dd 结构）节点，remark-gfm 注册的 micromark/mdast 扩展包办解析与序列化——挂载即用，往返字节级无损（`wysiwygRoundtrip.test.ts` 锁定：引用/定义对应、多引用同定义、未引用定义保留、定义位置不归一化）。调研阶段验证过这一点，避免了原计划自写 `$remark` + 双 schema 的方案
+- **编号装饰**（`footnoteDecorations.ts`，纯 PM Decoration）：按「引用首现顺序」注入 `data-footnote-number`（与预览侧 markdown-it-footnote 编号口径一致），CSS `font-size:0` + `::before { content: '[' attr() ']' }` 把 label 原文替换为 `[N]` 显示；**悬空引用（定义被删）不编号**——label 原文继续显示，对应预览侧「无定义渲染为字面文本」的降级口径。定义块不编号，`dt` 显示 label 标识符（flex 挂排 `[^label]: 内容`，同 task-list-item 先例）
+- **预览/导出侧**：`markdown-it-footnote`（`md.use(footnote)` 注册于 parser.ts）。覆写 `md.renderer.rules.footnote_caption` 恒输出 `[N]`——默认同一定义第二次引用起输出 `[N:M]`，偏离 GitHub/Typora 观感；href/回链 id 仍走默认规则。未引用定义不渲染（同 GitHub）；编号按引用首现顺序、与定义书写顺序无关；同 md 实例连续渲染 env 计数天然隔离（每次 render 传新 env）
+- **锚点跳转**：预览点击 `a[href^="#"]` 不再走 `open()` 出站——`Editor.tsx` handlePreviewClick 拦截后 `scrollIntoView` 定位（逐元素比对 id，避开 CSS.escape 的 jsdom 兼容性）。站点导出天然支持页内锚点；`rewriteMarkdownLinks` 对纯 `#` href（pathPart 为空）不重写
+- **样式**：globals.css「脚注」一节三端共用（导出经 collectDocumentCss 自动受益）：预览 `.footnotes` 文末区块小字 muted + `scroll-margin-top`；WYSIWYG 角标 accent 色、悬空引用灰色 `[^label]` 形态
+
 ### Markdown 扩展测试模式
 
 **Test Pattern for Container Plugins:**

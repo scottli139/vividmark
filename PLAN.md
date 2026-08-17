@@ -305,7 +305,7 @@ logger.error('Failed to sync:', error)
 2. **frontmatter 双端** ✅（2026-08-14 完成）— 预览/导出剥离 + 大纲去噪 + WYSIWYG 只读 atom 节点（remark-frontmatter + 只读 nodeview，`$remark` options 坑已记入 notes；17 个新单测）
 3. **站点导出配置感知 P2** ✅（2026-08-17 完成）— `!!!` admonition 双端（预览自写块级 rule + WYSIWYG 文本预处理 `:::!` 内部形式，PM 节点 `syntax` attr，`!!!` 进 `!!!` 出语法保持往返）+ `exclude_docs` .gitignore 模式过滤（页面与资产同滤）；50 个新单测。方案 `docs/site-export-config-plan.md`
 4. **GitHub Alerts** ✅（2026-08-17 完成）— `> [!NOTE]` 五类双端：预览侧 core rule 后处理 blockquote token（改写复用 admonition 三段式，标记剥离）；WYSIWYG 侧纯 PM Decoration 上色加图标（零 schema 变更，标记行可见可编辑，复用 admonition 配色）；容忍自家序列化产物（`\[` 转义 / 行尾 `\`）；38 个新单测。方案 `docs/syntax-extensions-plan.md`
-5. **脚注**（语法批次 2 / FR-023.2）
+5. **脚注** ✅（2026-08-17 完成）— `[^id]` 双端：WYSIWYG 零新增 schema（gfm 预设自带 reference/definition 节点 + remark-gfm 往返），编号装饰按引用首现顺序注入（悬空引用不编号、label 原文降级显示）；预览侧 markdown-it-footnote（caption 覆写恒 `[N]`，未引用定义不渲染同 GitHub）；预览 `#fn` 锚点改页内滚动不走出站；22 个新单测。方案 `docs/syntax-extensions-plan.md`
 6. **站点导出配置感知 P3** — vuepress best-effort；站点导出管线至此定型
 7. **Mermaid**（语法批次 4 / FR-021.5；复用 PlantUML 占位符 + 懒加载基建；导出侧内联须等上项定型）
 8. **排版批**（语法批次 5 / FR-023.4：`==` / `^` / `~` / emoji 预览侧先行）

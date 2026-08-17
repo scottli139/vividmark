@@ -107,6 +107,14 @@ Turn any opened folder into a deployable documentation site with one click — n
   > Urgent info that needs immediate attention.
   ```
 
+- **Footnotes** - GFM-style `[^id]` references with definitions collected at the end of the document and bidirectional back-links; numbering follows first-reference order and stays consistent between WYSIWYG and preview (multiple references to one definition share the same number):
+
+  ```markdown
+  Body text with a reference[^1].
+
+  [^1]: The footnote definition, rendered at the end of the document.
+  ```
+
 - **PlantUML Diagrams** - Render UML diagrams directly in your document with the built-in local engine (@plantuml/core) — fully offline, dark-mode aware, and inlined as SVG in PDF/site exports (falls back to the online service only if local rendering fails)
   ```markdown
   @startuml
