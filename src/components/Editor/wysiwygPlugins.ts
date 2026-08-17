@@ -8,6 +8,7 @@ import { admonitionView } from './admonitionView'
 import { codeHighlightPlugin } from './codeHighlightPlugin'
 import { frontmatterSchema, remarkFrontmatterPlugin } from './frontmatterPlugin'
 import { frontmatterView } from './frontmatterView'
+import { githubAlertDecorationPlugin } from './githubAlertDecorations'
 import { hardbreakCleanupPlugin } from './hardbreakCleanupPlugin'
 import { hardbreakView } from './hardbreakView'
 import { strictBrParserPlugin } from './strictBrParserPlugin'
@@ -78,4 +79,6 @@ export const wysiwygPlugins: MilkdownPlugin[] = [
   hardbreakCleanupPlugin,
   hardbreakView,
   imeEnterGuardPlugin,
+  // GitHub Alerts：blockquote 首行 [!TYPE] 的纯装饰（零 schema 变更，位置无顺序约束）
+  githubAlertDecorationPlugin,
 ]

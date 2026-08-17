@@ -273,4 +273,39 @@ describe('wysiwyg markdown round-trip', () => {
       expect(hasFrontmatter).toBe(false)
     })
   })
+
+  describe('GitHub Alerts（blockquote 首行标记，零 schema 变更）', () => {
+    it('标记行与引用结构往返保留', async () => {
+      const ed = await createEditor('> [!NOTE]\n> 提示内容')
+      const out = ed.action(getMarkdown())
+
+      // Milkdown 序列化把 `[` 转义防误判链接（`\[` 渲染语义相同）；软换行为普通换行
+      expect(out).toMatch(/^> \\?\[!NOTE\]$/m)
+      expect(out).toMatch(/^> 提示内容$/m)
+    })
+
+    it('空 alert（仅标记行）往返保留', async () => {
+      const ed = await createEditor('> [!WARNING]')
+      const out = ed.action(getMarkdown())
+
+      expect(out).toMatch(/^> \\?\[!WARNING\]$/m)
+    })
+
+    it('未知类型标记原样保留（降级普通引用）', async () => {
+      const ed = await createEditor('> [!ABSTRACT]\n> 摘要')
+      const out = ed.action(getMarkdown())
+
+      expect(out).toContain('[!ABSTRACT]')
+      expect(out).toContain('摘要')
+    })
+
+    it('二次往返稳定（序列化不动点）', async () => {
+      const ed = await createEditor('> [!NOTE]\n> 提示内容\n\n> [!CAUTION]\n> 危险内容')
+      const first = ed.action(getMarkdown())
+      ed.action(replaceAll(first, true))
+      const second = ed.action(getMarkdown())
+
+      expect(second).toBe(first)
+    })
+  })
 })

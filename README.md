@@ -100,6 +100,13 @@ Turn any opened folder into a deployable documentation site with one click — n
       Content indented by 4 spaces (no closing fence needed).
   ```
 
+  GitHub-style alerts (`> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]`) render with the same callout styling — in WYSIWYG the marker line stays visible and editable (change `[!NOTE]` to `[!TIP]` to switch themes), with zero source rewriting:
+
+  ```markdown
+  > [!WARNING]
+  > Urgent info that needs immediate attention.
+  ```
+
 - **PlantUML Diagrams** - Render UML diagrams directly in your document with the built-in local engine (@plantuml/core) — fully offline, dark-mode aware, and inlined as SVG in PDF/site exports (falls back to the online service only if local rendering fails)
   ```markdown
   @startuml

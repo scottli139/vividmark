@@ -227,6 +227,16 @@ Two syntax entries, both produce placeholders (async local rendering):
 - **WYSIWYG 侧**：`frontmatterPlugin.ts`（remark-frontmatter + `frontmatter` atom 块 schema，YAML 源码存 attrs.value）+ `frontmatterView.ts`（只读 nodeview：标签 + pre 原文，编辑走 Source 模式）；解析/序列化靠 micromark-extension-frontmatter + mdast-util-frontmatter，value 逐字节保留
 - **坑：Milkdown `$remark` 的 options 默认 `{}`**——`$remark(id, factory)` 内部 `initialOptions ?? {}` 并原样 `remark.use(plugin, options)`；校验 options 的 remark 插件（如 remark-frontmatter 把 `{}` 当 matter 对象、缺 `type` 字段直接抛 `Missing type in matter {}`）**必须显式传第三参**（frontmatter 传 `'yaml'`）。后续 Alerts/脚注批次接 remark 插件时注意同款坑
 
+### GitHub Alerts（`> [!NOTE]`，2026-08-17）
+
+双端支持（语法批次 1；纯函数底座 `src/lib/markdown/githubAlert.ts` 的 `matchAlertMarkerLine` 双端共用）：
+
+- **预览/导出侧**：`githubAlertPlugin.ts`——**core rule 后处理 blockquote token**（非块级 rule：CommonMark 引用语义由 block parser 免费获得）。命中（首段首行 `[!TYPE]` 独占一行）后把 blockquote_open/close 改写为 `github_alert_open/close`，渲染复用 `<div class="admonition <type>">` 三段式（CSS 零适配），标记文本与换行从 inline.children 剥离；标记是唯一内容时连空段落三件套一并 splice。rule 放 core 链尾（text_join 之后，标记必为首个 text token）
+- **WYSIWYG 侧**：`githubAlertDecorations.ts`——**纯 PM Decoration，零 schema 变更**：命中 blockquote 注入 `admonition <type> github-alert` class（复用 admonition 亮暗配色，与预览视觉一致）+ 首段 `::before` 类型图标 + 标记文本 InlineDecoration 着色加粗。标记行可见可编辑，改 `[!TIP]` 即换色、删 `]` 退回普通引用；带 mark 的标记（`**[!NOTE]**`）不装饰（对齐预览正则口径）
+- **识别口径（对齐 GitHub，Obsidian 差异处从严）**：仅五类（note/tip/important/warning/caution）；未知类型、标记同行跟文本、Obsidian 折叠标记 `+`/`-`、标记非首行 → 一律普通引用块，原文保留不丢内容
+- **坑：自家序列化产物的两种形态必须容忍**——① Milkdown toMarkdown 把 `[` 转义成 `\[`（防链接误判），保存后的文件标记行是 `\[!NOTE]`；② 行内软换行序列化为 `\`+换行时标记行带 `\` 尾缀。`matchAlertMarkerLine` 正则因此对开括号转义与行尾 `\`/空白均放宽（对 GitHub 严格口径的有意偏差，双端一致性优先）
+- Milkdown 硬换行节点名是 `hardbreak`（非 prosemirror-markdown 的 `hard_break`），PM 侧首行截取按此判定
+
 ### Markdown 扩展测试模式
 
 **Test Pattern for Container Plugins:**

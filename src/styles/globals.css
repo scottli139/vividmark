@@ -990,6 +990,55 @@ body {
   outline-offset: 2px;
 }
 
+/* ==================== GitHub Alerts（WYSIWYG 装饰） ==================== */
+/* blockquote 首段首行 [!TYPE] 命中时由 PM Decoration 注入 `admonition <type> github-alert`
+   class（githubAlertDecorations.ts），admonition 亮暗配色随之生效，与预览/导出的 alert
+   盒视觉一致；标记行保留可见可编辑，样式化为标题行（v1 纯装饰，零 schema 变更） */
+
+.wysiwyg-editor blockquote.github-alert {
+  padding: 8px 16px;
+  color: var(--editor-text);
+}
+
+.wysiwyg-editor blockquote.github-alert > p:first-child {
+  margin-top: 0;
+}
+
+.wysiwyg-editor blockquote.github-alert > *:last-child {
+  margin-bottom: 0;
+}
+
+/* 类型图标加在首段（即标记行）行首，与 admonition-title 的 emoji 口径一致 */
+.wysiwyg-editor blockquote.github-alert.note > p:first-child::before {
+  content: '📝';
+  margin-right: 6px;
+}
+
+.wysiwyg-editor blockquote.github-alert.tip > p:first-child::before {
+  content: '💡';
+  margin-right: 6px;
+}
+
+.wysiwyg-editor blockquote.github-alert.important > p:first-child::before {
+  content: '❗';
+  margin-right: 6px;
+}
+
+.wysiwyg-editor blockquote.github-alert.warning > p:first-child::before {
+  content: '⚠️';
+  margin-right: 6px;
+}
+
+.wysiwyg-editor blockquote.github-alert.caution > p:first-child::before {
+  content: '⚠️';
+  margin-right: 6px;
+}
+
+.wysiwyg-editor .github-alert-marker {
+  color: var(--admonition-color);
+  font-weight: 600;
+}
+
 /* ==================== CodeMirror 搜索面板（亮/暗主题可读性） ==================== */
 .cm-panel.cm-search {
   padding: 4px 8px;

@@ -100,6 +100,13 @@
       内容行缩进 4 个空格（无需结束围栏）。
   ```
 
+  同时支持 GitHub 风格警示框（`> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]`），复用同一套提示框配色——WYSIWYG 中标记行保持可见可编辑（把 `[!NOTE]` 改成 `[!TIP]` 即换主题色），不改写源码：
+
+  ```markdown
+  > [!WARNING]
+  > 需要立即注意的紧急信息。
+  ```
+
 - **PlantUML 图表** - 内置本地引擎（@plantuml/core）直接在文档中渲染 UML 图表 —— 完全离线、暗色自适应，PDF/站点导出内联 SVG（仅本地渲染失败时回退在线服务）
   ```markdown
   @startuml
