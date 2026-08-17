@@ -1,5 +1,10 @@
 import type { FileTreeItem } from './fileTreeUtils'
-import { FRONTMATTER_BLOCK_RE, type MkdocsNavItem } from './siteConfig'
+import {
+  FRONTMATTER_BLOCK_RE,
+  isExcludedPath,
+  type CompiledExcludePattern,
+  type MkdocsNavItem,
+} from './siteConfig'
 
 /**
  * 静态站点生成器（纯函数，可单测）。
@@ -108,6 +113,31 @@ export function collectSiteEntries(tree: FileTreeItem[]): {
   }
   walk(tree, '')
   return { pages, assets }
+}
+
+/**
+ * 按 mkdocs exclude_docs 模式过滤文件树（页面与资产同滤，相对 docs_dir 路径匹配）。
+ * 命中的文件被剔除；目录保留（空目录由 collectSiteEntries/buildNavModel 自然跳过）。
+ */
+export function filterFileTreeByExcludes(
+  tree: FileTreeItem[],
+  patterns: CompiledExcludePattern[]
+): FileTreeItem[] {
+  if (patterns.length === 0) return tree
+
+  const walk = (items: FileTreeItem[], prefix: string): FileTreeItem[] => {
+    const out: FileTreeItem[] = []
+    for (const item of items) {
+      const relPath = prefix ? `${prefix}/${item.name}` : item.name
+      if (item.isDirectory) {
+        out.push({ ...item, children: walk(item.children ?? [], relPath) })
+      } else if (!isExcludedPath(patterns, relPath)) {
+        out.push(item)
+      }
+    }
+    return out
+  }
+  return walk(tree, '')
 }
 
 /** 提取页面标题：首个 `# H1`，由调用方注入 buildNavModel 的 titles；跳过文档开头 frontmatter */

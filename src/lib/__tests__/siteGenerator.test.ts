@@ -7,6 +7,7 @@ import {
   collectSiteEntries,
   compareNavNames,
   createSlugger,
+  filterFileTreeByExcludes,
   isMarkdownFile,
   mdHrefToHtml,
   mdToHtmlPath,
@@ -19,6 +20,7 @@ import {
   type SiteFileEntry,
 } from '../siteGenerator'
 import type { MkdocsNavItem } from '../siteConfig'
+import { compileExcludePatterns } from '../siteConfig'
 
 function dir(name: string, children: FileTreeItem[]): FileTreeItem {
   return { name, path: `/docs/${name}`, isDirectory: true, children }
@@ -312,5 +314,35 @@ describe('pageTitleFromMarkdown 跳过 frontmatter', () => {
 
   it('frontmatter 不再被误认为正文内容（无 H1 返回 null）', () => {
     expect(pageTitleFromMarkdown('---\ntitle: x\n---\n正文第一段')).toBeNull()
+  })
+})
+
+describe('filterFileTreeByExcludes（mkdocs exclude_docs）', () => {
+  const tree: FileTreeItem[] = [
+    file('index.md'),
+    file('secret.md'),
+    dir('drafts', [file('a.md', 'drafts'), file('notes.txt', 'drafts')]),
+    dir('guide', [file('intro.md', 'guide'), file('debug.log', 'guide')]),
+    file('logo.png'),
+  ]
+
+  it('页面与资产同滤；目录保留、空目录自然无产物', () => {
+    const filtered = filterFileTreeByExcludes(
+      tree,
+      compileExcludePatterns(['/secret.md', 'drafts/', '*.log'])
+    )
+    const { pages, assets } = collectSiteEntries(filtered)
+    expect(pages.map((p) => p.relPath)).toEqual(['index.md', 'guide/intro.md'])
+    expect(assets.map((a) => a.relPath)).toEqual(['logo.png'])
+  })
+
+  it('! 取反重新纳入个别文件', () => {
+    const filtered = filterFileTreeByExcludes(tree, compileExcludePatterns(['*.md', '!/index.md']))
+    const { pages } = collectSiteEntries(filtered)
+    expect(pages.map((p) => p.relPath)).toEqual(['index.md'])
+  })
+
+  it('空模式列表原样返回', () => {
+    expect(filterFileTreeByExcludes(tree, [])).toBe(tree)
   })
 })

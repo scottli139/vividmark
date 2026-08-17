@@ -1513,3 +1513,21 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 - **AlternativeTo**：新注册账号须满 7 天才能 "Suggest new application"（反垃圾）；listing 审核数天~一周；通过后到 Typora/Obsidian/MarkText 等页面 "Suggest alternative" 挂载。外链 dofollow、DR≈80，是 "typora alternative" 搜索词的主要入口。
 - **awesome-markdown-editors 2026 新政策**：新条目一律先加 `UPCOMING.md`（不再直接进 README），必须附源码链接；无源码项目进 `COMMERCIAL.md`。
 - **Baidu 对 github.io 收录极差**（爬虫基本不抓）。中文流量主渠道是 HelloGitHub（GitHub issue 自荐，人工月刊，选中后 1~2 期刊出）与社区投稿（V2EX/掘金/少数派）；若需 Baidu 收录中文站点，得用 Gitee Pages 或自有域名镜像。
+
+## 2026-08-17 MkDocs `!!!` admonition 双端支持 + exclude_docs（站点导出配置感知 P2）
+
+方案 `docs/site-export-config-plan.md` P2。`!!!`（Python-Markdown 风格）与 `:::` 的关键差异：**无结束围栏，内容范围由「后续 4 空格/tab 缩进的行」决定**（空行悬挂：空行后仍是缩进行则归属容器）。
+
+**预览/分栏（`src/lib/markdown/bangAdmonitionPlugin.ts`）**：自写块级 rule（`md.block.ruler.before('fence')`，alt 同 markdown-it-container 因此可中断段落、可嵌于引用/列表）——不能复用 markdown-it-container（成对围栏定界）。命中标记行后收集缩进内容行（`sCount - blkIndent >= 4` 或空行），dedent 一级（4 空格或 1 tab），`state.md.block.parse` 完整块级解析递归（嵌套 `!!!`、容器内围栏代码块走标准机制）。产出 HTML 与 `:::` 容器逐字节同构（CSS/测试锁定该结构）。**未知类型（mkdocs 扩展类型 abstract/question/...）显示降级 note 主题、默认标题取原类型名**。
+
+**WYSIWYG（文本预处理路线）**：缩进信息到 mdast 层已被 commonmark 抹掉（`!!!` 块变成「标记行融合段落 + 缩进代码块兄弟节点」），故解析不在 remark 变换里做——`src/lib/markdown/bangAdmonition.ts` 的 `preprocessBangAdmonitions` 在 Milkdown 解析前把 `!!!` 缩进块转成**内部 `:::!` 形式**（bang 来源编码），挂在 `WysiwygEditor.tsx` 两个 markdown 入口（`defaultValueCtx` / 两处 `replaceAll`，测试里需手动同款包裹）。admonitionPlugin 的扩展 START_MARKER 识别 `:::!` 后置 PM 节点 `syntax: 'bang'` attr；序列化按 attr 分支输出 `!!! type "title"` + 内容每行 4 空格缩进——**语法保持往返（!!! 进 !!! 出），不归一成 `:::`**（否则会弄坏用户的 mkdocs 构建）。
+
+防坑要点：
+
+- **`:::!` 泄漏防腐**：内部形式只在瞬态文本存在。bang 配对用深度计数（colon 用最近端对齐 markdown-it-container 等长围栏行为）；**内容含 `:::` 标记的 bang 块预处理器直接不转换**（colon 嵌入 bang 的配对会错乱，降级原文优于改写源码）；手写 `:::!` 未配对时整体降级为段落原文。均有测试锁定。
+- **预处理器跳过**：围栏代码块内部（跟踪 fence 状态）、`:::` 容器内部整体透传；引用/列表内的 `!!!` 是已知边界（行首有 `>`/列表标记不转换，保持原文不损坏；预览侧经 markdown-it 块级机制正常渲染）。
+- **fence 掩码放宽**：parser.ts 的 FENCE_BLOCK_REGEX 缩进从 ` {0,3}` 放宽到 `[ \t]*`——`!!!` 内容整体缩进 4 空格，其内围栏不进掩码会被行内 `@startuml` 正则误替换；掩码在渲染前原样还原，放宽对顶层渲染无影响（顺带修复顶层缩进代码块内 `@startuml` 被误替换的旧边界）。
+- **nodeview 未知类型**：class 用 `admonitionDisplayClass`（未知 → note 主题），data attr 与 PM attr 保留原类型名，序列化不丢。
+- 标题序列化恒用引号形式（无引号标题首次往返被规范化）；含双引号的标题退回无引号原文。空容器输出仅标记行（`!!! note`）。
+
+**exclude_docs（mkdocs 1.5+，P2.3）**：`parseMkdocsConfig` 解析（官方多行字符串 + 兼容 YAML 数组；剥行内注释/空行）；`compileExcludePatterns`/`isExcludedPath`（siteConfig.ts）实现 .gitignore 语义（`!` 取反最后命中决定、`/` 锚定、`*`/`?` 不跨段、`**` 跨段、尾部 `/` 仅目录）；`filterFileTreeByExcludes`（siteGenerator.ts）在 exportSite 读树后过滤——**页面与资产同滤，路径相对 docs_dir**。这是唯一删减导出内容的配置（nav 只是导航白名单）；nav 指向被排除文件时走既有 missingPaths 跳过 + 日志。mkdocs 隐式默认（`.*`、`/templates/`）未复制：点文件 Rust 侧读目录已跳过，`/templates/` 是 mkdocs 主题概念、对内置生成器无意义。

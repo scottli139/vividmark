@@ -170,7 +170,7 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 | FR-020.7 | 支持自定义标题 `::: tip 自定义标题` | P1 | ✅ |
 | FR-020.8 | 可折叠 Admonitions `??? note` | P2 | ⬜ |
 | FR-020.9 | 嵌套 Admonitions 支持 | P2 | ⬜ |
-| FR-020.10 | MkDocs `!!!` admonition 语法兼容（双端，源码围栏保持往返） | P2 | ⬜ |
+| FR-020.10 | MkDocs `!!!` admonition 语法兼容（双端，源码围栏保持往返） | P2 | ✅ |
 
 #### 3.3.2 图表支持 [FR-021]
 

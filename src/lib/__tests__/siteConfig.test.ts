@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import {
+  compileExcludePatterns,
   detectSiteFlavor,
   frontmatterTitle,
+  isExcludedPath,
   parseFrontmatter,
   parseMkdocsConfig,
   type FlavorIo,
@@ -203,5 +205,93 @@ describe('detectSiteFlavor', () => {
   it("vuepress：docs/.vuepress → docsRoot 'docs'", async () => {
     const info = await detectSiteFlavor('/repo', fakeIo({}, ['/repo/docs/.vuepress']))
     expect(info).toEqual({ flavor: 'vuepress', docsRoot: 'docs' })
+  })
+})
+
+// ==================== exclude_docs（.gitignore 模式） ====================
+
+describe('parseMkdocsConfig exclude_docs', () => {
+  it('多行字符串形式（官方格式）：剥注释与空行，保留 ! 取反与 / 锚定', () => {
+    const config = parseMkdocsConfig(`site_name: T
+exclude_docs: |
+  api-config.json    # A file with this name anywhere.
+  /requirements.txt  # Top-level file.
+
+  *.py
+  !/foo/example.py   # But keep this particular file.
+`)
+    expect(config.excludeDocs).toEqual([
+      'api-config.json',
+      '/requirements.txt',
+      '*.py',
+      '!/foo/example.py',
+    ])
+  })
+
+  it('YAML 数组形式兼容', () => {
+    const config = parseMkdocsConfig(`exclude_docs:
+  - drafts/*
+  - /secret.md
+`)
+    expect(config.excludeDocs).toEqual(['drafts/*', '/secret.md'])
+  })
+
+  it('缺省为 undefined', () => {
+    expect(parseMkdocsConfig('site_name: T').excludeDocs).toBeUndefined()
+  })
+})
+
+describe('exclude_docs 匹配（.gitignore 语义）', () => {
+  it('无 / 模式匹配任意层级文件名', () => {
+    const patterns = compileExcludePatterns(['api-config.json'])
+    expect(isExcludedPath(patterns, 'api-config.json')).toBe(true)
+    expect(isExcludedPath(patterns, 'sub/api-config.json')).toBe(true)
+    expect(isExcludedPath(patterns, 'other.md')).toBe(false)
+  })
+
+  it('前导 / 锚定 docs_dir 根', () => {
+    const patterns = compileExcludePatterns(['/requirements.txt'])
+    expect(isExcludedPath(patterns, 'requirements.txt')).toBe(true)
+    expect(isExcludedPath(patterns, 'sub/requirements.txt')).toBe(false)
+  })
+
+  it('* 不跨目录；*.py 任意层级', () => {
+    const patterns = compileExcludePatterns(['*.py'])
+    expect(isExcludedPath(patterns, 'a.py')).toBe(true)
+    expect(isExcludedPath(patterns, 'sub/a.py')).toBe(true)
+    expect(isExcludedPath(patterns, 'a.py.md')).toBe(false)
+  })
+
+  it('含 / 模式锚定根：docs/*.md 不匹配嵌套与子目录同名', () => {
+    const patterns = compileExcludePatterns(['docs/*.md'])
+    expect(isExcludedPath(patterns, 'docs/a.md')).toBe(true)
+    expect(isExcludedPath(patterns, 'docs/a/b.md')).toBe(false)
+    expect(isExcludedPath(patterns, 'sub/docs/a.md')).toBe(false)
+  })
+
+  it('尾部 / 仅目录：其下文件全部排除', () => {
+    const patterns = compileExcludePatterns(['drafts/'])
+    expect(isExcludedPath(patterns, 'drafts/a.md')).toBe(true)
+    expect(isExcludedPath(patterns, 'x/drafts/b.md')).toBe(true)
+    expect(isExcludedPath(patterns, 'drafts.md')).toBe(false)
+  })
+
+  it('! 取反：最后命中者决定（重新纳入个别文件）', () => {
+    const patterns = compileExcludePatterns(['*.py', '!/foo/example.py'])
+    expect(isExcludedPath(patterns, 'foo/example.py')).toBe(false)
+    expect(isExcludedPath(patterns, 'foo/other.py')).toBe(true)
+    expect(isExcludedPath(patterns, 'bar/example.py')).toBe(true)
+  })
+
+  it('**/ 前缀匹配任意层级（含零层）', () => {
+    const patterns = compileExcludePatterns(['**/draft.md'])
+    expect(isExcludedPath(patterns, 'draft.md')).toBe(true)
+    expect(isExcludedPath(patterns, 'a/b/draft.md')).toBe(true)
+  })
+
+  it('结尾 /** 匹配目录内一切', () => {
+    const patterns = compileExcludePatterns(['vendor/**'])
+    expect(isExcludedPath(patterns, 'vendor/a/b.txt')).toBe(true)
+    expect(isExcludedPath(patterns, 'x/vendor/a.txt')).toBe(false)
   })
 })

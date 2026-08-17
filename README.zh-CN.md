@@ -93,6 +93,13 @@
 
   支持类型: `tip`, `warning`, `info`, `note`, `danger`, `success`, `hint`, `important`, `caution`
 
+  同时双端支持 MkDocs 风格的 `!!!` 提示框（预览与 WYSIWYG）——在 WYSIWYG 中编辑后保存，源码围栏保持 `!!!` 不变：
+
+  ```markdown
+  !!! note "自定义标题"
+      内容行缩进 4 个空格（无需结束围栏）。
+  ```
+
 - **PlantUML 图表** - 内置本地引擎（@plantuml/core）直接在文档中渲染 UML 图表 —— 完全离线、暗色自适应，PDF/站点导出内联 SVG（仅本地渲染失败时回退在线服务）
   ```markdown
   @startuml

@@ -10,6 +10,7 @@ import { isTauri } from './imageSrc'
 import { createLogger } from './logger'
 import { parseMarkdownAsync } from './markdown/parser'
 import {
+  compileExcludePatterns,
   detectSiteFlavor,
   frontmatterTitle,
   parseFrontmatter,
@@ -22,6 +23,7 @@ import {
   buildNavModel,
   collectSiteEntries,
   fallbackPageTitle,
+  filterFileTreeByExcludes,
   mdToHtmlPath,
   pageTitleFromMarkdown,
   relPrefix,
@@ -140,7 +142,16 @@ export async function exportSite(): Promise<boolean> {
       : openedFolder
 
     // 原始树（不做前端的 md-only 过滤——资产也要复制；Rust 侧已跳过隐藏/node_modules/target）
-    const tree = await readDirectory(docsRootAbs, true)
+    let tree = await readDirectory(docsRootAbs, true)
+
+    // mkdocs exclude_docs（1.5+，.gitignore 模式相对 docs_dir）：页面与资产同滤，
+    // 这是唯一会删减导出内容的配置（nav 只是导航白名单，见方案决策 3）
+    const excludePatterns = compileExcludePatterns(flavorInfo.mkdocsConfig?.excludeDocs ?? [])
+    if (excludePatterns.length > 0) {
+      tree = filterFileTreeByExcludes(tree, excludePatterns)
+      logger.info('exclude_docs applied:', flavorInfo.mkdocsConfig?.excludeDocs)
+    }
+
     const { pages, assets } = collectSiteEntries(tree)
     if (pages.length === 0) {
       logger.timeEnd('exportSite')

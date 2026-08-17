@@ -27,6 +27,8 @@ export interface MkdocsConfig {
   siteName?: string
   docsDir?: string
   nav?: MkdocsNavItem[]
+  /** exclude_docs 原始模式串（.gitignore 格式，相对 docs_dir；含 `!` 取反、`/` 锚定标记） */
+  excludeDocs?: string[]
 }
 
 /** 风味探测结果 */
@@ -92,7 +94,24 @@ function parseNavItem(item: unknown): MkdocsNavItem | null {
 }
 
 /**
- * 解析 mkdocs.yml 文本（site_name / docs_dir / nav）。
+ * exclude_docs 解析（mkdocs 1.5+）。官方格式为多行字符串（.gitignore 风格，
+ * 文档示例含行内注释）；兼容 YAML 字符串数组写法。返回原始模式串列表
+ * （保留 `!` 取反与 `/` 锚定标记，匹配语义见 compileExcludePatterns）。
+ */
+function parseExcludeDocs(value: unknown): string[] {
+  const lines =
+    typeof value === 'string'
+      ? value.split(/\r?\n/)
+      : Array.isArray(value)
+        ? value.filter((v): v is string => typeof v === 'string')
+        : []
+  return lines
+    .map((line) => line.replace(/\s+#.*$/, '').trim())
+    .filter((line) => line !== '' && !line.startsWith('#'))
+}
+
+/**
+ * 解析 mkdocs.yml 文本（site_name / docs_dir / nav / exclude_docs）。
  * YAML 语法错误会抛异常，由调用方降级处理。
  */
 export function parseMkdocsConfig(yamlText: string): MkdocsConfig {
@@ -108,7 +127,104 @@ export function parseMkdocsConfig(yamlText: string): MkdocsConfig {
     const nav = raw.nav.map(parseNavItem).filter((item): item is MkdocsNavItem => item !== null)
     if (nav.length > 0) config.nav = nav
   }
+  const excludeDocs = parseExcludeDocs(raw.exclude_docs)
+  if (excludeDocs.length > 0) config.excludeDocs = excludeDocs
   return config
+}
+
+// ==================== exclude_docs 匹配（.gitignore 模式语义） ====================
+
+/** 编译后的排除模式 */
+export interface CompiledExcludePattern {
+  regex: RegExp
+  negated: boolean
+}
+
+/** gitignore glob → regex 主体：`*`/`?` 不跨 `/`；`**` 支持跨目录层级（前导任意层级、结尾递归） */
+function globToRegexSource(glob: string): string {
+  let out = ''
+  let i = 0
+  while (i < glob.length) {
+    const ch = glob[i]
+    if (ch === '*') {
+      if (glob[i + 1] === '*') {
+        const prevBoundary = i === 0 || glob[i - 1] === '/'
+        if (prevBoundary && glob[i + 2] === '/') {
+          out += '(?:.*/)?' // `**/x`：零层也匹配
+          i += 3
+          continue
+        }
+        if (prevBoundary && i + 2 >= glob.length) {
+          out += '.*' // 结尾 `x/**`：内部一切
+          i += 2
+          continue
+        }
+        out += '[^/]*' // 段内 `**` 退化为 `*`
+        i += 2
+        continue
+      }
+      out += '[^/]*'
+      i++
+      continue
+    }
+    if (ch === '?') {
+      out += '[^/]'
+      i++
+      continue
+    }
+    if (ch === '[') {
+      const close = glob.indexOf(']', i + 1)
+      if (close > i + 1) {
+        out += glob.slice(i, close + 1) // 字符类原样保留
+        i = close + 1
+        continue
+      }
+      out += '\\['
+      i++
+      continue
+    }
+    out += ch.replace(/[.+^${}()|\\]/g, '\\$&')
+    i++
+  }
+  return out
+}
+
+/**
+ * 编译 .gitignore 风格模式（相对 docs_dir 的 '/' 分隔路径）：
+ * - `!` 前缀取反（重新纳入）；按序评估，最后命中者决定
+ * - 含 `/`（或前导 `/`）的模式锚定根；否则匹配任意层级
+ * - 尾部 `/` 仅匹配目录（其下文件全部排除）；无尾 `/` 同时匹配文件与目录前缀
+ */
+export function compileExcludePatterns(patterns: string[]): CompiledExcludePattern[] {
+  const compiled: CompiledExcludePattern[] = []
+  for (const raw of patterns) {
+    let pattern = raw
+    let negated = false
+    if (pattern.startsWith('!')) {
+      negated = true
+      pattern = pattern.slice(1)
+    }
+    const dirOnly = pattern.endsWith('/')
+    if (dirOnly) pattern = pattern.slice(0, -1)
+    const anchored = pattern.startsWith('/') || pattern.includes('/')
+    if (pattern.startsWith('/')) pattern = pattern.slice(1)
+    if (pattern === '') continue
+
+    const body = globToRegexSource(pattern)
+    const prefix = anchored ? '^' : '^(.*/)?'
+    const suffix = dirOnly ? '/' : '(/.*)?$'
+    compiled.push({ regex: new RegExp(prefix + body + suffix), negated })
+  }
+  return compiled
+}
+
+/** gitignore 语义匹配：按序评估全部模式，最后命中者决定（`!` 取反可重新纳入） */
+export function isExcludedPath(patterns: CompiledExcludePattern[], relPath: string): boolean {
+  let excluded = false
+  for (const pattern of patterns) {
+    if (pattern.regex.test(relPath)) excluded = !pattern.negated
+  }
+  return excluded
 }
 
 // frontmatter 纯函数已迁移至 ./markdown/frontmatter（预览剥离 / 大纲 / 站点导出共用），

@@ -1,6 +1,7 @@
 import type { NodeView } from '@milkdown/kit/prose/view'
 import { $view } from '@milkdown/kit/utils'
 import { getAdmonitionDisplayTitle } from '../../lib/markdown/admonitionTypes'
+import { admonitionDisplayClass } from '../../lib/markdown/bangAdmonition'
 import { admonitionSchema } from './admonitionPlugin'
 
 /**
@@ -9,13 +10,15 @@ import { admonitionSchema } from './admonitionPlugin'
  * 直接复用 globals.css 的 .admonition / .admonition-title / .admonition-content 样式
  * （亮暗两套变量自动生效）。标题区 contentEditable=false（attrs 不进文档内容），
  * 内容区为 contentDOM，内部块（列表、代码块、嵌套 admonition）正常编辑。
+ * class 用 admonitionDisplayClass：bang 形式带来的 mkdocs 扩展类型降级 note 主题
+ * （attrs 保留原类型名，序列化不丢）。
  */
 export const admonitionView = $view(admonitionSchema.node, () => {
   return (initialNode): NodeView => {
     let node = initialNode
 
     const dom = document.createElement('div')
-    dom.className = `admonition ${node.attrs.admonitionType}`
+    dom.className = `admonition ${admonitionDisplayClass(node.attrs.admonitionType)}`
     dom.dataset.admonitionType = node.attrs.admonitionType
     dom.dataset.title = node.attrs.title
 

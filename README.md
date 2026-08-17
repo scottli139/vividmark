@@ -93,6 +93,13 @@ Turn any opened folder into a deployable documentation site with one click — n
 
   Supported types: `tip`, `warning`, `info`, `note`, `danger`, `success`, `hint`, `important`, `caution`
 
+  MkDocs-style `!!!` admonitions are also supported on both ends (preview and WYSIWYG) — editing in WYSIWYG keeps the `!!!` fences untouched when saving:
+
+  ```markdown
+  !!! note "Custom title"
+      Content indented by 4 spaces (no closing fence needed).
+  ```
+
 - **PlantUML Diagrams** - Render UML diagrams directly in your document with the built-in local engine (@plantuml/core) — fully offline, dark-mode aware, and inlined as SVG in PDF/site exports (falls back to the online service only if local rendering fails)
   ```markdown
   @startuml

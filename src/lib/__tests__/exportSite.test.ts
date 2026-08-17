@@ -182,6 +182,37 @@ nav:
     expect(mockAlertDialog).toHaveBeenCalledWith(expect.stringContaining('MkDocs config detected'))
   })
 
+  it('mkdocs exclude_docs：页面与资产同滤（.gitignore 模式，相对 docs_dir）', async () => {
+    setupInvoke({
+      tree: [
+        file('index.md', '/repo/docs'),
+        file('secret.md', '/repo/docs'),
+        dir('drafts', [file('notes.md', '/repo/docs/drafts')], '/repo/docs'),
+        file('logo.png', '/repo/docs'),
+        file('debug.log', '/repo/docs'),
+      ],
+      exists: { '/repo/mkdocs.yml': true, '/repo/docs': true },
+      files: {
+        '/repo/mkdocs.yml': `site_name: T
+docs_dir: docs
+exclude_docs: |
+  /secret.md
+  drafts/
+  *.log
+`,
+        '/repo/docs/index.md': '# 首页\n',
+      },
+    })
+    expect(await exportSite()).toBe(true)
+
+    const paths = exportedFiles.map((f) => f.path)
+    expect(paths).toEqual(expect.arrayContaining(['index.html', 'logo.png']))
+    // 被排除的页面/资产不导出（secret.md 顶层锚定、drafts/ 目录、*.log 任意层级）
+    expect(paths).not.toContain('secret.html')
+    expect(paths).not.toContain('drafts/notes.html')
+    expect(paths).not.toContain('debug.log')
+  })
+
   it('vuepress 风味：docs/.vuepress → 范围收敛 docs/，提示带 VuePress 来源', async () => {
     setupInvoke({
       tree: [file('intro.md', '/repo/docs')],

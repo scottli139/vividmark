@@ -1,6 +1,6 @@
 # 「导出为网站」配置感知方案（MkDocs / VuePress）
 
-> **状态：🚧 部分实施**（2026-08-14 完成设计讨论与真实仓库案例分析；**P1 已于 2026-08-14 落地**：风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 底座，新增 36 个单测；`!!!` admonition 双端支持见 P2。P2/P3 待排期）
+> **状态：🚧 部分实施**（2026-08-14 完成设计讨论与真实仓库案例分析；**P1 已于 2026-08-14 落地**：风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 底座，新增 36 个单测；**P2 已于 2026-08-17 落地**：`!!!` admonition 双端（语法保持往返）+ `exclude_docs` 过滤，新增 50 个单测。P3 待排期）
 >
 > **结论：可行，分三期。** 保持内置生成器零外部依赖的路线，通过「风味探测 + 配置解析」感知 mkdocs/vuepress 仓库：mkdocs 做深（`nav:` 原文驱动导航），vuepress 诚实 best-effort。核心原则：**配置只影响导航树，从不删减页面**。mkdocs `!!!` admonition 进主解析器（预览/分栏 + WYSIWYG 双端，语法保持往返），站点导出随之自动受益。
 
@@ -167,13 +167,13 @@ function parseFrontmatter(content: string): { data: Record<string, unknown> | nu
 
 **产出**：mkdocs 仓库导出 = 范围收敛 docs_dir + 导航忠实配置意图 + 全页面正文链接可达；无配置仓库行为不变 + frontmatter 支持。
 
-### P2：mkdocs `!!!` 语法双端支持 + 排除（约 2 天）
+### P2：mkdocs `!!!` 语法双端支持 + 排除（约 2 天）✅（2026-08-17 完成）
 
 | # | 任务 | 描述 | 预估 |
 | --- | --- | --- | --- |
-| 2.1 | `!!!` 预览/分栏支持 | markdown-it 自写块级 rule（缩进定界，**不复用** markdown-it-container），产出复用现有 admonition HTML/CSS | 4h |
-| 2.2 | `!!!` WYSIWYG 支持 | 文本预处理器（`!!!` 缩进块 → 内部 `:::` 形式 + bang 来源编码）+ PM 节点 `syntax` attr + 序列化分支 + 往返测试 | 8h |
-| 2.3 | `exclude_docs` glob 过滤 | 页面与资产同滤（相对 docs_dir 路径匹配） | 2h |
+| 2.1 | `!!!` 预览/分栏支持 ✅ | markdown-it 自写块级 rule（缩进定界，**不复用** markdown-it-container），产出复用现有 admonition HTML/CSS | 4h |
+| 2.2 | `!!!` WYSIWYG 支持 ✅ | 文本预处理器（`!!!` 缩进块 → 内部 `:::!` 形式 + bang 来源编码）+ PM 节点 `syntax` attr + 序列化分支 + 往返测试 | 8h |
+| 2.3 | `exclude_docs` glob 过滤 ✅ | 页面与资产同滤（相对 docs_dir 路径匹配；.gitignore 语义：`!` 取反 / `/` 锚定 / `**` 跨段） | 2h |
 
 **产出**：mkdocs 文档在预览/分栏直接渲染 `!!!` 提示框；WYSIWYG 可编辑且保存后源码围栏原样保持（`!!!` 不被改写为 `:::`）；站点导出经共享 `parseMarkdown` 自动获得同样渲染。
 

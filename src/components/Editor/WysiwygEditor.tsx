@@ -9,6 +9,7 @@ import type { EditorView } from '@milkdown/kit/prose/view'
 import { getMarkdown, replaceAll } from '@milkdown/kit/utils'
 import { useEditorStore } from '../../stores/editorStore'
 import type { FormatType } from '../../lib/markdownEditing'
+import { preprocessBangAdmonitions } from '../../lib/markdown/bangAdmonition'
 import { createLogger } from '../../lib/logger'
 import { writeClipboardText } from '../../lib/clipboard'
 import {
@@ -150,7 +151,8 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
     Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, container)
-        ctx.set(defaultValueCtx, useEditorStore.getState().content)
+        // mkdocs `!!!` → 内部 `:::!` 形式（语法保持往返，见 bangAdmonition.ts）
+        ctx.set(defaultValueCtx, preprocessBangAdmonitions(useEditorStore.getState().content))
         ctx.get(listenerCtx).markdownUpdated((_ctx, markdown) => {
           // 非 wysiwyg 模式下该编辑器不是编辑权威，忽略其序列化回调
           const store = useEditorStore.getState()
@@ -184,7 +186,7 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
         const store = useEditorStore.getState()
         const serialized = created.action(getMarkdown())
         if (store.viewMode === 'wysiwyg' && store.content !== serialized) {
-          created.action(replaceAll(store.content, true))
+          created.action(replaceAll(preprocessBangAdmonitions(store.content), true))
           lastSerializedRef.current = created.action(getMarkdown())
         } else {
           lastSerializedRef.current = serialized
@@ -317,7 +319,7 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
     if (!editor) return
     if (content !== lastSerializedRef.current) {
       // flush=true：重建 EditorState，清掉旧文档残留的撤销历史
-      editor.action(replaceAll(content, true))
+      editor.action(replaceAll(preprocessBangAdmonitions(content), true))
       lastSerializedRef.current = editor.action(getMarkdown())
     }
   }, [content, viewMode])

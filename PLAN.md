@@ -84,7 +84,7 @@
 - [x] **导出 PDF** ✅ - 支持将 Markdown 导出为 PDF（通过浏览器打印为 PDF）
 - [ ] 导出 HTML
 - [ ] 导出 Word（方案见 `docs/word-export-plan.md`，pandoc 路线已 PoC 验证）
-- [ ] 站点导出配置感知（P1 mkdocs 核心 ✅ 2026-08-14：风味探测 / docs_dir 收敛 / nav 白名单 / frontmatter；P2 `!!!` 双端 + exclude_docs、P3 vuepress 待排期；方案见 `docs/site-export-config-plan.md`）
+- [ ] 站点导出配置感知（P1 mkdocs 核心 ✅ 2026-08-14：风味探测 / docs_dir 收敛 / nav 白名单 / frontmatter；P2 ✅ 2026-08-17：`!!!` 双端语法保持往返 + exclude_docs；P3 vuepress 待排期；方案见 `docs/site-export-config-plan.md`）
 - [x] 搜索与替换 ✅（Source/Split 模式，Cmd+F；WYSIWYG 未接，见 Phase 13 P3）
 
 ### Phase 7: 打磨优化 (进行中)
@@ -303,7 +303,7 @@ logger.error('Failed to sync:', error)
 
 1. **站点导出配置感知 P1** ✅（2026-08-14 完成）— mkdocs 核心（风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 纯函数；`yaml` 依赖引入；36 个新单测）。方案 `docs/site-export-config-plan.md`
 2. **frontmatter 双端** ✅（2026-08-14 完成）— 预览/导出剥离 + 大纲去噪 + WYSIWYG 只读 atom 节点（remark-frontmatter + 只读 nodeview，`$remark` options 坑已记入 notes；17 个新单测）
-3. **站点导出配置感知 P2** — `!!!` admonition 双端 + `exclude_docs`（FR-020.10）
+3. **站点导出配置感知 P2** ✅（2026-08-17 完成）— `!!!` admonition 双端（预览自写块级 rule + WYSIWYG 文本预处理 `:::!` 内部形式，PM 节点 `syntax` attr，`!!!` 进 `!!!` 出语法保持往返）+ `exclude_docs` .gitignore 模式过滤（页面与资产同滤）；50 个新单测。方案 `docs/site-export-config-plan.md`
 4. **GitHub Alerts**（语法批次 1 / FR-023.1；0.5 天，可提前热身）
 5. **脚注**（语法批次 2 / FR-023.2）
 6. **站点导出配置感知 P3** — vuepress best-effort；站点导出管线至此定型

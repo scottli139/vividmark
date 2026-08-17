@@ -5,6 +5,7 @@ import { readFile } from '@tauri-apps/plugin-fs'
 import { convertFileSrc } from '@tauri-apps/api/core'
 import { isLocalPath, isUrl } from '../imageUtils'
 import { admonitionTypes, getAdmonitionDisplayTitle } from './admonitionTypes'
+import { bangAdmonitionPlugin } from './bangAdmonitionPlugin'
 import { parseFrontmatter } from './frontmatter'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../plantuml'
 import { isTauri, resolveToAbsoluteImagePath } from '../imageSrc'
@@ -153,6 +154,9 @@ admonitionTypes.forEach((type) => {
 
 // KaTeX 数学公式（$...$ 行内 / $$ 多行围栏块级）
 md.use(mathPlugin)
+
+// MkDocs `!!!` admonition（自写块级 rule，缩进定界；产出复用现有 admonition HTML/CSS）
+md.use(bangAdmonitionPlugin)
 
 // 自定义图片渲染规则
 const defaultImageRender =
@@ -407,8 +411,10 @@ const PLANTUML_INLINE_REGEX = /@startuml([\s\S]*?)@enduml/g
 // 行内代码里的 `@startuml` 提及（如本文档）都会被误匹配、嵌套破坏。替换前先把这两类区域
 // 掩码成占位符，替换完再还原。
 
-// 围栏代码块：``` 或 ~~~（CommonMark 允许至多 3 空格缩进），含信息串，到同款闭合行
-const FENCE_BLOCK_REGEX = /^ {0,3}(`{3,}|~{3,})[^\n]*\n[\s\S]*?^ {0,3}\1[ \t]*$/gm
+// 围栏代码块：``` 或 ~~~，含信息串，到同款闭合行。
+// 缩进不限（CommonMark 顶层要求 ≤3 空格，但 `!!!` admonition 内容整体缩进 4 空格、
+// 顶层缩进代码块内也可能是围栏形态——掩码只是防 @startuml 误替换，渲染前原样还原，放宽安全）
+const FENCE_BLOCK_REGEX = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$/gm
 // 行内代码 span（单反引号、单行；多反引号/跨行 span 罕见，不掩码）
 const INLINE_CODE_REGEX = /`[^`\n]+`/g
 
