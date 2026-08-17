@@ -11,7 +11,7 @@ Key features:
 - Four view modes: WYSIWYG (default, Milkdown/ProseMirror) / Source / Split / Preview
 - CodeMirror 6 source editor: Markdown highlighting, smart list continuation, find & replace
 - Real-time Markdown preview (markdown-it + highlight.js)
-- Markdown extensions: admonitions（`:::` / `!!!` / GitHub Alerts `> [!NOTE]`）, footnotes（`[^id]`）, PlantUML（本地引擎离线渲染）, task lists, tables, math formulas (KaTeX), YAML frontmatter
+- Markdown extensions: admonitions（`:::` / `!!!` / GitHub Alerts `> [!NOTE]`）, footnotes（`[^id]`）, PlantUML（本地引擎离线渲染）, Mermaid（懒加载离线渲染）, task lists, tables, math formulas (KaTeX), YAML frontmatter
 - File operations with native dialogs, auto-save (2s idle), drag & drop, recent files
 - Multi-window (Typora-style SDI): one window per document with smart open routing (focus / reuse / new window)
 - Native menubar (File/Edit/Paragraph/Format/View), macOS Dock menu & file associations (Open With)
@@ -61,7 +61,7 @@ vividmark/
 │   ├── hooks/                # useAutoSave, useFileDragDrop, useKeyboardShortcuts,
 │   │                         # useResizable, useDebouncedValue, useContextMenu
 │   ├── stores/editorStore.ts # Zustand main store
-│   ├── lib/                  # markdown/ markdownEditing textStats plantuml imageSrc
+│   ├── lib/                  # markdown/ markdownEditing textStats plantuml mermaid imageSrc
 │   │                         # fileOps logger imageUtils theme(主题解析) platform(平台检测)
 │   │                         # editorActions(菜单/工具栏共享动作) openWith(文件关联) ...
 │   ├── i18n/                 # i18next config + locales/{en,zh-CN}.json
@@ -158,6 +158,7 @@ Read these before touching editor code — 每条只保留核心约束，展开�
 - **GitHub Alerts（`> [!NOTE]`）**: 双端共用 `src/lib/markdown/githubAlert.ts` 的 `matchAlertMarkerLine`（仅五类、大小写不敏感；**须容忍自家序列化产物** `\[` 转义与行尾 `\`）。预览侧 `githubAlertPlugin.ts` 是 core rule 后处理 blockquote token（改写为 admonition 三段式 HTML，剥离标记）；WYSIWYG 侧 `githubAlertDecorations.ts` 是**纯 PM Decoration**（零 schema 变更：blockquote 注入 `admonition <type>` class 复用配色，标记行可见可编辑）；未知类型/折叠标记 `+-`/同行跟文本一律降级普通引用
 - **脚注（`[^id]`）**: WYSIWYG 零新增 schema——Milkdown `gfm` 预设自带 `footnote_reference`/`footnote_definition` 节点，remark-gfm 包办解析与序列化（往返无损有测试锁定）；编号是纯装饰（`footnoteDecorations.ts` 按引用首现顺序注入 `data-footnote-number`，CSS 替换 label 显示为 `[N]`，悬空引用不编号降级显示 label）。预览侧 `markdown-it-footnote`（caption 覆写恒 `[N]`；未引用定义不渲染同 GitHub）；预览 `#fn` 锚点点击改页内 scrollIntoView，不走出站
 - **PlantUML 本地渲染（离线）**: `@plantuml/core`（TeaVM）拷至 `vendor/plantuml/`（不进 git），懒加载；**引擎共享内部状态，必须串行渲染**（统一入口 `src/lib/plantuml.ts`：Promise 队列 + 缓存 + inflight 去重，失败回退在线 img）。markdown-it 只产 `data-plantuml-src` 占位符（先掩码围栏/行内代码区）；预览渐进渲染的 **effect deps 必须含 viewMode**；导出走 `parseMarkdownAsync { inlinePlantUml: true }` 内联 SVG；jsdom 无 canvas——单测注假引擎，真机冒烟 `e2e/plantuml.spec.ts`
+- **Mermaid（离线）**: 官方 `mermaid` 包 dynamic import 拆 chunk 懒加载（`src/lib/mermaid.ts`，与 plantuml 同款串行队列/缓存/inflight——initialize 全局配置 + render 挂 body 临时容器，并发不安全）；dark 变化重新 initialize 重渲；**无在线回退**——失败（多为语法错误）统一 `pre.mermaid-error` 错误态展示源码。仅 ` ```mermaid ` 围栏形态（无行内语法、无需掩码），占位符/渐进渲染/导出内联（`inlineMermaid`）与 PlantUML 同管线；WYSIWYG 由 plantUmlCodeBlockView 按 language 分派双区（kind 变化 update() 返回 false 重建）；jsdom 注假渲染器，真机冒烟 `e2e/mermaid.spec.ts`
 - **Source 模式格式化**: `src/lib/markdownEditing.ts`（纯函数，可单测）；store ↔ CM 文档同步必须防回环（写入前比较当前值）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
 - **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`

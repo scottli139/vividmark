@@ -247,6 +247,17 @@ Two syntax entries, both produce placeholders (async local rendering):
 - **锚点跳转**：预览点击 `a[href^="#"]` 不再走 `open()` 出站——`Editor.tsx` handlePreviewClick 拦截后 `scrollIntoView` 定位（逐元素比对 id，避开 CSS.escape 的 jsdom 兼容性）。站点导出天然支持页内锚点；`rewriteMarkdownLinks` 对纯 `#` href（pathPart 为空）不重写
 - **样式**：globals.css「脚注」一节三端共用（导出经 collectDocumentCss 自动受益）：预览 `.footnotes` 文末区块小字 muted + `scroll-margin-top`；WYSIWYG 角标 accent 色、悬空引用灰色 `[^label]` 形态
 
+### Mermaid（2026-08-17，语法批次 4 / FR-021.5）
+
+双端支持，全链路复用 PlantUML 占位符 + 懒加载基建（方案 `docs/syntax-extensions-plan.md` 批次 4）：
+
+- **渲染封装**（`src/lib/mermaid.ts`）：官方 `mermaid` npm 包（v11）**dynamic import 拆 chunk 懒加载**（首个 mermaid 代码块出现才加载，chunk ~1MB+）；与 plantuml.ts 同款串行队列 + LRU 缓存 + inflight 去重（`mermaid.initialize` 是全局配置、`render` 向 body 挂临时容器量布局，并发不安全）。主题在渲染期确定：`dark` 变化时重新 `initialize({ theme: dark ? 'dark' : 'default' })` 后重渲；`suppressErrorRendering: true` 阻止引擎把错误图形塞进 body（错误态自己展示），finally 兜底清理 `#id`/`#d{id}` 残留容器
+- **与 PlantUML 的关键差异：无在线回退**——没有可用的离线等价公共服务，渲染失败（多为语法错误）统一展示错误态：`pre.hljs.mermaid-error` + 源码原文（预览渐进渲染、导出内联、WYSIWYG nodeview 三处一致）
+- **预览侧**（parser.ts）：只有 ` ```mermaid ` 围栏一种形态（无 `@startuml` 类行内语法，无需代码区掩码），highlight 回调产 `data-mermaid-src` 占位符 → `renderMermaidPlaceholders` 渐进渲染（Editor.tsx 与 PlantUML 同一 effect，deps 含 viewMode）→ 导出 `inlineMermaid: true` 内联 SVG（exportPdf/exportSite 已接入）
+- **WYSIWYG 侧**（plantUmlCodeBlockView.ts 泛化）：`diagramLanguageOf()` 按 language 分派 plantuml/mermaid 双区 nodeview（预览 + 可编辑源码，类名 `mermaid-block`/`mermaid-diagram` 与 plantuml 平行）；**kind 变化（含 plantuml ↔ mermaid）update() 一律返回 false 重建**；序列化走原 code_block 路径天然无损；codeHighlightPlugin 跳过 mermaid（同 plantuml）
+- **测试**：mermaid.ts 封装层假渲染器注入（`setMermaidRendererForTests`，jsdom 无布局引擎）；parser/nodeview mock `renderMermaidSvg`；真引擎冒烟 `e2e/mermaid.spec.ts`（含语法错误错误态、viewMode 切换回归）
+- **顺手修复**：`createPlantUmlOnlineFallback` 的 `MarkdownIt.prototype.utils.escapeHtml` 是未触达过的坏引用（utils 挂在实例上）——mermaid 错误态测试暴露，已改 `md.utils.escapeHtml`
+
 ### Markdown 扩展测试模式
 
 **Test Pattern for Container Plugins:**
@@ -1140,7 +1151,7 @@ if (lang === 'typst') {
 - **markdown 往返无损**：不认识的语法降级保留（admonition→段落原文、plantuml→代码块），二次往返不动点有测试锁定；首次进入会一次性规范化（`-`→`*`、裸 URL→`<url>` 等，语义等价，WYSIWYG 固有行为）。
 - **自定义语法**：
   - **Admonition**：`admonitionPlugin.ts`（`$remark` mdast 变换 + remark-stringify handler）+ schema + `admonitionView.ts`（复用 preview 的 `.admonition` CSS）。两个坑：① commonmark 的 remarkLineBreak 会融合软换行，变换必须排在它之后并炸裂融合段落；② admonition schema 注册顺序不能先于 paragraph（PM createAndFill 递归栈溢出）。
-  - **PlantUML**：`plantUmlCodeBlockView.ts`——`$view(codeBlockSchema.node)` 按 `language` attr 渲染「预览图 + 可编辑源码」，编码逻辑共用 `src/lib/plantuml.ts`（parser.ts 已改为调用）。
+  - **PlantUML / Mermaid**：`plantUmlCodeBlockView.ts`——`$view(codeBlockSchema.node)` 按 `language` attr 分派（plantuml/mermaid）渲染「预览图 + 可编辑源码」，编码逻辑共用 `src/lib/plantuml.ts` / `src/lib/mermaid.ts`（parser.ts 已改为调用）；Mermaid 接入细节见上文「Mermaid（2026-08-17）」。
   - **本地图片**：`imageView.ts`——只改 DOM 的 src，节点 attrs 保持原文（序列化无损），解析逻辑共用 `src/lib/imageSrc.ts`。相对路径三种形态（`./x` `../x` 与裸相对路径 `images/x.png`）都经 `resolveToAbsoluteImagePath` 基于 baseDir 解析；裸相对路径曾不解析导致图片 404（2026-08-04 修复，preview 的 `preprocessImages` 同构修复）。
 - **isTauri() 的正确写法**：Tauri v2 运行时总是注入 `window.__TAURI_INTERNALS__`（invoke 依赖它），而 `__TAURI__` 仅在 `withGlobalTauri: true` 时才存在（本项目未开启）。检测 Tauri 环境必须查 `__TAURI_INTERNALS__`——此前查 `__TAURI__` 导致 convertFileSrc 路径在生产环境从未生效（preview 靠 base64 兜底才没暴露）。
   - **任务列表**：`taskListItemView.ts` 纯 DOM nodeview，补上 GFM preset 缺失的可点击 checkbox。

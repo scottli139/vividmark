@@ -10,6 +10,7 @@ import { bangAdmonitionPlugin } from './bangAdmonitionPlugin'
 import { githubAlertPlugin } from './githubAlertPlugin'
 import { parseFrontmatter } from './frontmatter'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../plantuml'
+import { renderMermaidSvg } from '../mermaid'
 import { isTauri, resolveToAbsoluteImagePath } from '../imageSrc'
 import { mathPlugin } from './mathPlugin'
 
@@ -45,6 +46,11 @@ const md = new MarkdownIt({
     // 处理 PlantUML
     if (lang === 'plantuml') {
       return renderPlantUML(str)
+    }
+
+    // 处理 Mermaid
+    if (lang === 'mermaid') {
+      return createMermaidPlaceholder(str)
     }
 
     // 如果指定了语言且支持，使用该语言高亮
@@ -86,7 +92,8 @@ function createPlantUmlOnlineFallback(source: string): string {
     const url = getPlantUmlSvgUrl(source)
     return `<img src="${url}" alt="PlantUML Diagram" loading="lazy" />`
   } catch {
-    return `<pre class="hljs plantuml-error"><code>${MarkdownIt.prototype.utils.escapeHtml(source)}</code></pre>`
+    // 注意：escapeHtml 在实例上（md.utils），MarkdownIt.prototype 上没有——写错会在错误路径再抛一次
+    return `<pre class="hljs plantuml-error"><code>${md.utils.escapeHtml(source)}</code></pre>`
   }
 }
 
@@ -127,6 +134,66 @@ async function inlinePlantUmlDiagrams(html: string): Promise<string> {
       replacement = `<div class="plantuml-diagram">${await renderPlantUmlSvg(source)}</div>`
     } catch {
       replacement = `<div class="plantuml-diagram">${createPlantUmlOnlineFallback(source)}</div>`
+    }
+    html = html.replace(match[0], replacement)
+  }
+  return html
+}
+
+// ==================== Mermaid（```mermaid 围栏，离线渲染） ====================
+
+/**
+ * Mermaid 占位符 HTML。与 PlantUML 同款双路径：
+ * - 预览：renderMermaidPlaceholders 对挂载后的 DOM 渐进渲染
+ * - 导出：parseMarkdownAsync 的 inlineMermaid 选项对 HTML 字符串替换
+ * Mermaid 只有围栏形式（无 @startuml 类行内语法），无需代码区掩码。
+ */
+function createMermaidPlaceholder(source: string): string {
+  return `<div class="mermaid-diagram" data-mermaid-src="${encodeURIComponent(source)}"><div class="mermaid-loading"></div></div>`
+}
+
+/** 渲染失败时的错误态（语法错误等；无在线服务可回退，展示源码 + 错误样式） */
+function createMermaidErrorFallback(source: string): string {
+  return `<pre class="hljs mermaid-error"><code>${md.utils.escapeHtml(source)}</code></pre>`
+}
+
+/**
+ * 把容器内的 Mermaid 占位符渲染为内联 SVG（本地渲染，离线）。
+ * 渲染后保留 data-mermaid-src 属性，主题切换可用不同 dark 参数重跑本函数。
+ * 单个图失败时展示错误态，不影响其他图。
+ */
+export async function renderMermaidPlaceholders(
+  root: ParentNode,
+  options?: { dark?: boolean }
+): Promise<void> {
+  const placeholders = root.querySelectorAll<HTMLElement>('[data-mermaid-src]')
+  await Promise.all(
+    Array.from(placeholders).map(async (el) => {
+      const source = decodeURIComponent(el.dataset.mermaidSrc ?? '')
+      if (!source.trim()) return
+      try {
+        el.innerHTML = await renderMermaidSvg(source, { dark: options?.dark === true })
+      } catch {
+        el.innerHTML = createMermaidErrorFallback(source)
+      }
+    })
+  )
+}
+
+// 占位符是 createMermaidPlaceholder 生成的确定性格式，字符串替换安全
+const MERMAID_PLACEHOLDER_REGEX =
+  /<div class="mermaid-diagram" data-mermaid-src="([^"]*)"><div class="mermaid-loading"><\/div><\/div>/g
+
+/** 导出路径：把 HTML 字符串中的占位符替换为内联 SVG（失败展示错误态） */
+async function inlineMermaidDiagrams(html: string): Promise<string> {
+  const matches = [...html.matchAll(MERMAID_PLACEHOLDER_REGEX)]
+  for (const match of matches) {
+    const source = decodeURIComponent(match[1])
+    let replacement: string
+    try {
+      replacement = `<div class="mermaid-diagram">${await renderMermaidSvg(source)}</div>`
+    } catch {
+      replacement = `<div class="mermaid-diagram">${createMermaidErrorFallback(source)}</div>`
     }
     html = html.replace(match[0], replacement)
   }
@@ -504,6 +571,8 @@ export interface ParseMarkdownOptions {
   preserveImages?: boolean
   /** 把 PlantUML 占位符替换为内联 SVG（导出用；预览走 renderPlantUmlPlaceholders 渐进渲染） */
   inlinePlantUml?: boolean
+  /** 把 Mermaid 占位符替换为内联 SVG（导出用；预览走 renderMermaidPlaceholders 渐进渲染） */
+  inlineMermaid?: boolean
 }
 
 /**
@@ -542,6 +611,11 @@ export async function parseMarkdownAsync(
   // 导出路径：PlantUML 占位符 → 内联 SVG（预览路径由 renderPlantUmlPlaceholders 处理）
   if (options?.inlinePlantUml) {
     html = await inlinePlantUmlDiagrams(html)
+  }
+
+  // 导出路径：Mermaid 占位符 → 内联 SVG（预览路径由 renderMermaidPlaceholders 处理）
+  if (options?.inlineMermaid) {
+    html = await inlineMermaidDiagrams(html)
   }
 
   return html

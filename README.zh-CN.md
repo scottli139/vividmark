@@ -117,6 +117,7 @@
   ```
 
 - **PlantUML 图表** - 内置本地引擎（@plantuml/core）直接在文档中渲染 UML 图表 —— 完全离线、暗色自适应，PDF/站点导出内联 SVG（仅本地渲染失败时回退在线服务）
+- **Mermaid 图表** - 内置 mermaid.js 渲染流程图、时序图、甘特图等 —— 首个图表按需懒加载、完全离线、暗色自适应，PDF/站点导出内联 SVG（语法错误显示内联错误态，无在线回退）
   ```markdown
   @startuml
   Alice -> Bob: 你好
@@ -154,7 +155,7 @@
 - **状态管理**: Zustand 5
 - **国际化**: i18next + react-i18next
 - **Markdown**: markdown-it 及自定义插件
-- **扩展语法**: markdown-it-container, @plantuml/core（离线 UML 引擎）, KaTeX
+- **扩展语法**: markdown-it-container, @plantuml/core（离线 UML 引擎）, mermaid（离线图表）, KaTeX
 - **语法高亮**: highlight.js
 - **测试**: Vitest + React Testing Library + Playwright
 

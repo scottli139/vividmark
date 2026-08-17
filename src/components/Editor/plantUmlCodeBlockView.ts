@@ -3,17 +3,22 @@ import type { EditorView, NodeView } from '@milkdown/kit/prose/view'
 import { codeBlockSchema } from '@milkdown/kit/preset/commonmark'
 import { $view } from '@milkdown/kit/utils'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../../lib/plantuml'
+import { renderMermaidSvg } from '../../lib/mermaid'
 import { useEditorStore } from '../../stores/editorStore'
 
 /** 源码编辑后预览刷新的防抖窗口（ms），避免每次击键都触发渲染 */
 const PREVIEW_REFRESH_DELAY = 500
 
-function isPlantUmlNode(node: ProseNode): boolean {
-  return node.attrs.language === 'plantuml'
+/** 走「预览图 + 源码」双区的图表代码块语言（文件名保留 plantUml 前缀是历史沿革） */
+type DiagramLanguage = 'plantuml' | 'mermaid'
+
+function diagramLanguageOf(node: ProseNode): DiagramLanguage | null {
+  const language = node.attrs.language
+  return language === 'plantuml' || language === 'mermaid' ? language : null
 }
 
-/** 本地渲染失败时回退在线服务 img（沿用破图占位样式 globals.css .plantuml-load-error） */
-function showOnlineFallback(preview: HTMLElement, source: string) {
+/** PlantUML 本地渲染失败时回退在线服务 img（沿用破图占位样式 globals.css .plantuml-load-error） */
+function showPlantUmlOnlineFallback(preview: HTMLElement, source: string) {
   const img = document.createElement('img')
   img.alt = 'PlantUML Diagram'
   img.loading = 'lazy'
@@ -30,16 +35,38 @@ function showOnlineFallback(preview: HTMLElement, source: string) {
   preview.appendChild(img)
 }
 
+/** Mermaid 渲染失败的错误态（语法错误等；无在线服务可回退，展示源码 + 错误样式） */
+function showMermaidError(preview: HTMLElement, source: string) {
+  const pre = document.createElement('pre')
+  pre.className = 'hljs mermaid-error'
+  const code = document.createElement('code')
+  code.textContent = source
+  pre.appendChild(code)
+  preview.innerHTML = ''
+  preview.appendChild(pre)
+}
+
+/** 按图表语言分发渲染（暗色跟随应用主题），失败走各自的降级路径 */
+async function renderDiagramSvg(
+  language: DiagramLanguage,
+  source: string,
+  dark: boolean
+): Promise<string> {
+  return language === 'plantuml'
+    ? renderPlantUmlSvg(source, { dark })
+    : renderMermaidSvg(source, { dark })
+}
+
 /**
  * 代码块 nodeview：
- * - plantuml 代码块：上方预览（contentEditable=false，本地引擎离线渲染内联 SVG，
- *   失败回退在线服务，复用 .plantuml-diagram 样式），下方源码区保留 contentDOM 始终可编辑；
- *   序列化走原 code_block 路径，天然无损
+ * - plantuml/mermaid 图表代码块：上方预览（contentEditable=false，本地离线渲染内联 SVG，
+ *   PlantUML 失败回退在线服务、Mermaid 失败展示错误态），下方源码区保留 contentDOM
+ *   始终可编辑；序列化走原 code_block 路径，天然无损
  * - 其他代码块：`pre.hljs > code`（hljs class 让基色/等宽规则与预览一致），右上角附
  *   语言输入框（contenteditable=false，不在 contentDOM 内，PM 不管理）；
- *   输入语言名即驱动 codeHighlightPlugin 高亮，输入 plantuml 则走 update() 返回 false
- *   的既有路径重建为预览双区
- * - language attr 变化导致 plantuml ↔ 非 plantuml 切换时 update() 返回 false 重建
+ *   输入语言名即驱动 codeHighlightPlugin 高亮，输入 plantuml/mermaid 则走 update()
+ *   返回 false 的既有路径重建为预览双区
+ * - language attr 变化导致图表语言切换（含 plantuml ↔ mermaid）时 update() 返回 false 重建
  */
 export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
   return (initialNode, view: EditorView, getPos): NodeView => {
@@ -54,25 +81,31 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
     let langInput: HTMLInputElement | null = null
     let unsubscribeTheme: (() => void) | null = null
 
-    /** 本地引擎渲染预览（暗色跟随应用主题） */
-    const renderPreview = async (source: string, seq: number) => {
+    const diagramLanguage = diagramLanguageOf(node)
+
+    /** 本地渲染预览（暗色跟随应用主题） */
+    const renderPreview = async (language: DiagramLanguage, source: string, seq: number) => {
       if (!previewEl) return
       try {
-        const svg = await renderPlantUmlSvg(source, {
-          dark: useEditorStore.getState().isDarkMode,
-        })
+        const svg = await renderDiagramSvg(language, source, useEditorStore.getState().isDarkMode)
         if (previewEl && seq === previewSeq) previewEl.innerHTML = svg
       } catch {
-        if (previewEl && seq === previewSeq) showOnlineFallback(previewEl, source)
+        if (previewEl && seq === previewSeq) {
+          if (language === 'plantuml') {
+            showPlantUmlOnlineFallback(previewEl, source)
+          } else {
+            showMermaidError(previewEl, source)
+          }
+        }
       }
     }
 
     /** 源码变化后防抖刷新预览 */
-    const schedulePreviewRender = (sourceNode: ProseNode) => {
+    const schedulePreviewRender = (language: DiagramLanguage, sourceNode: ProseNode) => {
       if (previewTimer) clearTimeout(previewTimer)
       previewTimer = setTimeout(() => {
         previewTimer = null
-        void renderPreview(sourceNode.textContent, ++previewSeq)
+        void renderPreview(language, sourceNode.textContent, ++previewSeq)
       }, PREVIEW_REFRESH_DELAY)
     }
 
@@ -109,14 +142,14 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       return input
     }
 
-    if (isPlantUmlNode(node)) {
+    if (diagramLanguage) {
       dom = document.createElement('div')
-      dom.className = 'plantuml-block'
+      dom.className = `${diagramLanguage}-block`
 
       const preview = document.createElement('div')
-      preview.className = 'plantuml-diagram'
+      preview.className = `${diagramLanguage}-diagram`
       preview.setAttribute('contenteditable', 'false')
-      preview.innerHTML = '<div class="plantuml-loading"></div>'
+      preview.innerHTML = `<div class="${diagramLanguage}-loading"></div>`
       previewEl = preview
 
       const pre = document.createElement('pre')
@@ -128,11 +161,11 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       dom.append(preview, pre)
       contentDOM = code
 
-      void renderPreview(node.textContent, ++previewSeq)
+      void renderPreview(diagramLanguage, node.textContent, ++previewSeq)
       // 主题切换：按新 dark 参数重渲染（SVG 颜色在渲染期确定，CSS 变量管不到 SVG 内部）
       unsubscribeTheme = useEditorStore.subscribe((state, prev) => {
         if (state.isDarkMode !== prev.isDarkMode) {
-          void renderPreview(node.textContent, ++previewSeq)
+          void renderPreview(diagramLanguage, node.textContent, ++previewSeq)
         }
       })
     } else {
@@ -152,15 +185,15 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       contentDOM,
       update(updatedNode) {
         if (updatedNode.type.name !== node.type.name) return false
-        // plantuml ↔ 非 plantuml 切换：DOM 结构不同，重建 nodeview
-        if (isPlantUmlNode(updatedNode) !== isPlantUmlNode(node)) return false
+        // 图表语言切换（含 plantuml ↔ mermaid ↔ 普通块）：DOM 结构/渲染器不同，重建 nodeview
+        if (diagramLanguageOf(updatedNode) !== diagramLanguageOf(node)) return false
         node = updatedNode
         // 外部变化（undo、source 模式改完后切回）同步输入框；正在输入时不打扰
         if (langInput && document.activeElement !== langInput) {
           langInput.value = String(node.attrs.language ?? '')
         }
-        if (previewEl) {
-          schedulePreviewRender(node)
+        if (previewEl && diagramLanguage) {
+          schedulePreviewRender(diagramLanguage, node)
         }
         return true
       },

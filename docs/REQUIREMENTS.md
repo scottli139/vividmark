@@ -180,7 +180,7 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 | FR-021.2 | PlantUML 代码块语法 ` ```plantuml ``` ` | P1 | ✅ |
 | FR-021.3 | 使用 PlantUML 在线服务渲染 | P1 | ✅ |
 | FR-021.4 | PlantUML 本地离线渲染 | P2 | ✅ |
-| FR-021.5 | Mermaid 图表支持 | P2 | ⬜ |
+| FR-021.5 | Mermaid 图表支持 | P2 | ✅ |
 
 #### 3.3.3 图片处理 [FR-022]
 

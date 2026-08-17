@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { parseMarkdown, parseMarkdownAsync, getExcerpt, preprocessImages } from '../parser'
 import { renderPlantUmlSvg } from '../../plantuml'
+import { renderMermaidSvg } from '../../mermaid'
 
 // Mock Tauri API
 vi.mock('@tauri-apps/api/core', () => ({
@@ -16,6 +17,12 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 vi.mock('../../plantuml', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../plantuml')>()
   return { ...actual, renderPlantUmlSvg: vi.fn() }
+})
+
+// mermaid 需要布局引擎（jsdom 跑不了），mock 渲染函数
+vi.mock('../../mermaid', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../mermaid')>()
+  return { ...actual, renderMermaidSvg: vi.fn() }
 })
 
 describe('parseMarkdown', () => {
@@ -593,6 +600,55 @@ Alice -> Bob: Fallback
     const result = await parseMarkdownAsync(markdown, { inlinePlantUml: true })
     expect(result).toContain('plantuml.com/plantuml/svg')
     expect(result).toContain('<img')
+  })
+})
+
+describe('parseMarkdown - Mermaid', () => {
+  /** 占位符 data 属性里解码出的 Mermaid 源码 */
+  function placeholderSrc(html: string): string {
+    const src = html.match(/data-mermaid-src="([^"]*)"/)?.[1]
+    return decodeURIComponent(src ?? '')
+  }
+
+  it('should render mermaid code block as placeholder', () => {
+    const markdown = '```mermaid\ngraph TD; A-->B\n```'
+    const result = parseMarkdown(markdown)
+    expect(result).toContain('<div class="mermaid-diagram" data-mermaid-src="')
+    expect(result).toContain('<div class="mermaid-loading"></div>')
+    expect(placeholderSrc(result)).toContain('graph TD; A-->B')
+  })
+
+  it('should render multiple mermaid diagrams', () => {
+    const markdown =
+      '```mermaid\ngraph TD; A-->B\n```\n\n```mermaid\nsequenceDiagram; A->>B: hi\n```'
+    const result = parseMarkdown(markdown)
+    expect(result.match(/mermaid-diagram/g)?.length).toBe(2)
+    expect(result.match(/mermaid-loading/g)?.length).toBe(2)
+  })
+
+  it('should not affect other code blocks mentioning mermaid', () => {
+    const markdown = '```text\n用 ```mermaid 围栏画图\n```'
+    const result = parseMarkdown(markdown)
+    expect(result).not.toContain('mermaid-diagram')
+  })
+
+  it('should inline Mermaid SVG when inlineMermaid is set', async () => {
+    vi.mocked(renderMermaidSvg).mockResolvedValue('<svg data-test="mermaid"></svg>')
+    const markdown = '```mermaid\ngraph TD; A-->B\n```'
+    const result = await parseMarkdownAsync(markdown, { inlineMermaid: true })
+    expect(renderMermaidSvg).toHaveBeenCalledOnce()
+    expect(result).toContain('<div class="mermaid-diagram"><svg data-test="mermaid"></svg></div>')
+    expect(result).not.toContain('mermaid-loading')
+    expect(result).not.toContain('data-mermaid-src')
+  })
+
+  it('should show error state when mermaid render fails', async () => {
+    // 语法错误等渲染失败：无在线服务可回退，展示源码 + 错误样式
+    vi.mocked(renderMermaidSvg).mockRejectedValue(new Error('Parse error on line 1'))
+    const markdown = '```mermaid\nnot a diagram\n```'
+    const result = await parseMarkdownAsync(markdown, { inlineMermaid: true })
+    expect(result).toContain('mermaid-error')
+    expect(result).toContain('not a diagram')
   })
 })
 

@@ -225,13 +225,14 @@ export async function exportSite(): Promise<boolean> {
     const titleByPath = flattenNavTitles(nav.entries)
 
     // 渲染页面：保留相对图片路径（资产镜像复制），加标题 id，重写 .md 互链；
-    // PlantUML 经本地引擎内联 SVG（部署后无需联网）
+    // PlantUML/Mermaid 经本地渲染内联 SVG（部署后无需联网）
     const renderedPages = await Promise.all(
       pages.map(async (page) => {
         const htmlPath = mdToHtmlPath(page.relPath)
         let body = await parseMarkdownAsync(contents.get(page.sourcePath) ?? '', {
           preserveImages: true,
           inlinePlantUml: true,
+          inlineMermaid: true,
         })
         body = rewriteMarkdownLinks(addHeadingIds(body))
         return { htmlPath, body, page }

@@ -10,8 +10,8 @@ import { $prose } from '@milkdown/kit/utils'
  * 与预览（parser.ts 的 markdown-it highlight）共用同一套 hljs 引擎与
  * globals.css 的 .hljs-* 颜色类，所见即所得与预览视觉一致；不引入新依赖。
  *
- * 只认显式 language（无语言/未知语言/plantuml 跳过）：避免 highlightAuto
- * 误判闪烁与击键开销，行为与 Typora 一致。
+ * 只认显式 language（无语言/未知语言/plantuml/mermaid 跳过）：避免 highlightAuto
+ * 误判闪烁与击键开销，行为与 Typora 一致；图表块源码由 nodeview 预览双区承载，不高亮。
  */
 
 /** 一个高亮区间：相对代码块内容起点的偏移 + hljs 类名栈（嵌套 span 类名合并） */
@@ -81,7 +81,14 @@ function buildDecorations(doc: ProseNode): DecorationSet {
   doc.descendants((node, pos) => {
     if (node.type.name !== 'code_block') return true
     const language = String(node.attrs.language ?? '')
-    if (!language || language === 'plantuml' || !hljs.getLanguage(language)) return false
+    // 图表块（plantuml/mermaid）走 nodeview 预览双区，源码不高亮
+    if (
+      !language ||
+      language === 'plantuml' ||
+      language === 'mermaid' ||
+      !hljs.getLanguage(language)
+    )
+      return false
     const code = node.textContent
     if (!code) return false
     // textblock 内容从 pos + 1 开始

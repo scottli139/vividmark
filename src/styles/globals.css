@@ -735,9 +735,10 @@ body {
   margin-top: 4px;
 }
 
-/* ==================== PlantUML 图表 ==================== */
+/* ==================== 图表（PlantUML / Mermaid） ==================== */
 
-.plantuml-diagram {
+.plantuml-diagram,
+.mermaid-diagram {
   margin: 1.5em 0;
   text-align: center;
   background-color: var(--sidebar-bg);
@@ -747,21 +748,24 @@ body {
   overflow-x: auto;
 }
 
-.plantuml-diagram img {
+.plantuml-diagram img,
+.mermaid-diagram img {
   max-width: 100%;
   height: auto;
   display: block;
   margin: 0 auto;
 }
 
-/* 本地引擎渲染的内联 SVG（离线路径） */
-.plantuml-diagram svg {
+/* 本地渲染的内联 SVG（离线路径） */
+.plantuml-diagram svg,
+.mermaid-diagram svg {
   max-width: 100%;
   height: auto;
 }
 
 /* 本地渲染进行中的占位 */
-.plantuml-loading {
+.plantuml-loading,
+.mermaid-loading {
   min-height: 3em;
   display: flex;
   align-items: center;
@@ -775,10 +779,22 @@ body {
   opacity: 0.7;
 }
 
-.plantuml-error {
+.mermaid-loading::before {
+  content: 'Mermaid …';
+  opacity: 0.7;
+}
+
+.plantuml-error,
+.mermaid-error {
   background-color: #ffebe9;
   border: 1px solid #ffc2c2;
   color: #cf222e;
+}
+
+/* mermaid 错误态里包着源码 pre，还原其对齐/底色（图表容器是居中 + 有色背景） */
+.mermaid-diagram .mermaid-error {
+  text-align: left;
+  margin: 0;
 }
 
 /* ==================== Milkdown WYSIWYG 编辑器 ==================== */
@@ -844,14 +860,16 @@ body {
   font-size: 0.9em;
 }
 
-/* WYSIWYG 的 PlantUML 代码块：预览图 + 源码上下排布 */
-.wysiwyg-editor .plantuml-block .plantuml-diagram {
+/* WYSIWYG 的图表代码块（plantuml/mermaid）：预览图 + 源码上下排布 */
+.wysiwyg-editor .plantuml-block .plantuml-diagram,
+.wysiwyg-editor .mermaid-block .mermaid-diagram {
   margin-bottom: 0;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-.wysiwyg-editor .plantuml-block pre {
+.wysiwyg-editor .plantuml-block pre,
+.wysiwyg-editor .mermaid-block pre {
   margin-top: 0;
   border-top-left-radius: 0;
   border-top-right-radius: 0;

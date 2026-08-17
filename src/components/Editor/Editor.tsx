@@ -3,7 +3,11 @@ import { useTranslation } from 'react-i18next'
 import { open } from '@tauri-apps/plugin-shell'
 import type { EditorView } from '@codemirror/view'
 import { useEditorStore } from '../../stores/editorStore'
-import { parseMarkdownAsync, renderPlantUmlPlaceholders } from '../../lib/markdown/parser'
+import {
+  parseMarkdownAsync,
+  renderPlantUmlPlaceholders,
+  renderMermaidPlaceholders,
+} from '../../lib/markdown/parser'
 import { exportCurrentDocument } from '../../lib/exportPdf'
 import { scrollPreviewToHeading } from '../../lib/outlineUtils'
 import { writeClipboardText } from '../../lib/clipboard'
@@ -212,14 +216,15 @@ export function Editor() {
     }
   }, [renderedHtml])
 
-  // PlantUML 占位符 → 本地引擎渐进渲染（文本先出、SVG 后补）；
-  // data-plantuml-src 属性渲染后保留，主题切换时用新 dark 参数重跑即可。
+  // PlantUML/Mermaid 占位符 → 本地渐进渲染（文本先出、SVG 后补）；
+  // data-*-src 属性渲染后保留，主题切换时用新 dark 参数重跑即可。
   // 注意 viewMode 也必须在依赖里：预览容器只在 preview/split 模式挂载，
   // 从 WYSIWYG/Source 切过来时容器是新挂载的，renderedHtml 不变 effect 不会重跑
   useEffect(() => {
     const container = previewContainerRef.current
     if (!container) return
     void renderPlantUmlPlaceholders(container, { dark: isDarkMode })
+    void renderMermaidPlaceholders(container, { dark: isDarkMode })
   }, [renderedHtml, isDarkMode, viewMode])
 
   // 监听大纲点击事件 - 滚动到对应标题

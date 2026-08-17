@@ -1,6 +1,6 @@
 # Markdown 扩展语法支持盘点与方案
 
-> **状态：🚧 批次 1–3 已落地**（Alerts / 脚注 / frontmatter，2026-08-17；Mermaid 与排版批待排期，盘点 2026-08-14）
+> **状态：🚧 批次 1–4 已落地**（Alerts / 脚注 / frontmatter / Mermaid，2026-08-17；排版批待排期，盘点 2026-08-14）
 >
 > **结论：** 按「双端成本不对称」决策——预览侧（markdown-it）插件生态成熟、零往返风险，可积极加；WYSIWYG 侧（Milkdown/ProseMirror）每条语法必须先定往返策略再动手。第一梯队推荐：**GitHub Alerts > 脚注 > frontmatter > Mermaid**；第二梯队 `==`/`^`/`~`/emoji 作一次排版增强批。
 
@@ -108,7 +108,7 @@ graph TD; A-->B
 | 批次 1 | GitHub Alerts（预览装饰 + WYSIWYG CSS 装饰）✅ 2026-08-17 | 0.5 天 |
 | 批次 2 | 脚注（双端，含往返测试）✅ 2026-08-17 | 1 天 |
 | 批次 3 | frontmatter（预览剥离 + WYSIWYG 只读 atom 节点）✅ 2026-08-14 | 1 天 |
-| 批次 4 | Mermaid（复用 PlantUML 基建全链路） | 1.5 天 |
+| 批次 4 | Mermaid（复用 PlantUML 基建全链路）✅ 2026-08-17 | 1.5 天 |
 | 批次 5 | 排版增强批：`==` / `^` / `~` / emoji（预览侧先行，WYSIWYG 逐个评估） | 1 天 |
 
 批次间逻辑依赖少，但**物理上必须串行**（见下节依赖约束），可按反馈插单。

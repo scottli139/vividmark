@@ -275,8 +275,9 @@ export async function exportCurrentDocument(): Promise<boolean> {
   try {
     const bodyHtml = await parseMarkdownAsync(content, {
       baseDir: getBaseDir(filePath),
-      // PlantUML 本地渲染内联 SVG：PDF 隐藏窗口零网络依赖
+      // PlantUML/Mermaid 本地渲染内联 SVG：PDF 隐藏窗口零网络依赖
       inlinePlantUml: true,
+      inlineMermaid: true,
     })
     const outline = extractPdfOutline(bodyHtml)
     const html = await buildPdfExportHtml(bodyHtml, baseFileName)

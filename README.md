@@ -117,6 +117,7 @@ Turn any opened folder into a deployable documentation site with one click — n
   ```
 
 - **PlantUML Diagrams** - Render UML diagrams directly in your document with the built-in local engine (@plantuml/core) — fully offline, dark-mode aware, and inlined as SVG in PDF/site exports (falls back to the online service only if local rendering fails)
+- **Mermaid Diagrams** - Render flowcharts, sequence diagrams, Gantt charts and more with the bundled mermaid.js — lazily loaded on first diagram, fully offline, dark-mode aware, inlined as SVG in PDF/site exports (syntax errors show an inline error state, no online fallback)
   ```markdown
   @startuml
   Alice -> Bob: Hello
@@ -154,7 +155,7 @@ Turn any opened folder into a deployable documentation site with one click — n
 - **State Management**: Zustand 5
 - **Internationalization**: i18next + react-i18next
 - **Markdown**: markdown-it with custom plugins
-- **Extended Syntax**: markdown-it-container, @plantuml/core (offline UML engine), KaTeX
+- **Extended Syntax**: markdown-it-container, @plantuml/core (offline UML engine), mermaid (offline diagrams), KaTeX
 - **Syntax Highlighting**: highlight.js
 - **Testing**: Vitest + React Testing Library + Playwright
 
