@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { readFile } from '@tauri-apps/plugin-fs'
 import { parseMarkdown, parseMarkdownAsync, getExcerpt, preprocessImages } from '../parser'
 import { renderPlantUmlSvg } from '../../plantuml'
 
@@ -305,6 +306,15 @@ describe('parseMarkdownAsync', () => {
     const result = await parseMarkdownAsync(markdown)
     expect(result).toContain('<img')
     expect(result).toContain('alt="test"')
+  })
+
+  it('preserveImages 跳过 base64 预处理，相对 src 原样保留（站点导出）', async () => {
+    const mockedReadFile = vi.mocked(readFile)
+    mockedReadFile.mockClear()
+    const result = await parseMarkdownAsync('![test](./image.png)', { preserveImages: true })
+    expect(result).toContain('src="./image.png"')
+    // base64 内联是 PDF 单文件场景；站点导出资产镜像复制，不应读盘转 base64
+    expect(mockedReadFile).not.toHaveBeenCalled()
   })
 
   it('should handle content without images', async () => {

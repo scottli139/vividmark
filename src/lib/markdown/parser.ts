@@ -390,7 +390,9 @@ export async function preprocessImages(content: string, baseDir?: string): Promi
     }
 
     // 相对路径（./ ../ 与裸相对路径，如 images/x.png）基于 baseDir 解析为绝对路径；
-    // 无 baseDir 时保持原值（下方 isLocalPath 判 false 跳过）
+    // 无 baseDir 时保持原值。注意 isLocalPath 认 ./ ../ 前缀，故无 baseDir 的 ./ 路径
+    // 也会进 base64 尝试（readFile 相对路径失败后回退原路径）——预览未保存文件可接受；
+    // 站点导出应传 preserveImages 整体跳过本预处理（见 parseMarkdownAsync）
     const absolutePath = resolveToAbsoluteImagePath(path, baseDir)
     if (absolutePath !== path) {
       console.log('[parser] Resolved relative path:', path, '->', absolutePath)
@@ -520,7 +522,12 @@ export async function parseMarkdownAsync(
   // 预处理任务列表语法
   const contentWithTasks = preprocessTaskLists(body)
 
-  const processedContent = await preprocessImages(contentWithTasks, options?.baseDir)
+  // preserveImages（站点导出）跳过 base64 预处理：相对 src 原样保留、资产镜像复制；
+  // base64 内联是 PDF 单文件场景（经 baseDir 触发）。此前仅靠「相对路径 readFile 必失败」
+  // 的回退兜底才没内联——devdocs 实仓验证暴露，isLocalPath 认 ./ 前缀，无 baseDir 也会尝试
+  const processedContent = options?.preserveImages
+    ? contentWithTasks
+    : await preprocessImages(contentWithTasks, options?.baseDir)
   // 预处理 PlantUML 行内语法
   const contentWithPlantUML = preprocessPlantUML(processedContent)
 

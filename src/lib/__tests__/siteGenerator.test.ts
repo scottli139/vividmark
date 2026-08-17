@@ -4,6 +4,7 @@ import {
   addHeadingIds,
   buildNavFromMkdocsNav,
   buildNavModel,
+  collectPublicAssets,
   collectSiteEntries,
   compareNavNames,
   createSlugger,
@@ -344,5 +345,24 @@ describe('filterFileTreeByExcludes（mkdocs exclude_docs）', () => {
 
   it('空模式列表原样返回', () => {
     expect(filterFileTreeByExcludes(tree, [])).toBe(tree)
+  })
+})
+
+describe('collectPublicAssets（vuepress .vuepress/public）', () => {
+  it('全部文件（含 .md）都是资产，relPath 相对 public 根', () => {
+    const tree: FileTreeItem[] = [
+      file('logo.png'),
+      file('index.md'),
+      dir('img', [file('hero.png', 'img')]),
+    ]
+    expect(collectPublicAssets(tree)).toEqual([
+      { sourcePath: '/docs/logo.png', relPath: 'logo.png' },
+      { sourcePath: '/docs/index.md', relPath: 'index.md' },
+      { sourcePath: '/docs/img/hero.png', relPath: 'img/hero.png' },
+    ])
+  })
+
+  it('空树 → 空列表', () => {
+    expect(collectPublicAssets([])).toEqual([])
   })
 })

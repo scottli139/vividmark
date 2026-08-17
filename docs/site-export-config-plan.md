@@ -1,6 +1,6 @@
 # 「导出为网站」配置感知方案（MkDocs / VuePress）
 
-> **状态：🚧 部分实施**（2026-08-14 完成设计讨论与真实仓库案例分析；**P1 已于 2026-08-14 落地**：风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 底座，新增 36 个单测；**P2 已于 2026-08-17 落地**：`!!!` admonition 双端（语法保持往返）+ `exclude_docs` 过滤，新增 50 个单测。P3 待排期）
+> **状态：✅ 全部落地**（2026-08-14 完成设计讨论与真实仓库案例分析；**P1 已于 2026-08-14 落地**：风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 底座，新增 36 个单测；**P2 已于 2026-08-17 落地**：`!!!` admonition 双端（语法保持往返）+ `exclude_docs` 过滤，新增 50 个单测；**P3 已于 2026-08-17 落地**：`.vuepress/public` → 站点根 + config title 正则提取，新增 12 个单测——站点导出管线定型）
 >
 > **结论：可行，分三期。** 保持内置生成器零外部依赖的路线，通过「风味探测 + 配置解析」感知 mkdocs/vuepress 仓库：mkdocs 做深（`nav:` 原文驱动导航），vuepress 诚实 best-effort。核心原则：**配置只影响导航树，从不删减页面**。mkdocs `!!!` admonition 进主解析器（预览/分栏 + WYSIWYG 双端，语法保持往返），站点导出随之自动受益。
 
@@ -177,19 +177,19 @@ function parseFrontmatter(content: string): { data: Record<string, unknown> | nu
 
 **产出**：mkdocs 文档在预览/分栏直接渲染 `!!!` 提示框；WYSIWYG 可编辑且保存后源码围栏原样保持（`!!!` 不被改写为 `:::`）；站点导出经共享 `parseMarkdown` 自动获得同样渲染。
 
-### P3：vuepress best-effort（约 0.5 天）
+### P3：vuepress best-effort（约 0.5 天）✅（2026-08-17 完成）
 
 | # | 任务 | 描述 |
 | --- | --- | --- |
-| 3.1 | `.vuepress/public` → 站点根 | 含隐藏目录读取检查点验证 |
-| 3.2 | config title 正则提取 | 站点名尽力而为 |
+| 3.1 | `.vuepress/public` → 站点根 ✅ | 含隐藏目录读取检查点验证（结论：`read_directory` 跳过只作用于列出子项，直读 public 可行；public 覆盖同名资产、撞页面名丢弃） |
+| 3.2 | config title 正则提取 ✅ | 站点名尽力而为（剥注释后取首个 `title:` 引号匹配；config.ts/js/mjs 命中即停） |
 
 ## 🔗 依赖与顺序约束（2026-08-14 补充）
 
 1. **前置已清**：`yaml` 依赖已拍板引入（2026-08-14），P1 无阻塞待决项，可直接开工
 2. **frontmatter 三层拆分**（与 `docs/syntax-extensions-plan.md` 批次 3 协同）：`parseFrontmatter` 纯函数随本方案 P1 落地（任务 1.4 的 nav 标题注入依赖它）；预览剥离（3a）与 WYSIWYG 只读 atom 节点（3b）是语法方案的独立增量，不阻塞本方案
 3. **热点文件串行**：P2 的 `!!!` 双端支持改动 `parser.ts` / `wysiwygPlugins.ts`（全部语法批次的共同热点，remark 注册顺序敏感），与语法扩展方案的各批次统一排队、不并行分支；P2.2 预处理器挂 `defaultValueCtx` / `replaceAll` 两个 Milkdown 入口（`WysiwygEditor.tsx`）
-4. **导出管线定型顺序**：本方案 P1–P3 期间 `exportSite.ts` 编排层大幅重写；Mermaid（语法方案批次 4）的导出侧内联 SVG（`exportSite.ts` / `exportPdf.ts`）必须等 P3 完成后接入，避免互相返工
+4. **导出管线定型顺序**：本方案 P1–P3 期间 `exportSite.ts` 编排层大幅重写；Mermaid（语法方案批次 4）的导出侧内联 SVG（`exportSite.ts` / `exportPdf.ts`）必须等 P3 完成后接入，避免互相返工——**P3 已于 2026-08-17 完成，管线定型，Mermaid 导出侧接入已解锁**
 
 ## 🧪 测试计划
 

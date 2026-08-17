@@ -27,11 +27,12 @@ let exportedFiles: ExportedFile[] = []
 let exportedOutputDir = ''
 let readDirPaths: string[] = []
 
-/** mock invoke：files = 路径→文件内容；exists = 存在的路径（含目录） */
+/** mock invoke：files = 路径→文件内容；exists = 存在的路径（含目录）；treesByPath = 按路径区分的目录树 */
 function setupInvoke(opts: {
   tree: FileTreeItem[]
   files: Record<string, string>
   exists?: Record<string, boolean>
+  treesByPath?: Record<string, FileTreeItem[]>
 }) {
   mockInvoke.mockImplementation(async (cmd: string, args?: unknown) => {
     const a = (args ?? {}) as {
@@ -39,9 +40,11 @@ function setupInvoke(opts: {
       params?: { path?: string; outputDir?: string; files?: ExportedFile[] }
     }
     switch (cmd) {
-      case 'read_directory':
-        readDirPaths.push(a.params?.path ?? '')
-        return opts.tree
+      case 'read_directory': {
+        const dirPath = a.params?.path ?? ''
+        readDirPaths.push(dirPath)
+        return opts.treesByPath?.[dirPath] ?? opts.tree
+      }
       case 'read_file': {
         const path = a.path ?? ''
         if (path in opts.files) {
@@ -224,5 +227,44 @@ exclude_docs: |
     expect(mockAlertDialog).toHaveBeenCalledWith(
       expect.stringContaining('VuePress project detected')
     )
+  })
+
+  it('vuepress P3：public 镜像到站点根、config title 作站点名、撞名规则', async () => {
+    setupInvoke({
+      tree: [file('README.md', '/repo'), file('logo.png', '/repo')],
+      treesByPath: {
+        '/repo/.vuepress/public': [
+          file('logo.png', '/repo/.vuepress/public'),
+          file('index.html', '/repo/.vuepress/public'),
+          dir('img', [file('hero.png', '/repo/.vuepress/public/img')], '/repo/.vuepress/public'),
+        ],
+      },
+      exists: {
+        '/repo/.vuepress': true,
+        '/repo/.vuepress/public': true,
+        '/repo/.vuepress/config.js': true,
+      },
+      files: {
+        '/repo/README.md': '# 首页\n',
+        '/repo/.vuepress/config.js': `module.exports = { title: '开发者中心' }`,
+      },
+    })
+    expect(await exportSite()).toBe(true)
+
+    // 主树读打开目录；public 目录额外直读（隐藏目录跳过只作用于列出的子项）
+    expect(readDirPaths).toEqual(['/repo', '/repo/.vuepress/public'])
+    // config title 作站点名
+    expect(exportedOutputDir).toBe('/out/开发者中心-site')
+
+    // public 资产镜像到站点根
+    const hero = exportedFiles.find((f) => f.path === 'img/hero.png')
+    expect(hero?.sourcePath).toBe('/repo/.vuepress/public/img/hero.png')
+    // 同相对路径资产：public 覆盖文档树内同名文件
+    const logo = exportedFiles.find((f) => f.path === 'logo.png')
+    expect(logo?.sourcePath).toBe('/repo/.vuepress/public/logo.png')
+    // 与页面 htmlPath 撞名的 public 条目丢弃（页面优先：唯一 index.html 是渲染页）
+    const indexEntries = exportedFiles.filter((f) => f.path === 'index.html')
+    expect(indexEntries).toHaveLength(1)
+    expect(indexEntries[0].content).toBeTruthy()
   })
 })

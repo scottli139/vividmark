@@ -21,6 +21,7 @@ import {
   addHeadingIds,
   buildNavFromMkdocsNav,
   buildNavModel,
+  collectPublicAssets,
   collectSiteEntries,
   fallbackPageTitle,
   filterFileTreeByExcludes,
@@ -134,8 +135,10 @@ export async function exportSite(): Promise<boolean> {
       })
     }
 
-    // mkdocs 风味站点名取 site_name；导出范围收敛到 docs_dir（'' = 打开目录本身）
-    const siteTitle = flavorInfo.mkdocsConfig?.siteName ?? baseName(openedFolder)
+    // 站点名：mkdocs site_name → vuepress config title（正则提取）→ 目录名回退；
+    // 导出范围收敛到 docsRoot（'' = 打开目录本身）
+    const siteTitle =
+      flavorInfo.mkdocsConfig?.siteName ?? flavorInfo.vuepressSiteName ?? baseName(openedFolder)
     const outputDir = `${picked}/${siteTitle}-site`
     const docsRootAbs = flavorInfo.docsRoot
       ? `${openedFolder}/${flavorInfo.docsRoot}`
@@ -153,6 +156,36 @@ export async function exportSite(): Promise<boolean> {
     }
 
     const { pages, assets } = collectSiteEntries(tree)
+
+    // vuepress：`.vuepress/public/*` 原样镜像到站点根（Rust read_directory 的隐藏目录
+    // 跳过只作用于列出的子项，直接读 public 目录本身可行——方案 P3 检查点）。
+    // 撞名规则：public 覆盖同相对路径的普通资产；与页面 htmlPath 撞名的丢弃（页面优先）
+    let allAssets = assets
+    if (flavorInfo.flavor === 'vuepress') {
+      const publicDirAbs = `${docsRootAbs}/.vuepress/public`
+      if (await pathExists(publicDirAbs)) {
+        const publicAssets = collectPublicAssets(await readDirectory(publicDirAbs, true))
+        const pageHtmlPaths = new Set(pages.map((page) => mdToHtmlPath(page.relPath)))
+        const keptPublic = publicAssets.filter((asset) => !pageHtmlPaths.has(asset.relPath))
+        if (keptPublic.length !== publicAssets.length) {
+          logger.warn('vuepress public 中与页面同名的资产已丢弃（页面优先）')
+        }
+        const publicRelPaths = new Set(keptPublic.map((asset) => asset.relPath))
+        const overridden = allAssets.filter((asset) => publicRelPaths.has(asset.relPath))
+        if (overridden.length > 0) {
+          logger.warn(
+            'vuepress public 覆盖同名资产:',
+            overridden.map((asset) => asset.relPath)
+          )
+        }
+        allAssets = [
+          ...allAssets.filter((asset) => !publicRelPaths.has(asset.relPath)),
+          ...keptPublic,
+        ]
+        logger.info('vuepress public assets merged:', keptPublic.length)
+      }
+    }
+
     if (pages.length === 0) {
       logger.timeEnd('exportSite')
       await alertDialog(i18n.t('messages.exportSiteNoPages'))
@@ -238,7 +271,7 @@ export async function exportSite(): Promise<boolean> {
         content: buildRedirectPage(nav.firstHtmlPath, siteTitle, language),
       })
     }
-    for (const asset of assets) {
+    for (const asset of allAssets) {
       files.push({ path: asset.relPath, sourcePath: asset.sourcePath })
     }
 

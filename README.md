@@ -57,6 +57,7 @@ Turn any opened folder into a deployable documentation site with one click — n
 - **MkDocs-style layout** - Sticky header, collapsible sidebar navigation, and a light/dark toggle baked into every page
 - **Auto-derived navigation** - The directory tree becomes the nav; numeric prefixes (`01-intro.md`) control ordering and are stripped from display; `README.md`/`index.md` becomes the section landing page
 - **MkDocs-aware** - Folders with a `mkdocs.yml` export by the config: `site_name` as site title, `docs_dir` as content root, `nav` verbatim as the sidebar (external links included) — pages left out of `nav` are still exported, just kept out of the nav. YAML frontmatter is stripped from output and its `title` feeds page titles
+- **VuePress-aware (best-effort)** - Folders with a `.vuepress/` directory get the config `title` regex-extracted as site title and `.vuepress/public/*` mirrored to the site root; the sidebar JS config is not parsed — navigation falls back to directory structure
 - **Link-safe output** - Cross-page `.md` links are rewritten to `.html` with GitHub-style heading anchors; images and attachments are mirrored in place, so relative paths just work
 - **Deploy anywhere** - GitHub Pages (`.nojekyll` included), Netlify, Nginx, or just open `index.html` locally — the output is plain static HTML rendered by the same engine as the in-app preview
 

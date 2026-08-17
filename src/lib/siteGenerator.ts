@@ -116,6 +116,24 @@ export function collectSiteEntries(tree: FileTreeItem[]): {
 }
 
 /**
+ * vuepress `.vuepress/public` 树 → 站点根资产（vuepress 风味专属）。
+ * public 约定是「原样镜像到站点根」，因此全部文件（含 .md）都是资产，
+ * relPath 相对 public 目录本身（img/logo.png → 站点根 img/logo.png）。
+ */
+export function collectPublicAssets(tree: FileTreeItem[]): SiteFileEntry[] {
+  const assets: SiteFileEntry[] = []
+  const walk = (items: FileTreeItem[], prefix: string) => {
+    for (const item of items) {
+      const relPath = prefix ? `${prefix}/${item.name}` : item.name
+      if (item.isDirectory) walk(item.children ?? [], relPath)
+      else assets.push({ sourcePath: item.path, relPath })
+    }
+  }
+  walk(tree, '')
+  return assets
+}
+
+/**
  * 按 mkdocs exclude_docs 模式过滤文件树（页面与资产同滤，相对 docs_dir 路径匹配）。
  * 命中的文件被剔除；目录保留（空目录由 collectSiteEntries/buildNavModel 自然跳过）。
  */

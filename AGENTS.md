@@ -32,7 +32,7 @@ Key features:
 | `docs/typst-offline-plan.md`                                       | Typst 离线支持计划（⏸️ 暂停中，2026-08-12 评估转向独立产品）                     |
 | `docs/typst-standalone-editor-plan.md`                             | 独立 Typst 编辑器预研（📋 未立项；与 VividMark 分离的产品方向）                  |
 | `docs/word-export-plan.md`                                         | Word（docx）导出可行性与实现方案（📋 方案待评审，pandoc 路线）                   |
-| `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（🚧 P1 已落地，P2/P3 待排期）         |
+| `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（✅ 全部落地：mkdocs nav/docs_dir/exclude_docs/`!!!`；vuepress public/title best-effort）         |
 | `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（🚧 批次 1–3 已落地：Alerts/脚注/frontmatter；Mermaid/排版批待排期） |
 | `CONTRIBUTING.md`（+ `.zh-CN`）                                    | 贡献指南：环境搭建、提交前检查链、PR 流程、AI 辅助贡献政策                       |
 
@@ -176,7 +176,7 @@ Read these before touching editor code — 每条只保留核心约束，展开�
 - **编辑器右键菜单**: 三区域（Source/Preview/WYSIWYG）接入，结构对齐 Typora（剪贴板组 + 段落▸/格式▸/插入▸ 子菜单）。菜单项构建是纯函数（`src/lib/contextMenu.ts`），动作按 id 前缀分发（`format:*` → editor-format；剪贴板走 `src/lib/clipboard.ts`；WYSIWYG 上下文动作在 `wysiwygContextMenu.ts`）。**WebKit 右键抢选**：必须 contextmenu 时折叠选区 + `getSelection().collapse(domAtPos)` 把 DOM 选择压回光标（细节见 notes）
 - **macOS 融合标题栏**: `titleBarStyle: Overlay` + `hiddenTitle`（仅 macOS）；`trafficLightPosition {x:12, y:25.5}` 把红绿灯垂直居中到 48px 工具栏；`is-macos` class 判定走 `src/lib/platform.ts`；Toolbar 根及左/右分组容器都带 `data-tauri-drag-region`（Tauri drag.js 只查 `e.target` 自身属性）+ macOS 下 `pl-[78px]` + 自绘居中标题（<760px 隐藏）；**红绿灯位置会被 setTitle 重置**（故标题只能走 `set_window_title`，见上「Window title」）
 - **Logging**: use `createLogger('Module')` from `src/lib/logger.ts` (frontend) and `tauri-plugin-log` (backend); logs at `~/Library/Logs/com.vividmark.app/` on macOS
-- **导出为网站（静态站点包）**: 菜单/MoreMenu `export-site`（按 `openedFolder` 门控）→ `exportSite.ts` → 纯逻辑 `siteGenerator.ts`（镜像目录结构、README/index→所在目录 index.html、数字前缀排序且显示剥离、`.md` 互链重写 `.html`）→ Rust `export_site` 批量写盘；页面框架 `siteTemplate.ts`（`.dark` 切换、`.nojekyll`）。**配置感知**（`siteConfig.ts`）：风味 mkdocs > vuepress > plain，`mkdocs.yml` 的 nav/docs_dir 驱动导航与范围，nav 是策展白名单（不追加未收录页）。关键坑：渲染必须 `parseMarkdownAsync(content, { preserveImages: true, inlinePlantUml: true })`——否则相对图片变 asset:// 死链、UML 需联网
+- **导出为网站（静态站点包）**: 菜单/MoreMenu `export-site`（按 `openedFolder` 门控）→ `exportSite.ts` → 纯逻辑 `siteGenerator.ts`（镜像目录结构、README/index→所在目录 index.html、数字前缀排序且显示剥离、`.md` 互链重写 `.html`）→ Rust `export_site` 批量写盘；页面框架 `siteTemplate.ts`（`.dark` 切换、`.nojekyll`）。**配置感知**（`siteConfig.ts`）：风味 mkdocs > vuepress > plain，`mkdocs.yml` 的 nav/docs_dir 驱动导航与范围，nav 是策展白名单（不追加未收录页）；vuepress best-effort：`.vuepress/public/*` 镜像到站点根（public 覆盖同名资产、撞页面名丢弃），config title 正则提取作站点名（隐藏目录检查点：`read_directory` 跳过只作用于列出子项，直读 `.vuepress/public` 可行；`file_exists` 文件或目录皆 true——曾只认 is_file 致目录探测全失效，已修）。关键坑：渲染必须 `parseMarkdownAsync(content, { preserveImages: true, inlinePlantUml: true })`——否则相对图片变 asset:// 死链、UML 需联网
 - **PDF 直存管线**: `editor-export-pdf` 事件 → `exportPdf.ts` 生成独立 HTML → `export_pdf_file`（隐藏窗口 `vividmark-pdf://` 渲染，15s 超时兜底）→ macOS `NSPrintOperation(SaveJob)` / Windows `PrintToPdf` 静默写文件；**macOS 必须 sharedPrintInfo copy + canSpawnSeparateThread(true) + runOperationModalForWindow**（全新 NSPrintInfo + run() 会无限分页）；PDF 书签大纲 macOS 用 PDFKit 后处理重建；Linux 回退 `print_pdf` 打印对话框
 
 ## Known Issues

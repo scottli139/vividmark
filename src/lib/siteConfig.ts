@@ -40,6 +40,10 @@ export interface SiteFlavorInfo {
   mkdocsConfigPath?: string
   /** 已解析的 mkdocs 配置（命中时随结果返回，避免二次读取） */
   mkdocsConfig?: MkdocsConfig
+  /** vuepress 配置文件绝对路径（探测到时存在） */
+  vuepressConfigPath?: string
+  /** vuepress config 正则提取的站点名（best-effort，见 vuepressSiteTitle） */
+  vuepressSiteName?: string
   /** 非致命异常说明（配置解析失败 / docs_dir 不存在回退等），供调用方记日志 */
   warning?: string
 }
@@ -236,6 +240,45 @@ export {
   type FrontmatterResult,
 } from './markdown/frontmatter'
 
+// ==================== vuepress best-effort ====================
+
+/** vuepress 配置文件探测顺序（v1 = config.js；v2 推荐 config.ts；均命中即停） */
+const VUEPRESS_CONFIG_NAMES = ['config.ts', 'config.js', 'config.mjs']
+
+/**
+ * 从 vuepress config 文本正则提取 title（best-effort，已决策不做受限求值——
+ * config 是可执行 JS，正则注定覆盖不全，提取不到时调用方回退目录名）。
+ * 先剥块注释与整行 `//` 注释（案例仓库实测存在注释掉的配置项），再取首个
+ * `title: '...'` / `"..."` / `` `...` `` 匹配（`. ` 不跨行，多行标题不追）。
+ */
+export function vuepressSiteTitle(configText: string): string | undefined {
+  const stripped = configText.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '')
+  const match =
+    /\btitle\s*:\s*(?:'((?:\\.|[^'\\])*)'|"((?:\\.|[^"\\])*)"|`((?:\\.|[^`\\])*)`)/.exec(stripped)
+  const value = match?.[1] ?? match?.[2] ?? match?.[3]
+  if (!value) return undefined
+  const unescaped = value.replace(/\\(['"`\\])/g, '$1').trim()
+  return unescaped || undefined
+}
+
+/** 读取 vuepress 配置并提取站点名；读取失败返回 warning（不抛，best-effort 降级） */
+async function readVuepressSiteName(
+  io: FlavorIo,
+  vuepressDir: string
+): Promise<{ configPath?: string; siteName?: string; warning?: string }> {
+  for (const name of VUEPRESS_CONFIG_NAMES) {
+    const configPath = `${vuepressDir}/${name}`
+    if (!(await io.fileExists(configPath))) continue
+    try {
+      const text = await io.readTextFile(configPath)
+      return { configPath, siteName: vuepressSiteTitle(text) }
+    } catch (error) {
+      return { configPath, warning: `vuepress 配置读取失败（${configPath}）：${String(error)}` }
+    }
+  }
+  return {}
+}
+
 /** 读取并解析 mkdocs 配置；读取/解析失败返回 warning（不抛） */
 async function readMkdocsConfig(
   io: FlavorIo,
@@ -301,11 +344,18 @@ export async function detectSiteFlavor(
     }
   }
 
-  if (await io.fileExists(`${root}/.vuepress`)) {
-    return { flavor: 'vuepress', docsRoot: '' }
-  }
-  if (await io.fileExists(`${root}/docs/.vuepress`)) {
-    return { flavor: 'vuepress', docsRoot: 'docs' }
+  // vuepress：打开目录根（或其 docs/ 下）有 .vuepress；config title 尽力提取
+  for (const docsRoot of ['', 'docs']) {
+    const vuepressDir = docsRoot ? `${root}/${docsRoot}/.vuepress` : `${root}/.vuepress`
+    if (!(await io.fileExists(vuepressDir))) continue
+    const { configPath, siteName, warning } = await readVuepressSiteName(io, vuepressDir)
+    return {
+      flavor: 'vuepress',
+      docsRoot,
+      vuepressConfigPath: configPath,
+      vuepressSiteName: siteName,
+      warning,
+    }
   }
 
   return { flavor: 'plain', docsRoot: '' }

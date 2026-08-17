@@ -1534,6 +1534,20 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 - **awesome-markdown-editors 2026 新政策**：新条目一律先加 `UPCOMING.md`（不再直接进 README），必须附源码链接；无源码项目进 `COMMERCIAL.md`。
 - **Baidu 对 github.io 收录极差**（爬虫基本不抓）。中文流量主渠道是 HelloGitHub（GitHub issue 自荐，人工月刊，选中后 1~2 期刊出）与社区投稿（V2EX/掘金/少数派）；若需 Baidu 收录中文站点，得用 Gitee Pages 或自有域名镜像。
 
+---
+
+## 2026-08-17 vuepress best-effort（站点导出配置感知 P3，管线定型）
+
+方案 `docs/site-export-config-plan.md` P3。两件小事，站点导出管线至此定型（Mermaid 导出侧内联解锁）：
+
+- **`.vuepress/public/*` → 站点根**：vuepress 风味下 exportSite 额外直读 `<docsRoot>/.vuepress/public`。**检查点结论：Rust `read_directory` 的隐藏文件/目录跳过只作用于列出的子项，直接读隐藏目录本身可行**——零新增 Rust 命令；`export_site` 写盘也不过滤点开头路径。`collectPublicAssets`（siteGenerator.ts）把 public 树全量文件（含 .md，public 约定就是原样镜像）映射为站点根资产。撞名规则：public 覆盖同 relPath 普通资产（warn 日志）；与页面 htmlPath 撞名的 public 条目丢弃（页面优先）。导航仍退回目录推导（sidebar 是可执行 JS 不解析，方案决策 2）。
+- **config title 正则提取**：`vuepressSiteTitle`（siteConfig.ts）先剥块注释与整行 `//` 注释（案例仓库实测有注释掉的配置项），再取首个 `title: '...'/"..."/\`...\`` 匹配（`.` 不跨行；themeConfig 内的 title 因排在顶层后自然不赢）；转义引号还原、空白裁剪。探测侧 `readVuepressSiteName` 按 config.ts → config.js → config.mjs 命中即停，读取失败仅 warning 降级（best-effort 不阻断导出）。站点名链变为：mkdocs `site_name` → vuepress config title → 目录名。
+
+**devdocs 实仓验收**（一次性集成探针：invoke 用 node:fs 复刻 Rust 语义跑真实 `exportSite()`，38 页 40 资产全绿；探针用完即删）：范围收敛 docs/、nav 原文 + 外链、rn/ 与旧版 API 隐藏页导出但不进导航、frontmatter 剥离、24 处 `!!!` 渲染、PlantUML 内联接线、`.md` 互链重写、图片资产镜像、`.vuepress`/`.DS_Store` 零泄漏。实仓验证顺带暴露两个单测盲区（均已修复）：
+
+- **`file_exists` 只认文件不认目录**：Rust 原实现返回 `exists && is_file`，而风味探测的 `docs_dir` 存在性检查、`.vuepress` 探测、`.vuepress/public` 检查、文件树「创建副本」重名预检全部传目录——真机恒 false，mkdocs 范围收敛与 vuepress 风味整体失效（单测 fakeIo 把目录当存在，完全掩盖）。已改为存在即 true（文件或目录）。**教训：路径类 mock 的语义必须与 Rust 命令实现逐条对齐，本次靠真实仓库端到端才暴露。**
+- **站点导出曾「意外正确」地依赖 readFile 失败回退**：`isLocalPath` 认 `./` 前缀，导致 `parseMarkdownAsync` 无 baseDir 时也对相对图片尝试 base64 内联（PDF 专属路径），站点导出只是靠相对路径 readFile 必失败的兜底才保住相对 src。已在 `preserveImages` 时整体跳过 `preprocessImages`（parser.test.ts 有回归测试）。
+
 ## 2026-08-17 MkDocs `!!!` admonition 双端支持 + exclude_docs（站点导出配置感知 P2）
 
 方案 `docs/site-export-config-plan.md` P2。`!!!`（Python-Markdown 风格）与 `:::` 的关键差异：**无结束围栏，内容范围由「后续 4 空格/tab 缩进的行」决定**（空行悬挂：空行后仍是缩进行则归属容器）。

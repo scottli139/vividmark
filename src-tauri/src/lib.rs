@@ -292,21 +292,16 @@ fn save_file(path: String, content: String) -> Result<SaveResult, String> {
     })
 }
 
-// 检查文件是否存在
+// 检查路径是否存在（文件或目录均可——风味探测要判 docs_dir/.vuepress 目录，
+// 文件树创建副本也用它检查文件夹候选名；曾只认 is_file 导致目录检查恒 false）
 #[tauri::command]
 fn file_exists(path: String) -> bool {
     let path_buf = PathBuf::from(&path);
     let exists = path_buf.exists();
-    let is_file = path_buf.is_file();
 
-    log::debug!(
-        "[file_exists] {} -> exists={}, is_file={}",
-        path,
-        exists,
-        is_file
-    );
+    log::debug!("[file_exists] {} -> exists={}", path, exists);
 
-    exists && is_file
+    exists
 }
 
 /// 读取目录内容

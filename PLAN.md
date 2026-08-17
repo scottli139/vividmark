@@ -84,7 +84,7 @@
 - [x] **导出 PDF** ✅ - 支持将 Markdown 导出为 PDF（通过浏览器打印为 PDF）
 - [ ] 导出 HTML
 - [ ] 导出 Word（方案见 `docs/word-export-plan.md`，pandoc 路线已 PoC 验证）
-- [ ] 站点导出配置感知（P1 mkdocs 核心 ✅ 2026-08-14：风味探测 / docs_dir 收敛 / nav 白名单 / frontmatter；P2 ✅ 2026-08-17：`!!!` 双端语法保持往返 + exclude_docs；P3 vuepress 待排期；方案见 `docs/site-export-config-plan.md`）
+- [x] 站点导出配置感知 ✅（P1 mkdocs 核心 ✅ 2026-08-14：风味探测 / docs_dir 收敛 / nav 白名单 / frontmatter；P2 ✅ 2026-08-17：`!!!` 双端语法保持往返 + exclude_docs；P3 ✅ 2026-08-17：vuepress best-effort——`.vuepress/public` 镜像站点根 + config title 提取；方案见 `docs/site-export-config-plan.md`）
 - [x] 搜索与替换 ✅（Source/Split 模式，Cmd+F；WYSIWYG 未接，见 Phase 13 P3）
 
 ### Phase 7: 打磨优化 (进行中)
@@ -306,8 +306,8 @@ logger.error('Failed to sync:', error)
 3. **站点导出配置感知 P2** ✅（2026-08-17 完成）— `!!!` admonition 双端（预览自写块级 rule + WYSIWYG 文本预处理 `:::!` 内部形式，PM 节点 `syntax` attr，`!!!` 进 `!!!` 出语法保持往返）+ `exclude_docs` .gitignore 模式过滤（页面与资产同滤）；50 个新单测。方案 `docs/site-export-config-plan.md`
 4. **GitHub Alerts** ✅（2026-08-17 完成）— `> [!NOTE]` 五类双端：预览侧 core rule 后处理 blockquote token（改写复用 admonition 三段式，标记剥离）；WYSIWYG 侧纯 PM Decoration 上色加图标（零 schema 变更，标记行可见可编辑，复用 admonition 配色）；容忍自家序列化产物（`\[` 转义 / 行尾 `\`）；38 个新单测。方案 `docs/syntax-extensions-plan.md`
 5. **脚注** ✅（2026-08-17 完成）— `[^id]` 双端：WYSIWYG 零新增 schema（gfm 预设自带 reference/definition 节点 + remark-gfm 往返），编号装饰按引用首现顺序注入（悬空引用不编号、label 原文降级显示）；预览侧 markdown-it-footnote（caption 覆写恒 `[N]`，未引用定义不渲染同 GitHub）；预览 `#fn` 锚点改页内滚动不走出站；22 个新单测。方案 `docs/syntax-extensions-plan.md`
-6. **站点导出配置感知 P3** — vuepress best-effort；站点导出管线至此定型
-7. **Mermaid**（语法批次 4 / FR-021.5；复用 PlantUML 占位符 + 懒加载基建；导出侧内联须等上项定型）
+6. **站点导出配置感知 P3** ✅（2026-08-17 完成）— vuepress best-effort：`.vuepress/public/*` 镜像站点根（public 覆盖同名资产、撞页面名丢弃）+ config title 正则提取（剥注释后首个引号匹配，config.ts/js/mjs 命中即停）；**devdocs 实仓验收通过**（38 页 40 资产；顺带修复 `file_exists` 目录语义与 preserveImages 未跳过 base64 两个真机 bug）；站点导出管线至此定型；13 个新单测。方案 `docs/site-export-config-plan.md`
+7. **Mermaid**（语法批次 4 / FR-021.5；复用 PlantUML 占位符 + 懒加载基建；站点导出管线已随 P3 定型，导出侧内联可直接接入）
 8. **排版批**（语法批次 5 / FR-023.4：`==` / `^` / `~` / emoji 预览侧先行）
 
 **后续波次：**

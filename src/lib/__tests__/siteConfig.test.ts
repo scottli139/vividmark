@@ -6,6 +6,7 @@ import {
   isExcludedPath,
   parseFrontmatter,
   parseMkdocsConfig,
+  vuepressSiteTitle,
   type FlavorIo,
 } from '../siteConfig'
 
@@ -293,5 +294,98 @@ describe('exclude_docs 匹配（.gitignore 语义）', () => {
     const patterns = compileExcludePatterns(['vendor/**'])
     expect(isExcludedPath(patterns, 'vendor/a/b.txt')).toBe(true)
     expect(isExcludedPath(patterns, 'x/vendor/a.txt')).toBe(false)
+  })
+})
+
+// ==================== vuepress best-effort（P3） ====================
+
+describe('vuepressSiteTitle', () => {
+  it('提取单/双/反引号形式的 title', () => {
+    expect(vuepressSiteTitle(`module.exports = { title: '开发文档' }`)).toBe('开发文档')
+    expect(vuepressSiteTitle(`export default { title: "Dev Docs" }`)).toBe('Dev Docs')
+    expect(vuepressSiteTitle('export default { title: `Docs` }')).toBe('Docs')
+  })
+
+  it('跳过注释掉的 title（整行 // 与块注释）', () => {
+    const config = `// title: '旧站点'
+/*
+title: '更旧'
+*/
+export default { title: '新站点' }
+`
+    expect(vuepressSiteTitle(config)).toBe('新站点')
+  })
+
+  it('转义引号还原、空白裁剪', () => {
+    expect(vuepressSiteTitle(`export default { title: 'it\\'s docs' }`)).toBe("it's docs")
+    expect(vuepressSiteTitle(`export default { title: '  空白  ' }`)).toBe('空白')
+  })
+
+  it('首个 title 优先（themeConfig 内不覆盖顶层）', () => {
+    const config = `export default {
+  title: '顶层',
+  themeConfig: { title: '主题内' },
+}
+`
+    expect(vuepressSiteTitle(config)).toBe('顶层')
+  })
+
+  it('无 title 或非字符串形式 → undefined', () => {
+    expect(vuepressSiteTitle(`export default { description: 'x' }`)).toBeUndefined()
+    expect(vuepressSiteTitle(`export default { title: computeTitle() }`)).toBeUndefined()
+    expect(vuepressSiteTitle('')).toBeUndefined()
+  })
+})
+
+describe('detectSiteFlavor vuepress（P3：config title 提取）', () => {
+  it('config.js 提取站点名与配置路径', async () => {
+    const info = await detectSiteFlavor(
+      '/repo',
+      fakeIo({ '/repo/.vuepress/config.js': `module.exports = { title: '开发者中心' }` }, [
+        '/repo/.vuepress',
+      ])
+    )
+    expect(info).toEqual({
+      flavor: 'vuepress',
+      docsRoot: '',
+      vuepressConfigPath: '/repo/.vuepress/config.js',
+      vuepressSiteName: '开发者中心',
+    })
+  })
+
+  it('docs/.vuepress + config.ts（v2）→ docsRoot docs', async () => {
+    const info = await detectSiteFlavor(
+      '/repo',
+      fakeIo({ '/repo/docs/.vuepress/config.ts': `export default { title: "文档站" }` }, [
+        '/repo/docs/.vuepress',
+      ])
+    )
+    expect(info).toEqual({
+      flavor: 'vuepress',
+      docsRoot: 'docs',
+      vuepressConfigPath: '/repo/docs/.vuepress/config.ts',
+      vuepressSiteName: '文档站',
+    })
+  })
+
+  it('config 无 title → vuepressSiteName 缺省、configPath 仍记录', async () => {
+    const info = await detectSiteFlavor(
+      '/repo',
+      fakeIo({ '/repo/.vuepress/config.js': `module.exports = {}` }, ['/repo/.vuepress'])
+    )
+    expect(info.flavor).toBe('vuepress')
+    expect(info.vuepressConfigPath).toBe('/repo/.vuepress/config.js')
+    expect(info.vuepressSiteName).toBeUndefined()
+  })
+
+  it('config 读取失败仍 vuepress，带 warning 降级', async () => {
+    // config.js 在「存在」集合但不是可读文件 → readTextFile 抛错
+    const info = await detectSiteFlavor(
+      '/repo',
+      fakeIo({}, ['/repo/.vuepress', '/repo/.vuepress/config.js'])
+    )
+    expect(info.flavor).toBe('vuepress')
+    expect(info.vuepressSiteName).toBeUndefined()
+    expect(info.warning).toBeTruthy()
   })
 })
