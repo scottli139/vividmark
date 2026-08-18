@@ -22,7 +22,8 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
   <img src="docs/images/screenshot-wysiwyg-dark.png" alt="WYSIWYG editing — dark theme" width="49%">
 </p>
 <p align="center">
-  <img src="docs/images/screenshot-split-light.png" alt="Split mode — source and live preview" width="70%">
+  <img src="docs/images/screenshot-split-light.png" alt="Split mode — source and live preview" width="49%">
+  <img src="docs/images/screenshot-viewer-dark.png" alt="Fullscreen diagram/image viewer with zoom" width="49%">
 </p>
 
 ## Features

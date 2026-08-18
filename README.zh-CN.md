@@ -22,7 +22,8 @@
   <img src="docs/images/screenshot-wysiwyg-dark.png" alt="所见即所得编辑 — 深色主题" width="49%">
 </p>
 <p align="center">
-  <img src="docs/images/screenshot-split-light.png" alt="分屏模式 — 源码与实时预览" width="70%">
+  <img src="docs/images/screenshot-split-light.png" alt="分屏模式 — 源码与实时预览" width="49%">
+  <img src="docs/images/screenshot-viewer-dark.png" alt="图表/图片全屏查看器（支持缩放）" width="49%">
 </p>
 
 ## 功能特性

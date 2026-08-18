@@ -7,38 +7,32 @@ const BASE = 'http://localhost:5173'
 const OUT = new URL('../docs/images/', import.meta.url).pathname
 mkdirSync(OUT, { recursive: true })
 
+// 演示文档：一屏内覆盖核心特色 —— WYSIWYG、GitHub Alert、Mermaid、KaTeX、任务列表
 const DEMO = [
   '# VividMark',
   '',
-  'A **Typora-like** WYSIWYG Markdown editor. Write *Markdown* and see it rendered `instantly`.',
+  'A **Typora-like** WYSIWYG editor — write *Markdown*, see it ==rendered instantly==.',
   '',
-  '::: tip MkDocs Ready',
-  'Admonitions, PlantUML diagrams and tables work out of the box.',
-  ':::',
+  '> [!TIP]',
+  '> Admonitions, Mermaid diagrams and KaTeX math work out of the box.',
   '',
-  '## Task List',
-  '',
-  '- [x] Real-time WYSIWYG editing',
-  '- [x] Dark mode & i18n',
-  '- [ ] Your next document',
-  '',
-  '## Table',
-  '',
-  '| Feature     | Status |',
-  '|:------------|:------:|',
-  '| WYSIWYG     |   ✅   |',
-  '| Split view  |   ✅   |',
-  '| PDF Export  |   ✅   |',
-  '',
-  '## Code',
-  '',
-  '```rust',
-  'fn main() {',
-  '    println!("Hello, VividMark!");',
-  '}',
+  '```mermaid',
+  'flowchart LR',
+  '    A[Write] --> B[Preview] --> C[Export]',
   '```',
   '',
-  '> Distraction-free writing, powered by Tauri 2 + React 19.',
+  '$$',
+  'E = mc^2',
+  '$$',
+  '',
+  '- [x] Mermaid & PlantUML diagrams',
+  '- [x] KaTeX math, footnotes & alerts',
+  '- [ ] Your next document',
+  '',
+  '| Export | Format |',
+  '|:-------|:-------|',
+  '| PDF    | Print-quality, one click |',
+  '| Site   | Deployable static site |',
   '',
 ].join('\n')
 
@@ -48,7 +42,8 @@ function preset(page, state) {
   }, state)
 }
 
-async function loadDemo(page, state) {
+// 统一从 Source 模式录入内容（WYSIWYG 直输会触发输入规则），再经状态栏下拉切到目标模式
+async function loadDemo(page, state, targetMode) {
   await preset(page, state)
   await page.goto(BASE)
   await page.waitForSelector('.cm-editor', { timeout: 20000 })
@@ -57,46 +52,70 @@ async function loadDemo(page, state) {
   await page.keyboard.press('Backspace')
   await page.keyboard.insertText(DEMO)
   await page.waitForTimeout(300)
+  await page.getByTestId('statusbar-viewmode').click()
+  await page.getByRole('menuitemcheckbox', { name: targetMode }).click()
 }
 
 const browser = await chromium.launch()
 
-async function shot(name, state, after) {
+async function shot(name, state, targetMode, readySelector) {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 2,
   })
   const page = await ctx.newPage()
-  await loadDemo(page, state)
-  if (after) await after(page)
+  await loadDemo(page, state, targetMode)
+  if (readySelector) await page.waitForSelector(readySelector, { timeout: 60000 })
   await page.waitForTimeout(800)
   await page.screenshot({ path: `${OUT}${name}` })
   console.log('saved', name)
   await ctx.close()
 }
 
-// 1. WYSIWYG 浅色（主图）
+// 1. WYSIWYG 浅色（主图）：Mermaid 双区 nodeview 渲染完成再截
 await shot(
   'screenshot-wysiwyg-light.png',
   { viewMode: 'source', themeMode: 'light', language: 'en' },
-  async (page) => {
-    await page.getByRole('button', { name: 'WYSIWYG', exact: true }).click()
-    await page.waitForTimeout(1200)
-  }
+  'WYSIWYG',
+  '.ProseMirror .mermaid-block .mermaid-diagram svg'
 )
 
 // 2. WYSIWYG 深色
 await shot(
   'screenshot-wysiwyg-dark.png',
   { viewMode: 'source', themeMode: 'dark', language: 'en' },
-  async (page) => {
-    await page.getByRole('button', { name: 'WYSIWYG', exact: true }).click()
-    await page.waitForTimeout(1200)
-  }
+  'WYSIWYG',
+  '.ProseMirror .mermaid-block .mermaid-diagram svg'
 )
 
-// 3. Split 模式（源码 + 预览滚动同步）
-await shot('screenshot-split-light.png', { viewMode: 'split', themeMode: 'light', language: 'en' })
+// 3. Split 模式（源码 + 预览滚动同步）：预览侧 Mermaid 渲染完成再截
+await shot(
+  'screenshot-split-light.png',
+  { viewMode: 'source', themeMode: 'light', language: 'en' },
+  'Split',
+  '.markdown-body .mermaid-diagram svg'
+)
+
+// 4. 图表全屏查看器（深色）：Preview 点击 Mermaid 图打开 lightbox
+{
+  const ctx = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 2,
+  })
+  const page = await ctx.newPage()
+  await loadDemo(page, { viewMode: 'source', themeMode: 'dark', language: 'en' }, 'Preview')
+  const diagram = page.locator('.markdown-body .mermaid-diagram')
+  await diagram.locator('svg').waitFor({ timeout: 60000 })
+  await diagram.locator('svg').click()
+  await page.waitForSelector('.image-lightbox .image-lightbox-content svg', { timeout: 10000 })
+  const lightbox = page.locator('.image-lightbox')
+  await lightbox.getByRole('button', { name: 'Zoom in' }).click()
+  await lightbox.getByRole('button', { name: 'Zoom in' }).click()
+  await page.waitForTimeout(500)
+  await page.screenshot({ path: `${OUT}screenshot-viewer-dark.png` })
+  console.log('saved screenshot-viewer-dark.png')
+  await ctx.close()
+}
 
 await browser.close()
 console.log('done')
