@@ -1,6 +1,6 @@
 import type { MilkdownPlugin } from '@milkdown/kit/ctx'
 import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark'
-import { gfm } from '@milkdown/kit/preset/gfm'
+import { gfm, remarkGFMPlugin, strikethroughInputRule } from '@milkdown/kit/preset/gfm'
 import { history } from '@milkdown/kit/plugin/history'
 import { listener } from '@milkdown/kit/plugin/listener'
 import { admonitionSchema, remarkAdmonitionPlugin } from './admonitionPlugin'
@@ -24,6 +24,17 @@ import {
 import { mathBlockView, mathInlineView } from './mathView'
 import { plantUmlCodeBlockView } from './plantUmlCodeBlockView'
 import { taskListItemView } from './taskListItemView'
+import {
+  markHighlightInputRule,
+  markHighlightSchema,
+  remarkGFMNoSingleTilde,
+  remarkTypographyPlugin,
+  strikethroughDoubleTildeInputRule,
+  subscriptInputRule,
+  subscriptSchema,
+  superscriptInputRule,
+  superscriptSchema,
+} from './typographyPlugin'
 import { wysiwygHistoryPlugin } from './wysiwygHistoryPlugin'
 import { wysiwygActiveHeadingPlugin } from './wysiwygActiveHeadingPlugin'
 import { wysiwygEnterPlugin, wysiwygShortcutPlugin } from './wysiwygFormat'
@@ -42,12 +53,36 @@ const preserveEmptyLineParts = new Set<unknown>([
 ])
 const commonmarkPreset = commonmark.filter((plugin) => !preserveEmptyLineParts.has(plugin))
 
+/**
+ * gfm 预设剔除两项（引用比较）：
+ * - remarkGFMPlugin：改由 remarkGFMNoSingleTilde 以 { singleTilde: false } 重注册，
+ *   把单 `~` 让给下标（见 typographyPlugin.ts）
+ * - strikethroughInputRule：改由 strikethroughDoubleTildeInputRule 替代
+ *   （原规则会把单 `~` 输入转成删除线并序列化为 `~~`）
+ */
+const gfmPreset = gfm.filter(
+  (plugin) =>
+    (plugin as unknown) !== remarkGFMPlugin && (plugin as unknown) !== strikethroughInputRule
+)
+
 /** WYSIWYG 使用的 Milkdown 插件集合（导出供测试复用，保持与组件一致） */
 export const wysiwygPlugins: MilkdownPlugin[] = [
   // Enter 键位（软换行模型）必须排在 commonmark 之前以获得 handleKeyDown 优先级
   wysiwygEnterPlugin,
   ...commonmarkPreset,
-  ...gfm,
+  ...gfmPreset,
+  // gfm 重注册（singleTilde: false）必须在 typography 之前：同字符 `~` 的
+  // tokenizer 按注册序尝试，strikethrough 先认领 `~~`，单 `~` 落到 subscript
+  ...remarkGFMNoSingleTilde,
+  // 排版增强（==mark== / ^sup^ / ~sub~）：remark 解析/序列化 + mark schema
+  ...remarkTypographyPlugin,
+  ...markHighlightSchema,
+  ...superscriptSchema,
+  ...subscriptSchema,
+  markHighlightInputRule,
+  superscriptInputRule,
+  subscriptInputRule,
+  strikethroughDoubleTildeInputRule,
   ...history,
   listener,
   wysiwygHistoryPlugin,

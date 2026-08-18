@@ -838,3 +838,48 @@ describe('frontmatter 剥离', () => {
     expect(result).toContain('正文标题')
   })
 })
+
+describe('parseMarkdown - 排版增强（==mark== / ^sup^ / ~sub~ / emoji）', () => {
+  it('==高亮== 渲染为 <mark>', () => {
+    expect(parseMarkdown('这是 ==高亮内容== 文字')).toContain('<mark>高亮内容</mark>')
+  })
+
+  it('^上标^ 渲染为 <sup>', () => {
+    expect(parseMarkdown('E = mc^2^')).toContain('mc<sup>2</sup>')
+  })
+
+  it('~下标~ 渲染为 <sub>，与 ~~ 删除线无冲突', () => {
+    const result = parseMarkdown('H~2~O 与 ~~删除~~')
+    expect(result).toContain('H<sub>2</sub>O')
+    expect(result).toContain('<s>删除</s>')
+  })
+
+  it('emoji 短码渲染为 unicode 字符', () => {
+    const result = parseMarkdown('笑脸 :smile:')
+    expect(result).toContain('😄')
+    expect(result).not.toContain(':smile:')
+  })
+
+  it('代码区内不处理（emoji 与分隔符保持字面）', () => {
+    const result = parseMarkdown('`:smile:` 与 `==x==` 与 `~y~`')
+    expect(result).toContain('<code>:smile:</code>')
+    expect(result).toContain('<code>==x==</code>')
+    expect(result).toContain('<code>~y~</code>')
+  })
+
+  it('嵌套行内格式（==**加粗**==）', () => {
+    const result = parseMarkdown('==含 **加粗**==')
+    expect(result).toContain('<mark>含 <strong>加粗</strong></mark>')
+  })
+
+  it('字内配对（H~2~O / a==b==c）', () => {
+    const result = parseMarkdown('H~2~O 与 a==b==c')
+    expect(result).toContain('H<sub>2</sub>O')
+    expect(result).toContain('a<mark>b</mark>c')
+  })
+
+  it('空白相邻不配对（降级字面文本）', () => {
+    const result = parseMarkdown('== x ==')
+    expect(result).not.toContain('<mark>')
+  })
+})

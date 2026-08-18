@@ -1,6 +1,6 @@
 # Markdown 扩展语法支持盘点与方案
 
-> **状态：🚧 批次 1–4 已落地**（Alerts / 脚注 / frontmatter / Mermaid，2026-08-17；排版批待排期，盘点 2026-08-14）
+> **状态：✅ 批次 1–5 全部落地**（Alerts / 脚注 / frontmatter / Mermaid / 排版批，2026-08-18；盘点 2026-08-14）
 >
 > **结论：** 按「双端成本不对称」决策——预览侧（markdown-it）插件生态成熟、零往返风险，可积极加；WYSIWYG 侧（Milkdown/ProseMirror）每条语法必须先定往返策略再动手。第一梯队推荐：**GitHub Alerts > 脚注 > frontmatter > Mermaid**；第二梯队 `==`/`^`/`~`/emoji 作一次排版增强批。
 
@@ -75,15 +75,15 @@ graph TD; A-->B
 - **方案**：复用 PlantUML 全套路基建——官方 `mermaid.js`（dynamic import 懒加载，首图出现才加载）；预览侧 fence → 占位符 + 渐进渲染（泛化 `renderPlantUmlPlaceholders` 为通用 diagram 渲染器）；WYSIWYG 双区 nodeview（源码编辑 + 防抖预览，对齐 PlantUML nodeview 模式）；导出侧（PDF/站点）内联 SVG；主题切换按 dark 参数重渲染
 - **坑**：mermaid 体积 ~1MB（gzipped ~300KB），必须懒加载；jsdom 跑不了，单测注入假引擎、真引擎冒烟走 e2e（同 PlantUML 测试模式）
 
-## ✍️ 第二梯队：排版增强批（一次做掉）
+## ✍️ 第二梯队：排版增强批（一次做掉）✅ 2026-08-18 落地
 
-| 语法 | 示例 | 现状 | 方案要点 |
-| --- | --- | --- | --- |
-| 高亮 | `==文字==` | 字面文本 | `markdown-it-mark`；WYSIWYG 自写行内 mdast 变换 + PM **mark**（非 node，比 admonition 简单） |
-| 上标 / 下标 | `^sup^` / `~sub~` | 字面文本 | `markdown-it-sup` / `markdown-it-sub`；注意单 `~` 与 GFM `~~` 的解析顺序交互 |
-| Emoji 短码 | `:smile:` | 字面文本 | **预览侧先行**（`markdown-it-emoji`，源码保持文本零往返风险）；WYSIWYG 可选 remark-gemoji |
-| 插入 / 缩写 / 定义列表 | `++ins++` / `*[HTML]:…` / `术语`+`: 定义` | 字面文本 | markdown-it-ins / -abbr / -deflist 现成；优先级低，随批评估 |
-| 图片尺寸 | `![a](x.png =100x50)` | 尺寸部分进 URL 导致断图 | 需先选定方言（pandoc `=WxH` 还是 Obsidian `![[img\|300]]`），涉及图片管线，不单随排版批 |
+| 语法 | 示例 | 落地要点 |
+| --- | --- | --- |
+| 高亮 | `==文字==` | `markdown-it-mark`；WYSIWYG 自写 pairedDelimiter micromark 扩展（flanking 对齐 GFM strikethrough）+ PM **mark**（非 node），键入闭合分隔符自动转换 |
+| 上标 / 下标 | `^sup^` / `~sub~` | `markdown-it-sup` / `markdown-it-sub`；WYSIWYG 同工厂。单 `~` 归下标：gfm 预设的 remarkGFMPlugin 以 `{ singleTilde: false }` 重注册、strikethroughInputRule 替换为 `~~` 限定版（`~~` 删除线不受影响） |
+| Emoji 短码 | `:smile:` | **预览侧 only**（`markdown-it-emoji` full 包，WYSIWYG 字面短码零建模，既定决策） |
+| 插入 / 缩写 / 定义列表 | `++ins++` / `*[HTML]:…` / `术语`+`: 定义` | **随批评估结论：不做**——使用频率低，且会扩大 WYSIWYG/预览渲染不一致面（WYSIWYG 只能显示字面文本）；有明确需求再单独立项 |
+| 图片尺寸 | `![a](x.png =100x50)` | 需先选定方言（pandoc `=WxH` 还是 Obsidian `![[img\|300]]`），涉及图片管线，未随批（FR-023.5） |
 
 ## 🏷️ 第三梯队：生态特定（记录触发条件，不展开方案）
 
@@ -109,7 +109,7 @@ graph TD; A-->B
 | 批次 2 | 脚注（双端，含往返测试）✅ 2026-08-17 | 1 天 |
 | 批次 3 | frontmatter（预览剥离 + WYSIWYG 只读 atom 节点）✅ 2026-08-14 | 1 天 |
 | 批次 4 | Mermaid（复用 PlantUML 基建全链路）✅ 2026-08-17 | 1.5 天 |
-| 批次 5 | 排版增强批：`==` / `^` / `~` / emoji（预览侧先行，WYSIWYG 逐个评估） | 1 天 |
+| 批次 5 | 排版增强批：`==` / `^` / `~` / emoji（预览侧先行，WYSIWYG 逐个评估）✅ 2026-08-18 | 1 天 |
 
 批次间逻辑依赖少，但**物理上必须串行**（见下节依赖约束），可按反馈插单。
 

@@ -211,6 +211,9 @@ code {
   --color-text-muted: #9ca3af;
   --hover-bg: #e5e7eb;
   --active-bg: #ffffff;
+  /* ==高亮==（<mark>） */
+  --mark-bg: #fff3a3;
+  --mark-text: #1a1a1a;
 }
 
 .dark {
@@ -229,6 +232,9 @@ code {
   --color-text-muted: #6b7280;
   --hover-bg: #2c3846;
   --active-bg: #374151;
+  /* ==高亮==（<mark>） */
+  --mark-bg: #7c6408;
+  --mark-text: #f5f5f5;
 }
 
 * {
@@ -282,6 +288,15 @@ body {
 
 .markdown-body p {
   margin-bottom: 1em;
+}
+
+/* ==高亮==（mark）：预览与 WYSIWYG 编辑器共用配色 */
+.markdown-body mark,
+.wysiwyg-editor .ProseMirror mark {
+  background-color: var(--mark-bg);
+  color: var(--mark-text);
+  padding: 0 0.1em;
+  border-radius: 2px;
 }
 
 .markdown-body code {

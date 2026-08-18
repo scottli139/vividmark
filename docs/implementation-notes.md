@@ -261,6 +261,22 @@ Two syntax entries, both produce placeholders (async local rendering):
 - **顺手修复**：`createPlantUmlOnlineFallback` 的 `MarkdownIt.prototype.utils.escapeHtml` 是未触达过的坏引用（utils 挂在实例上）——mermaid 错误态测试暴露，已改 `md.utils.escapeHtml`
 - **图表占位符不包 `<pre><code>`（2026-08-17 修复文字裁断）**：默认 fence 规则会把 highlight 产物包进 `<pre><code>`，全局样式 `.markdown-body pre * { font-family: inherit !important }` 随即将等宽字体压进 SVG 的 foreignObject 文本（mermaid 注入的 `#id { font-family: … }` 无 !important，敌不过）；而 mermaid 在挂到 body 的临时容器里按其配置字体（trebuchet ms…）量文字尺寸——渲染字体比测量字体宽 → 文字被 foreignObject 边界裁断。修复：parser.ts 覆写 `md.renderer.rules.fence`，plantuml/mermaid 占位符直接输出（语义上也不是代码），highlight 回调不再处理这两种语言。导出路径同源修复（内联替换的是同一占位符字符串）
 
+### 排版增强（`==` / `^` / `~` / emoji，2026-08-18，语法批次 5 / FR-023.4）
+
+双端支持（方案 `docs/syntax-extensions-plan.md` 批次 5；WYSIWYG 实现 `src/components/Editor/typographyPlugin.ts`）：
+
+- **预览/导出侧**：parser.ts 链式 `.use()` 四个现成插件——`markdown-it-mark`（`==`→`<mark>`）、`markdown-it-sup`（`^`→`<sup>`）、`markdown-it-sub`（单 `~`→`<sub>`，与 markdown-it 的 `~~` 删除线天然无冲突）、`markdown-it-emoji` full 包（`:smile:`→unicode；代码区文本不处理）。mark/sup/sub 无官方类型包，本地声明 `src/types/markdown-it-plugins.d.ts`
+- **WYSIWYG 侧自写三件套**（无成熟社区包可用，micromark 层仿 micromark-extension-gfm-strikethrough 2.x 实现）：
+  1. **pairedDelimiter micromark 扩展工厂**（定长配对分隔符：mark=`==`、sup=`^`、sub=`~`）——tokenizer 只认定长序列（`=`/`===`/`^^` 整体不解析，nok 后靠「前一个字符是同款标记则非起点」防逐位重试误配）；flanking 规则与 GFM strikethrough 逐行一致（字母/数字相邻可字内配对 `H~2~O`、空白相邻不配对 `== x ==`、标点相邻需对侧非空白）；resolveAll 照搬（闭合序列向前找开放序列、内容经 insideSpan 重解析、未配对序列降级 data）
+  2. **mdast fromMarkdown/toMarkdown**：节点 mark/superscript/subscript（children 行内容器，PM 侧是 mark 非 node，比 admonition 简单）；toMarkdown handler 仿 handleDelete（tracker + containerPhrasing 恒回原始分隔符）；`canContainEols` 同 strikethrough
+  3. **PM $markSchema ×3 + 输入规则**：toDOM `<mark>/<sup>/<sub>`；markRule 输入规则键入闭合分隔符自动转换（仿 strikethroughInputRule，内容首尾非空白、内不含分隔字符）
+- **单 `~` 归下标的代价（关键决策）**：gfm 预设的 remarkGFMPlugin 默认 singleTilde: true（GitHub 式单 `~` 删除），与下标冲突。wysiwygPlugins 按引用比较过滤掉 remarkGFMPlugin 与 strikethroughInputRule 两个条目：前者以 `{ singleTilde: false }` 重注册（同 id `remarkGFM`，`~~` 删除线不受影响——与预览侧 markdown-it 本就只认 `~~` 对齐，GitHub 式单 `~` 删除在本应用内统一为 pandoc/Typora 式下标）；后者替换为 `~~` 限定版输入规则（原规则 `(~{1,2})` 会把单 `~` 输入转成删除线 mark、序列化成 `~~`，改写用户源码）。**同字符 `~` 的 tokenizer 按 remark 插件注册序尝试**——remarkGFMNoSingleTilde 必须排在 remarkTypographyPlugin 之前（strikethrough 先认领 `~~`，单 `~` 才落到 subscript）
+- **序列化转义策略（防纯文本重解析误判，unsafe 机制）**：`=` 只转义紧跟 `=` 的第二个（`{ character: '=', before: '=' }`——单 `=` 永不构成分隔符，`a = b` 不被污染成 `a \= b`；`a == b` 序列化为 `a =\= b`，重解析时 `=`+`\=` 不形成序列）；`^` 任意单个即可两两配对，**全转义**（`a ^ b` → `a \^ b`）；`~` 已由 gfm strikethrough 既有 unsafe 覆盖（全转义）无需重复。notInConstruct 沿用 strikethrough 清单（autolink/destination*/reference/title* 内不可转义，链接 URL 中的 `^` 原样保留）
+- **emoji 仅预览侧**（既定决策）：WYSIWYG 显示 `:smile:` 字面短码文本，零建模零往返风险；预览/PDF/站点导出渲染
+- **已知双端口径差（病态写法，examples/typography.md 有记录）**：超长分隔符 `===x===`/`^^x^^`——预览（markdown-it）解析内层配对（`=<mark>x</mark>=`），WYSIWYG 整体字面（定长不匹配 nok）；往返均安全（unsafe 转义保住字面），仅渲染口径不同
+- **测试**：`typographyRoundtrip.test.ts` 16 例（真实 PM mark 断言非字面透传、flanking、转义稳定性、脚注 `[^1]`/代码区/链接 destination 不受 `^` 影响、不动点）；parser.test.ts +9 例
+- **样式**：`--mark-bg`/`--mark-text` 双主题变量，`.markdown-body mark` 与 `.wysiwyg-editor .ProseMirror mark` 共用（sup/sub 用浏览器默认上标下标渲染，无需样式）
+
 ### React 19：无关重渲染会重置 dangerouslySetInnerHTML（2026-08-17）
 
 **现象**：预览区放大/缩小（或任何无关 store 更新）后，渐进渲染出的 PlantUML/Mermaid SVG 消失，退回 loading 占位符。

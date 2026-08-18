@@ -1,6 +1,10 @@
 import MarkdownIt from 'markdown-it'
 import container from 'markdown-it-container'
 import footnote from 'markdown-it-footnote'
+import mark from 'markdown-it-mark'
+import sup from 'markdown-it-sup'
+import sub from 'markdown-it-sub'
+import { full as emoji } from 'markdown-it-emoji'
 import hljs from 'highlight.js'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { convertFileSrc } from '@tauri-apps/api/core'
@@ -241,6 +245,10 @@ md.use(footnote)
 md.renderer.rules.footnote_caption = function (tokens, idx) {
   return `[${Number(tokens[idx].meta.id + 1)}]`
 }
+
+// 排版增强：`==高亮==` / `^上标^` / `~下标~` / emoji 短码（:smile:）。
+// sub 仅识别单 `~`，与 GFM `~~` 删除线无冲突；emoji 不处理代码区文本。
+md.use(mark).use(sup).use(sub).use(emoji)
 
 // 自定义图片渲染规则
 const defaultImageRender =

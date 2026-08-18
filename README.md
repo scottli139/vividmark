@@ -116,6 +116,12 @@ Turn any opened folder into a deployable documentation site with one click — n
   [^1]: The footnote definition, rendered at the end of the document.
   ```
 
+- **Typography Enhancements** - `==highlight==`, `^superscript^`, `~subscript~` and emoji shortcodes (`:smile:`); highlight/superscript/subscript are real inline formats in WYSIWYG (auto-converted as you type the closing delimiter, source preserved on save), while emoji shortcodes stay as literal text in WYSIWYG and render in preview/exports (a single `~` means subscript — strikethrough requires `~~`):
+
+  ```markdown
+  ==Highlighted==, E = mc^2^, H~2~O, :rocket:
+  ```
+
 - **PlantUML Diagrams** - Render UML diagrams directly in your document with the built-in local engine (@plantuml/core) — fully offline, dark-mode aware, and inlined as SVG in PDF/site exports (falls back to the online service only if local rendering fails)
 - **Mermaid Diagrams** - Render flowcharts, sequence diagrams, Gantt charts and more with the bundled mermaid.js — lazily loaded on first diagram, fully offline, dark-mode aware, inlined as SVG in PDF/site exports (syntax errors show an inline error state, no online fallback)
   ```markdown

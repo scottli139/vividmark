@@ -202,7 +202,7 @@ VividMark 是一款面向现代写作者的轻量级 Markdown 编辑器，提供
 | FR-023.1 | GitHub Alerts（`> [!NOTE]` 等五类，复用 admonition 视觉） | P1 | ✅ |
 | FR-023.2 | 脚注（`[^id]` 引用与定义，文末集中渲染 + 回链） | P1 | ✅ |
 | FR-023.3 | YAML frontmatter（预览剥离不渲染；WYSIWYG 只读节点，保存不丢） | P1 | ✅ |
-| FR-023.4 | 高亮 `==mark==` / 上标 `^sup^` / 下标 `~sub~` / emoji 短码 | P2 | ⬜ |
+| FR-023.4 | 高亮 `==mark==` / 上标 `^sup^` / 下标 `~sub~` / emoji 短码 | P2 | ✅ |
 | FR-023.5 | 图片尺寸语法（方言选型待定：pandoc `=WxH` vs Obsidian `\|width`） | P3 | ⬜ |
 
 ### 3.4 用户界面功能
