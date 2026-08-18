@@ -60,4 +60,41 @@ test.describe('Mermaid local rendering', () => {
     await expect(block.locator('pre code')).toContainText('sequenceDiagram')
     await expect(block.locator('.mermaid-diagram img')).toHaveCount(0)
   })
+
+  test('keeps diagram outside pre/code so labels use mermaid font (no clipping)', async ({
+    page,
+  }) => {
+    // 回归：占位符曾被默认 fence 包进 <pre><code>，pre 的等宽字体 !important 规则
+    // 压进 SVG foreignObject，文字按等宽字体渲染、按 mermaid 字体测量 → 被裁断
+    await typeInSourceMode(page, '```mermaid\ngraph TD; A[打开文档] --> B{有改动?}\n```')
+    await setViewMode(page, 'Preview')
+
+    const diagram = page.locator('.markdown-body .mermaid-diagram')
+    await expect(diagram.locator('svg')).toBeVisible({ timeout: 60000 })
+    await expect(page.locator('.markdown-body pre .mermaid-diagram')).toHaveCount(0)
+    const fontFamily = await page.evaluate(() => {
+      const svg = document.querySelector('.markdown-body .mermaid-diagram svg')
+      return svg ? getComputedStyle(svg).fontFamily : ''
+    })
+    expect(fontFamily).not.toContain('Courier')
+  })
+
+  test('keeps rendered SVG after zoom in/out', async ({ page }) => {
+    // 回归：React 19 按对象 identity 比对 dangerouslySetInnerHTML，缩放引发的无关
+    // 重渲染曾把预览 innerHTML 重置回占位符，渐进渲染出的 SVG 消失
+    await typeInSourceMode(page, '```mermaid\ngraph TD; A-->B\n```')
+    await setViewMode(page, 'Preview')
+
+    const svg = page.locator('.markdown-body .mermaid-diagram svg')
+    await expect(svg).toBeVisible({ timeout: 60000 })
+
+    await page.keyboard.press('ControlOrMeta+Equal')
+    await page.waitForTimeout(300)
+    await expect(svg).toBeVisible()
+    await expect(page.locator('.markdown-body .mermaid-loading')).toHaveCount(0)
+
+    await page.keyboard.press('ControlOrMeta+Minus')
+    await page.waitForTimeout(300)
+    await expect(svg).toBeVisible()
+  })
 })

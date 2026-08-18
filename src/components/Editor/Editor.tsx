@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { open } from '@tauri-apps/plugin-shell'
 import type { EditorView } from '@codemirror/view'
@@ -227,6 +227,11 @@ export function Editor() {
     void renderMermaidPlaceholders(container, { dark: isDarkMode })
   }, [renderedHtml, isDarkMode, viewMode])
 
+  // React 19 对 dangerouslySetInnerHTML 按对象 identity 比对决定是否重写 innerHTML——
+  // 内联字面量每次渲染都是新对象，任何无关重渲染（缩放、光标移动等 store 订阅更新）
+  // 都会把预览 DOM 重置回占位 HTML，渐进渲染出的图表 SVG 随之消失。memo 稳定 identity。
+  const previewHtmlProp = useMemo(() => ({ __html: renderedHtml }), [renderedHtml])
+
   // 监听大纲点击事件 - 滚动到对应标题
   // Source/Split 模式由 CodeMirrorEditor 处理，这里只处理 Preview 模式
   useEffect(() => {
@@ -384,7 +389,7 @@ export function Editor() {
           <div
             className="markdown-body min-h-full p-8 origin-top-left"
             style={{ zoom: `${zoomLevel}%` }}
-            dangerouslySetInnerHTML={{ __html: renderedHtml }}
+            dangerouslySetInnerHTML={previewHtmlProp}
             onClick={handlePreviewClick}
           />
         </div>

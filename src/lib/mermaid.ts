@@ -51,6 +51,8 @@ async function renderWithMermaid(source: string, dark: boolean): Promise<string>
       theme: dark ? 'dark' : 'default',
       // 解析失败时自己渲染错误提示图形到 DOM；我们要自己展示错误态，关掉
       suppressErrorRendering: true,
+      // 时序图角色框默认高 65px，相对 16px 文字上下留白过大 → 收紧到 46
+      sequence: { height: 46 },
     })
     initializedDark = dark
   }
@@ -71,6 +73,27 @@ function cacheSvg(key: string, svg: string): void {
     const oldest = svgCache.keys().next().value
     if (oldest !== undefined) svgCache.delete(oldest)
   }
+}
+
+/**
+ * WebKit 不认 <text> 的 dominant-baseline="central"（属性/CSS 形式都无视，退化为字母
+ * 基线），时序图 actor 文字在 WKWebView 比 Chromium 偏高 ~0.35em。统一改写为字母基线 +
+ * y 下移 0.35em（≈ 字体 (ascent−descent)/2，即 central 的本意），双引擎布局一致。
+ * 注意不能加 dy——actor 文本的 tspan 带 x/dy="0" 会锚定坐标使 text 的 dy 失效，直接改
+ * 绝对 y 才可靠。无 y 属性或 middle（messageText 等无包围盒文字）不动。
+ */
+function normalizeCentralBaseline(svg: string): string {
+  return svg.replace(/<text\b[^>]*>/g, (tag) => {
+    if (!tag.includes('dominant-baseline="central"')) return tag
+    const yMatch = tag.match(/\by="(-?[\d.]+)"/)
+    if (!yMatch) return tag
+    const fontSize = Number(tag.match(/font-size:\s*([\d.]+)px/)?.[1] ?? 16)
+    const newY = Math.round((Number(yMatch[1]) + fontSize * 0.35) * 100) / 100
+    return tag
+      .replace(/\s+dominant-baseline="central"/, '')
+      .replace(/\s+alignment-baseline="central"/, '')
+      .replace(/\by="(-?[\d.]+)"/, `y="${newY}"`)
+  })
 }
 
 /**
@@ -100,7 +123,7 @@ export async function renderMermaidSvg(
     // 串行渲染：mermaid.render 全局配置 + body 临时容器，并发不安全
     const result = renderQueue.then(() => renderer(source, dark))
     renderQueue = result.catch(() => undefined)
-    const svg = await result
+    const svg = normalizeCentralBaseline(await result)
     cacheSvg(key, svg)
     return svg
   })()

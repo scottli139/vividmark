@@ -756,11 +756,13 @@ body {
   margin: 0 auto;
 }
 
-/* 本地渲染的内联 SVG（离线路径） */
+/* 本地渲染的内联 SVG（离线路径）；display block + auto 外边距与 img 路径一致居中 */
 .plantuml-diagram svg,
 .mermaid-diagram svg {
   max-width: 100%;
   height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
 /* 本地渲染进行中的占位 */

@@ -43,16 +43,6 @@ const md = new MarkdownIt({
   typographer: true,
   breaks: true,
   highlight: function (str: string, lang: string): string {
-    // 处理 PlantUML
-    if (lang === 'plantuml') {
-      return renderPlantUML(str)
-    }
-
-    // 处理 Mermaid
-    if (lang === 'mermaid') {
-      return createMermaidPlaceholder(str)
-    }
-
     // 如果指定了语言且支持，使用该语言高亮
     if (lang && hljs.getLanguage(lang)) {
       try {
@@ -70,6 +60,19 @@ const md = new MarkdownIt({
     }
   },
 })
+
+// 图表占位符不走默认 fence 的 <pre><code> 包裹（占位符不是代码）。关键原因：全局样式
+// `.markdown-body pre * { font-family: inherit !important }` 会把等宽字体压进 mermaid SVG
+// 的 foreignObject 文本（mermaid 注入的字体规则没有 !important，敌不过），而 mermaid 在
+// 临时容器里按其配置字体（trebuchet ms…）量文字尺寸 —— 渲染字体比测量字体宽，文字被裁断。
+const defaultFenceRule = md.renderer.rules.fence!
+md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+  const token = tokens[idx]
+  const lang = token.info ? token.info.trim().split(/\s+/g)[0] : ''
+  if (lang === 'plantuml') return `${renderPlantUML(token.content)}\n`
+  if (lang === 'mermaid') return `${createMermaidPlaceholder(token.content)}\n`
+  return defaultFenceRule(tokens, idx, options, env, self)
+}
 
 // 渲染 PlantUML 占位符（本地引擎异步渲染，见 renderPlantUmlPlaceholders）
 // highlight 回调必须同步返回，故只产出占位结构，源码经 encodeURIComponent 放入 data 属性

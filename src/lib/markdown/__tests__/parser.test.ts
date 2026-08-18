@@ -496,6 +496,14 @@ Alice -> Bob: Hello
     expect(placeholderSrc(result)).toContain('Alice -> Bob: Hello')
   })
 
+  it('should not wrap diagram placeholder in pre/code', () => {
+    // 图表占位符不是代码：pre 的等宽字体 !important 规则会压进 SVG，与引擎量尺寸
+    // 所用字体不一致导致文字裁断（曾有的 bug）
+    const result = parseMarkdown('```plantuml\nAlice -> Bob\n```')
+    expect(result.startsWith('<div class="plantuml-diagram"')).toBe(true)
+    expect(result).not.toContain('<pre')
+  })
+
   it('should render multiple PlantUML diagrams', () => {
     const markdown = `@startuml
 Alice -> Bob: Hello
@@ -616,6 +624,14 @@ describe('parseMarkdown - Mermaid', () => {
     expect(result).toContain('<div class="mermaid-diagram" data-mermaid-src="')
     expect(result).toContain('<div class="mermaid-loading"></div>')
     expect(placeholderSrc(result)).toContain('graph TD; A-->B')
+  })
+
+  it('should not wrap mermaid placeholder in pre/code', () => {
+    // 图表占位符不是代码：pre 的等宽字体 !important 规则会穿透 mermaid 注入的字体样式，
+    // foreignObject 文字按更宽的等宽字体渲染、按 mermaid 配置字体测量 → 文字被裁断
+    const result = parseMarkdown('```mermaid\ngraph TD; A-->B\n```')
+    expect(result.startsWith('<div class="mermaid-diagram"')).toBe(true)
+    expect(result).not.toContain('<pre')
   })
 
   it('should render multiple mermaid diagrams', () => {

@@ -256,7 +256,17 @@ Two syntax entries, both produce placeholders (async local rendering):
 - **预览侧**（parser.ts）：只有 ` ```mermaid ` 围栏一种形态（无 `@startuml` 类行内语法，无需代码区掩码），highlight 回调产 `data-mermaid-src` 占位符 → `renderMermaidPlaceholders` 渐进渲染（Editor.tsx 与 PlantUML 同一 effect，deps 含 viewMode）→ 导出 `inlineMermaid: true` 内联 SVG（exportPdf/exportSite 已接入）
 - **WYSIWYG 侧**（plantUmlCodeBlockView.ts 泛化）：`diagramLanguageOf()` 按 language 分派 plantuml/mermaid 双区 nodeview（预览 + 可编辑源码，类名 `mermaid-block`/`mermaid-diagram` 与 plantuml 平行）；**kind 变化（含 plantuml ↔ mermaid）update() 一律返回 false 重建**；序列化走原 code_block 路径天然无损；codeHighlightPlugin 跳过 mermaid（同 plantuml）
 - **测试**：mermaid.ts 封装层假渲染器注入（`setMermaidRendererForTests`，jsdom 无布局引擎）；parser/nodeview mock `renderMermaidSvg`；真引擎冒烟 `e2e/mermaid.spec.ts`（含语法错误错误态、viewMode 切换回归）
+- **时序图角色框**：initialize 传 `sequence: { height: 46 }`——默认 65 相对 16px 文字上下留白过大（actor 框高来自 `conf.height`）。**WebKit 垂直居中坑**：WebKit 不认 `<text>` 的 `dominant-baseline="central"`（属性/CSS 形式均无视，退化字母基线），actor 文字在 WKWebView 偏高 ~0.35em；`normalizeCentralBaseline`（mermaid.ts）把 central 改写为字母基线 + **绝对 y 下移 0.35em**（≈ 字体 (ascent−descent)/2；不能加 dy——actor 文本的 tspan 带 `x`/`dy="0"` 会锚定坐标使 text 的 dy 失效），Chromium/WebKit 双引擎居中一致（13.6/13.4 vs 13.6/13.8）。`middle`（messageText 等无包围盒文字）不动。gitGraph 分支标签的 1/3 空隙是 mermaid 自身排版（两引擎一致，同 mermaid.live），未处理
 - **顺手修复**：`createPlantUmlOnlineFallback` 的 `MarkdownIt.prototype.utils.escapeHtml` 是未触达过的坏引用（utils 挂在实例上）——mermaid 错误态测试暴露，已改 `md.utils.escapeHtml`
+- **图表占位符不包 `<pre><code>`（2026-08-17 修复文字裁断）**：默认 fence 规则会把 highlight 产物包进 `<pre><code>`，全局样式 `.markdown-body pre * { font-family: inherit !important }` 随即将等宽字体压进 SVG 的 foreignObject 文本（mermaid 注入的 `#id { font-family: … }` 无 !important，敌不过）；而 mermaid 在挂到 body 的临时容器里按其配置字体（trebuchet ms…）量文字尺寸——渲染字体比测量字体宽 → 文字被 foreignObject 边界裁断。修复：parser.ts 覆写 `md.renderer.rules.fence`，plantuml/mermaid 占位符直接输出（语义上也不是代码），highlight 回调不再处理这两种语言。导出路径同源修复（内联替换的是同一占位符字符串）
+
+### React 19：无关重渲染会重置 dangerouslySetInnerHTML（2026-08-17）
+
+**现象**：预览区放大/缩小（或任何无关 store 更新）后，渐进渲染出的 PlantUML/Mermaid SVG 消失，退回 loading 占位符。
+
+**根因**：React 19 的 props diff 对 `dangerouslySetInnerHTML` 按**对象 identity** 比对（`nextProp === lastProp`），`setProp` 里无条件 `domElement.innerHTML = nextProp.__html`——内联对象字面量 `{{ __html: renderedHtml }}` 每次渲染都是新对象，所以 Editor 的任何重渲染（zoomLevel、cursorLine 等 whole-store 订阅字段变化）都会把预览 DOM 重置回占位 HTML；而渐进渲染 effect 的 deps 不含这些字段，不会重跑，于是图表永久消失（innerHTML setter 陷阱 + MutationObserver 实证，React 18 按 `__html` 字符串比对无此问题）。
+
+**修复**（Editor.tsx）：`const previewHtmlProp = useMemo(() => ({ __html: renderedHtml }), [renderedHtml])`——identity 稳定时 React 跳过 innerHTML 重写。回归测试 `e2e/mermaid.spec.ts`「keeps rendered SVG after zoom in/out」。**凡往预览里做渐进/命令式 DOM 修改的功能，都依赖这一稳定性**；新增 `dangerouslySetInnerHTML` 用法时同样必须 memo 化对象。
 
 ### Markdown 扩展测试模式
 

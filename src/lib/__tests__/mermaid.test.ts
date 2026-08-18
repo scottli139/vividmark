@@ -100,4 +100,26 @@ describe('renderMermaidSvg', () => {
     shouldFail = false
     await expect(renderMermaidSvg('X')).resolves.toContain('<svg')
   })
+
+  it('rewrites dominant-baseline="central" to alphabetic baseline + y offset (WebKit ignores it)', async () => {
+    // WebKit 不认 <text> 的 dominant-baseline="central"（时序图 actor 文字偏高 ~0.35em）；
+    // 改写为字母基线 + y 下移后双引擎一致。middle（messageText）不动；改绝对 y 而非 dy
+    // （tspan 带 x/dy="0" 会锚定坐标使 text 的 dy 失效）
+    const { renderer } = createFakeRenderer(
+      async () =>
+        '<svg><text x="281" y="19.5" dominant-baseline="central" alignment-baseline="central" class="actor actor-box" style="text-anchor: middle; font-size: 16px;"><tspan x="281" dy="0">用户</tspan></text>' +
+        '<text x="50" y="10" dominant-baseline="middle" alignment-baseline="middle" dy="1em" class="messageText">hi</text></svg>'
+    )
+    setMermaidRendererForTests(renderer)
+
+    const svg = await renderMermaidSvg('sequenceDiagram ...')
+    expect(svg).not.toContain('dominant-baseline="central"')
+    expect(svg).not.toContain('alignment-baseline="central"')
+    // 19.5 + 16*0.35 = 25.1
+    expect(svg).toContain('<text x="281" y="25.1" class="actor actor-box"')
+    expect(svg).toContain('<tspan x="281" dy="0">用户</tspan>')
+    // middle 的 messageText 保持原样
+    expect(svg).toContain('dominant-baseline="middle"')
+    expect(svg).toContain('class="messageText">hi</text>')
+  })
 })
