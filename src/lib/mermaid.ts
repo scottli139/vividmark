@@ -97,6 +97,38 @@ function normalizeCentralBaseline(svg: string): string {
 }
 
 /**
+ * gitGraph 分支标签基线修正。标签文字是 <tspan dy="1em"> 相对定位，但系统
+ * WKWebView 解析 dy 的 em 时偏离 font-size（实测文字在 chip 内偏下 ~4 单位，
+ * 上留白 ≈ 下留白的 3 倍；独立栅格化与 Playwright WebKit/Chromium 均正常）。
+ * 规范上 tspan 的 y 是绝对定位、各引擎行为一致——把 dy="1em" 改写为绝对
+ * y="<fontSize>" 消除相对定位的引擎歧义。font-size 定义在 svg 内联 <style>，
+ * 需附着到 document 才能经 getComputedStyle 解析；失败时回退 16 并原样返回。
+ */
+function normalizeGitBranchLabels(svg: string): string {
+  if (!svg.includes('branch-label') || typeof document === 'undefined') return svg
+  try {
+    const host = document.createElement('div')
+    host.style.cssText = 'position:fixed;left:-10000px;top:0;visibility:hidden'
+    host.innerHTML = svg
+    document.body.appendChild(host)
+    try {
+      for (const tspan of host.querySelectorAll(
+        'g[class*="branch-label"] text > tspan[dy="1em"]'
+      )) {
+        const fontSize = parseFloat(getComputedStyle(tspan).fontSize) || 16
+        tspan.setAttribute('y', String(fontSize))
+        tspan.removeAttribute('dy')
+      }
+      return host.querySelector('svg')?.outerHTML ?? svg
+    } finally {
+      host.remove()
+    }
+  } catch {
+    return svg
+  }
+}
+
+/**
  * 本地渲染 Mermaid 源码为 SVG 字符串（离线，无网络请求）。
  * 失败时 reject —— 调用方决定展示错误态（语法错误会携带 mermaid 的解析错误信息）。
  */
@@ -123,7 +155,7 @@ export async function renderMermaidSvg(
     // 串行渲染：mermaid.render 全局配置 + body 临时容器，并发不安全
     const result = renderQueue.then(() => renderer(source, dark))
     renderQueue = result.catch(() => undefined)
-    const svg = normalizeCentralBaseline(await result)
+    const svg = normalizeCentralBaseline(normalizeGitBranchLabels(await result))
     cacheSvg(key, svg)
     return svg
   })()

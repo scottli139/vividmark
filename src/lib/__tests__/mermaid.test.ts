@@ -122,4 +122,21 @@ describe('renderMermaidSvg', () => {
     expect(svg).toContain('dominant-baseline="middle"')
     expect(svg).toContain('class="messageText">hi</text>')
   })
+
+  it('rewrites gitGraph branch label tspan dy="1em" to absolute y (WKWebView dy em deviation)', async () => {
+    // 系统 WKWebView 解析 tspan dy="1em" 的 em 偏离 font-size，分支标签文字在 chip
+    // 内偏下 ~4 单位；改写为规范上各引擎一致的绝对 y 消除歧义
+    const { renderer } = createFakeRenderer(
+      async () =>
+        '<svg><style>.branch-label{font-size:16px;}</style>' +
+        '<rect class="branchLabelBkg label0" x="-69" y="0.7" width="53" height="22.6" transform="translate(-19, -14)"></rect>' +
+        '<g class="branchLabel"><g class="label branch-label0" transform="translate(-79, -13.3)">' +
+        '<text><tspan xml:space="preserve" dy="1em" x="0" class="row">main</tspan></text></g></g></svg>'
+    )
+    setMermaidRendererForTests(renderer)
+
+    const svg = await renderMermaidSvg('gitGraph ...')
+    expect(svg).toContain('<tspan xml:space="preserve" x="0" class="row" y="16">main</tspan>')
+    expect(svg).not.toContain('dy="1em"')
+  })
 })
