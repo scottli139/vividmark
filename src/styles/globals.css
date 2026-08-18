@@ -1212,3 +1212,188 @@ body {
 .cm-searchMatch-selected {
   background-color: rgba(77, 166, 255, 0.45);
 }
+
+/* ==================== 图表/图片全屏查看器（ImageLightbox） ==================== */
+
+/* 预览侧可放大目标的视觉提示（WYSIWYG 走 .diagram-zoom-button，见下） */
+.markdown-body:not(.wysiwyg-editor) .mermaid-diagram,
+.markdown-body:not(.wysiwyg-editor) .plantuml-diagram {
+  position: relative;
+}
+
+.markdown-body:not(.wysiwyg-editor) .mermaid-diagram svg,
+.markdown-body:not(.wysiwyg-editor) .plantuml-diagram svg,
+.markdown-body:not(.wysiwyg-editor) img {
+  cursor: zoom-in;
+}
+
+/* 链接包裹的图片保持链接语义（点击走链接分支，不开查看器） */
+.markdown-body:not(.wysiwyg-editor) a img {
+  cursor: pointer;
+}
+
+/* 图表卡片右上角的放大镜角标（纯装饰，hover 显形） */
+.markdown-body:not(.wysiwyg-editor) .mermaid-diagram::after,
+.markdown-body:not(.wysiwyg-editor) .plantuml-diagram::after {
+  content: '';
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  background: var(--editor-bg)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.5-4.5M11 8v6M8 11h6'/%3E%3C/svg%3E")
+    center / 15px no-repeat;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.markdown-body:not(.wysiwyg-editor) .mermaid-diagram:hover::after,
+.markdown-body:not(.wysiwyg-editor) .plantuml-diagram:hover::after {
+  opacity: 0.95;
+}
+
+/* loading/error 态不可查看，不显示角标 */
+.markdown-body:not(.wysiwyg-editor) .mermaid-diagram:has(.mermaid-loading)::after,
+.markdown-body:not(.wysiwyg-editor) .mermaid-diagram:has(.mermaid-error)::after,
+.markdown-body:not(.wysiwyg-editor) .plantuml-diagram:has(.plantuml-loading)::after,
+.markdown-body:not(.wysiwyg-editor) .plantuml-diagram:has(.plantuml-load-error)::after {
+  display: none;
+}
+
+.image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.7);
+  outline: none;
+}
+
+.image-lightbox-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+}
+
+.image-lightbox-content {
+  transform-origin: center;
+  cursor: grab;
+  will-change: transform;
+  /* 实体卡片底：mermaid/plantuml 的 SVG 背景透明，直接压在半透遮罩上
+     下面文档的内容会透过来，线条/文字看不清（GitHub 查看器同样是实体底） */
+  padding: 16px;
+  background-color: var(--editor-bg);
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+.image-lightbox.dragging .image-lightbox-content {
+  cursor: grabbing;
+}
+
+.image-lightbox-content svg,
+.image-lightbox-content img {
+  display: block;
+}
+
+.image-lightbox-toolbar {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  background-color: var(--editor-bg);
+  border: 1px solid var(--editor-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+.image-lightbox-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.image-lightbox-toolbar button:hover {
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.image-lightbox-toolbar button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.image-lightbox-scale {
+  min-width: 52px;
+  padding: 0 6px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+/* WYSIWYG 图表块/图片节点的放大查看按钮（hover 显形，同 code-block-lang 模式） */
+.wysiwyg-editor .mermaid-block,
+.wysiwyg-editor .plantuml-block {
+  position: relative;
+}
+
+.wysiwyg-editor .wysiwyg-image {
+  position: relative;
+}
+
+.wysiwyg-editor .diagram-zoom-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--editor-border);
+  border-radius: 6px;
+  background-color: var(--editor-bg);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.wysiwyg-editor .mermaid-block:hover .diagram-zoom-button,
+.wysiwyg-editor .plantuml-block:hover .diagram-zoom-button,
+.wysiwyg-editor .wysiwyg-image:hover .diagram-zoom-button {
+  opacity: 1;
+}
+
+.wysiwyg-editor .diagram-zoom-button:hover {
+  color: var(--text-primary);
+  background-color: var(--hover-bg);
+}
+
+.wysiwyg-editor .diagram-zoom-button svg {
+  width: 14px;
+  height: 14px;
+}

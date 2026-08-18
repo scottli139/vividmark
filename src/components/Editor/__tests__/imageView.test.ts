@@ -165,4 +165,29 @@ describe('image nodeview', () => {
     expect(wrapper.classList.contains('wysiwyg-image-load-error')).toBe(true)
     expect(wrapper.querySelector('.wysiwyg-image-error')?.textContent).toContain('./missing.png')
   })
+
+  it('zoom button opens the image viewer; stays inert when image is broken', async () => {
+    await createEditor('![a](https://example.com/y.png)')
+    const wrapper = container!.querySelector('.wysiwyg-image')!
+    const img = wrapper.querySelector('img')!
+    const button = wrapper.querySelector<HTMLButtonElement>('.diagram-zoom-button')
+    expect(button).toBeInTheDocument()
+
+    const received: string[] = []
+    const handler = (e: Event) => received.push((e as CustomEvent<{ html: string }>).detail.html)
+    window.addEventListener('app-open-image-viewer', handler)
+    try {
+      // 正常图：dispatch 查看器事件
+      button!.click()
+      expect(received).toHaveLength(1)
+      expect(received[0]).toContain('https://example.com/y.png')
+
+      // 破图占位态：不再 dispatch
+      img.dispatchEvent(new Event('error'))
+      button!.click()
+      expect(received).toHaveLength(1)
+    } finally {
+      window.removeEventListener('app-open-image-viewer', handler)
+    }
+  })
 })

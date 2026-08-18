@@ -168,6 +168,12 @@
     "admonitionType": "Type",
     "admonitionTitle": "Custom title (optional)"
   },
+  "imageViewer": {
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "reset": "Reset zoom",
+    "close": "Close"
+  },
   "app": {
     "dropTitle": "Drop Markdown file here",
     "dropFileTypes": ".md, .markdown, .txt",

@@ -97,4 +97,38 @@ test.describe('Mermaid local rendering', () => {
     await page.waitForTimeout(300)
     await expect(svg).toBeVisible()
   })
+
+  test('opens fullscreen viewer on diagram click, zooms, resets and closes', async ({ page }) => {
+    await typeInSourceMode(page, '```mermaid\ngraph TD; A-->B\n```')
+    await setViewMode(page, 'Preview')
+
+    const diagram = page.locator('.markdown-body .mermaid-diagram')
+    await expect(diagram.locator('svg')).toBeVisible({ timeout: 60000 })
+
+    // 点击图表打开全屏查看器（克隆 svg 注入，显式像素尺寸 + fit 初始缩放）
+    await diagram.locator('svg').click()
+    const lightbox = page.locator('.image-lightbox')
+    await expect(lightbox).toBeVisible()
+    const content = lightbox.locator('.image-lightbox-content')
+    await expect(content.locator('svg')).toBeVisible()
+    const initialTransform = await content.evaluate((el) => el.style.transform)
+    expect(initialTransform).toContain('scale(1)')
+    await expect(lightbox.locator('.image-lightbox-scale')).toHaveText('100%')
+
+    // 工具栏放大/重置联动 transform 与百分比
+    await lightbox.getByRole('button', { name: 'Zoom in' }).click()
+    await expect(lightbox.locator('.image-lightbox-scale')).toHaveText('125%')
+    await lightbox.getByRole('button', { name: 'Reset zoom' }).click()
+    await expect(lightbox.locator('.image-lightbox-scale')).toHaveText('100%')
+    expect(await content.evaluate((el) => el.style.transform)).toBe(initialTransform)
+
+    // Esc 关闭；再次打开后点击空白区域关闭
+    await page.keyboard.press('Escape')
+    await expect(lightbox).toHaveCount(0)
+
+    await diagram.locator('svg').click()
+    await expect(lightbox).toBeVisible()
+    await lightbox.locator('.image-lightbox-viewport').click({ position: { x: 5, y: 5 } })
+    await expect(lightbox).toHaveCount(0)
+  })
 })

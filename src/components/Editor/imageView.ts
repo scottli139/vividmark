@@ -2,6 +2,7 @@ import type { NodeView } from '@milkdown/kit/prose/view'
 import { imageSchema } from '@milkdown/kit/preset/commonmark'
 import { $view } from '@milkdown/kit/utils'
 import { getBaseDirFromFilePath, resolveImageSrc } from '../../lib/imageSrc'
+import { createViewerZoomButton } from './viewerZoomButton'
 import { useEditorStore } from '../../stores/editorStore'
 
 /**
@@ -35,8 +36,13 @@ export const imageView = $view(imageSchema.node, () => {
     img.onerror = () => dom.classList.add('wysiwyg-image-load-error')
     img.onload = () => dom.classList.remove('wysiwyg-image-load-error')
 
+    // 放大查看按钮（hover 显形；破图占位态不打开）
+    const zoomButton = createViewerZoomButton(() =>
+      dom.classList.contains('wysiwyg-image-load-error') ? null : img.outerHTML
+    )
+
     syncContent()
-    dom.append(img, errorPlaceholder)
+    dom.append(img, errorPlaceholder, zoomButton)
 
     return {
       dom,
@@ -48,6 +54,10 @@ export const imageView = $view(imageSchema.node, () => {
       },
       // 叶子节点无 contentDOM，所有 DOM 变化都由本 nodeview 管理
       ignoreMutation: () => true,
+      // 放大按钮的事件不交给 ProseMirror（保留点击图片选中节点的既有行为）
+      stopEvent(event) {
+        return event.target instanceof globalThis.Node && zoomButton.contains(event.target)
+      },
       selectNode() {
         dom.classList.add('ProseMirror-selectednode')
       },

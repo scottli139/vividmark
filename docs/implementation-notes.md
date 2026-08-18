@@ -1603,3 +1603,25 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 - 标题序列化恒用引号形式（无引号标题首次往返被规范化）；含双引号的标题退回无引号原文。空容器输出仅标记行（`!!! note`）。
 
 **exclude_docs（mkdocs 1.5+，P2.3）**：`parseMkdocsConfig` 解析（官方多行字符串 + 兼容 YAML 数组；剥行内注释/空行）；`compileExcludePatterns`/`isExcludedPath`（siteConfig.ts）实现 .gitignore 语义（`!` 取反最后命中决定、`/` 锚定、`*`/`?` 不跨段、`**` 跨段、尾部 `/` 仅目录）；`filterFileTreeByExcludes`（siteGenerator.ts）在 exportSite 读树后过滤——**页面与资产同滤，路径相对 docs_dir**。这是唯一删减导出内容的配置（nav 只是导航白名单）；nav 指向被排除文件时走既有 missingPaths 跳过 + 日志。mkdocs 隐式默认（`.*`、`/templates/`）未复制：点文件 Rust 侧读目录已跳过，`/templates/` 是 mkdocs 主题概念、对内置生成器无意义。
+
+## 2026-08-18 图表/图片全屏查看器（ImageLightbox，GitHub 式放大查看）
+
+需求：Mermaid 图放大查看（对标 GitHub 图上的缩放/全屏控件）。定型方案：**全屏查看器（lightbox）**，范围覆盖 Mermaid + PlantUML + 普通 Markdown 图片，预览与 WYSIWYG 双端。
+
+**架构**：全局单例 `src/components/ImageLightbox.tsx` 挂 App.tsx，走既有 CustomEvent 总线打开——`app-open-image-viewer`，`detail: { html }`（被查看 svg/img 的 outerHTML）。纯逻辑全部在 `src/lib/diagramZoom.ts`（fitScale/clampScale/zoomAtPoint 锚点数学/resolveViewerTarget 命中判定/naturalSizeOf 尺寸读取），可单测。
+
+**三个入口**：
+- 预览点击：`Editor.tsx handlePreviewClick` 在链接分支**之后**加图表/图片分支（链接先行 return，mermaid 图内 `<a>`、链接包裹的 img 自然优先，不会误开查看器）。命中规则（`resolveViewerTarget`）：图表容器（`.mermaid-diagram`/`.plantuml-diagram`）取内联 svg，无 svg 取未破图 img（PlantUML 在线回退态），loading/error/破图态 null；否则取 `.markdown-body` 内普通 img。
+- WYSIWYG 图表块：`plantUmlCodeBlockView.ts` 在块容器（contentDOM 外）加 hover 放大按钮，点击时预览区有可查看内容才 dispatch；`stopEvent` 覆盖按钮（PM 不拦截点击）。
+- WYSIWYG 图片：`imageView.ts` 同款按钮（`viewerZoomButton.ts` 共享创建器）；**不劫持图片点击**（保留 PM 选中节点行为），破图占位态不打开。
+- 按钮 i18n 走命令式 `i18n.t()`（nodeview 非 React）；测试 setup.ts 的 react-i18next mock 表需同步加 `imageViewer.*` 键。
+
+**交互**：初始 fit（大图缩进 92%vw×88%vh，小图 1:1 不放大，下限 MIN_SCALE）；滚轮以光标为锚点缩放（0.1×–8×，**必须 `passive: false` + preventDefault**，坐标系以视口中心为原点、transform origin center）；pointer capture 拖拽平移；双击/按钮/键盘 0 重置；Esc 或点空白关闭（位移 >4px 的拖拽后 click 不关）。**缩放平移状态走 ref + 直写 DOM transform**——滚轮/拖拽高频操作不触发 React 重渲染，仅百分比显示走 state。打开时 focus 遮罩（tabIndex -1），键盘 +/-/0/Esc 不落入背景编辑器。
+
+**注入规格化**（`naturalSizeOf` + 打开 effect）：svg 移除 width/height attr、`maxWidth: none`，按 viewBox → 数值属性 → getBBox（try/catch，jsdom 无布局）读原始尺寸并显式设像素宽高；img `maxWidth: none`（盖掉 Tailwind preflight 的 `max-width: 100%`，否则放大超不出视口宽），naturalWidth 未就绪挂 once load——**仅用户未手动缩放/平移时才自动 refit**。克隆的 mermaid SVG 与原文档共用 `url(#id)` marker 引用（原体仍在 DOM、定义相同，渲染一致，业界通用做法）。
+
+**CSS（globals.css 末节）**：预览侧 `cursor: zoom-in` + 图表卡片 hover 放大镜角标（`::after` 纯装饰、`pointer-events: none`、`:has()` 排除 loading/error 态）；**作用域必须限定 `.markdown-body:not(.wysiwyg-editor)`**——WYSIWYG 根同时带 `.markdown-body` 与 `.wysiwyg-editor` 两个 class，图表/图片在 WYSIWYG 走按钮、不要角标与 zoom-in 光标。lightbox 自身 z-index 60（Dialog 是 50），工具栏/遮罩全走 CSS 变量双主题。**内容必须套实体卡片底（`--editor-bg` + padding 16，fit 计算计入 padding）**——mermaid/plantuml 的 SVG 背景透明，直接压在半透遮罩上会透出下方文档内容、线条文字看不清（验收发现；GitHub 查看器同样是实体底）。
+
+**jsdom 测试适配**：viewport clientWidth 为 0 → 组件回退 `window.innerWidth`（1024×768）；img 异步路径用 `Object.defineProperty(naturalWidth/Height)` + `fireEvent.load` 触发 refit。
+
+测试：diagramZoom.test.ts（数学 + 命中全分支 + 尺寸读取）、ImageLightbox.test.tsx（打开/关闭三路径/按钮与键盘缩放/img 异步 refit）、nodeview 两侧各加按钮用例；E2E `e2e/mermaid.spec.ts` 追加真机用例（点击开查看器 → 放大 125% → 重置 → Esc → 重开点空白关闭）。

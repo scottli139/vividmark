@@ -230,4 +230,45 @@ describe('mermaid code block view', () => {
     expect(container!.querySelector('pre code')?.textContent).toContain('graph TD; A-->B')
     expect(ed.action(getMarkdown())).toContain('```js')
   })
+
+  it('zoom button opens the image viewer with the rendered svg', async () => {
+    await createEditor('```mermaid\ngraph TD; A-->B\n```')
+    const block = container!.querySelector('.mermaid-block')!
+    await vi.waitFor(() => {
+      expect(block.querySelector('.mermaid-diagram svg[data-test="mermaid"]')).toBeInTheDocument()
+    })
+
+    const button = block.querySelector<HTMLButtonElement>('.diagram-zoom-button')
+    expect(button).toBeInTheDocument()
+
+    const received: string[] = []
+    const handler = (e: Event) => received.push((e as CustomEvent<{ html: string }>).detail.html)
+    window.addEventListener('app-open-image-viewer', handler)
+    try {
+      button!.click()
+      expect(received).toHaveLength(1)
+      expect(received[0]).toContain('data-test="mermaid"')
+    } finally {
+      window.removeEventListener('app-open-image-viewer', handler)
+    }
+  })
+
+  it('zoom button stays inert in error state (nothing rendered to view)', async () => {
+    vi.mocked(renderMermaidSvg).mockRejectedValue(new Error('Parse error on line 1'))
+    await createEditor('```mermaid\nnot a diagram\n```')
+    const block = container!.querySelector('.mermaid-block')!
+    await vi.waitFor(() => {
+      expect(block.querySelector('.mermaid-diagram .mermaid-error')).toBeInTheDocument()
+    })
+
+    const received: string[] = []
+    const handler = (e: Event) => received.push((e as CustomEvent<{ html: string }>).detail.html)
+    window.addEventListener('app-open-image-viewer', handler)
+    try {
+      block.querySelector<HTMLButtonElement>('.diagram-zoom-button')!.click()
+      expect(received).toHaveLength(0)
+    } finally {
+      window.removeEventListener('app-open-image-viewer', handler)
+    }
+  })
 })

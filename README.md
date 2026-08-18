@@ -131,6 +131,8 @@ Turn any opened folder into a deployable documentation site with one click — n
   @enduml
   ```
 
+- **Diagram & Image Viewer** - Click any Mermaid/PlantUML diagram or image in Preview to open a fullscreen viewer — scroll-wheel zoom around the cursor, drag to pan, double-click to reset, Esc to close (in WYSIWYG, diagrams and images show a hover zoom button)
+
 - **Math Formulas** - Render LaTeX math with KaTeX; editable directly in WYSIWYG mode
 
   ```markdown

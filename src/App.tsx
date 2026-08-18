@@ -12,6 +12,7 @@ import { initNativeMenu } from './lib/nativeMenu'
 import { initOpenWith } from './lib/openWith'
 import { initWindowManager } from './lib/windowManager'
 import { Dialog } from './components/Dialog'
+import { ImageLightbox } from './components/ImageLightbox'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
 import { isMacOSDesktop } from './lib/platform'
 import './styles/globals.css'
@@ -108,6 +109,7 @@ function App() {
       <StatusBar />
       <Dialog />
       <SettingsDialog />
+      <ImageLightbox />
     </div>
   )
 }

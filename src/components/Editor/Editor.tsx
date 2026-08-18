@@ -9,6 +9,7 @@ import {
   renderMermaidPlaceholders,
 } from '../../lib/markdown/parser'
 import { exportCurrentDocument } from '../../lib/exportPdf'
+import { openImageViewer, resolveViewerTarget } from '../../lib/diagramZoom'
 import { scrollPreviewToHeading } from '../../lib/outlineUtils'
 import { writeClipboardText } from '../../lib/clipboard'
 import {
@@ -352,6 +353,13 @@ export function Editor() {
           }
         }
         return
+      }
+
+      // 图表/图片点击：打开全屏查看器（链接分支已先行 return，
+      // mermaid 图内 <a> 与链接包裹的 img 不会走到这里）
+      const viewerHtml = resolveViewerTarget(target)
+      if (viewerHtml) {
+        openImageViewer(viewerHtml)
       }
     },
     [toggleTaskCheckbox]

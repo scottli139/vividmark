@@ -4,6 +4,8 @@ import { codeBlockSchema } from '@milkdown/kit/preset/commonmark'
 import { $view } from '@milkdown/kit/utils'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../../lib/plantuml'
 import { renderMermaidSvg } from '../../lib/mermaid'
+import { viewerHtmlFromDiagram } from '../../lib/diagramZoom'
+import { createViewerZoomButton } from './viewerZoomButton'
 import { useEditorStore } from '../../stores/editorStore'
 
 /** 源码编辑后预览刷新的防抖窗口（ms），避免每次击键都触发渲染 */
@@ -79,6 +81,7 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
     let contentDOM: HTMLElement
     let previewEl: HTMLElement | null = null
     let langInput: HTMLInputElement | null = null
+    let zoomButton: HTMLButtonElement | null = null
     let unsubscribeTheme: (() => void) | null = null
 
     const diagramLanguage = diagramLanguageOf(node)
@@ -158,7 +161,12 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       const code = document.createElement('code')
       pre.appendChild(code)
 
-      dom.append(preview, pre)
+      // 放大查看按钮（hover 显形；点击时预览区有 svg/img 才打开查看器）
+      zoomButton = createViewerZoomButton(() =>
+        previewEl ? viewerHtmlFromDiagram(previewEl) : null
+      )
+
+      dom.append(preview, pre, zoomButton)
       contentDOM = code
 
       void renderPreview(diagramLanguage, node.textContent, ++previewSeq)
@@ -201,12 +209,13 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       ignoreMutation(mutation) {
         return !contentDOM.contains(mutation.target)
       },
-      // 语言输入框的事件不交给 ProseMirror（按键/点击不被编辑器拦截）
+      // 语言输入框与放大按钮的事件不交给 ProseMirror（按键/点击不被编辑器拦截）
       stopEvent(event) {
+        const target = event.target
+        if (!(target instanceof globalThis.Node)) return false
         return (
-          langInput !== null &&
-          event.target instanceof globalThis.Node &&
-          langInput.contains(event.target)
+          (langInput !== null && langInput.contains(target)) ||
+          (zoomButton !== null && zoomButton.contains(target))
         )
       },
       destroy() {

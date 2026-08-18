@@ -131,6 +131,8 @@
   @enduml
   ```
 
+- **图表/图片查看器** - 预览中点击 Mermaid/PlantUML 图表或图片打开全屏查看器 —— 滚轮以光标为锚点缩放、拖拽平移、双击重置、Esc 关闭（WYSIWYG 中图表与图片带悬停放大按钮）
+
 - **数学公式** - KaTeX 渲染 LaTeX 公式，WYSIWYG 模式下可直接点击编辑
 
   ```markdown
