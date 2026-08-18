@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="google-site-verification" content="k4uVWFMvI5scFMFvkdoy3SoHiKo0fOrN7ySa6zsUnL4">
   <title>VividMark - Free Typora-like WYSIWYG Markdown Editor for Windows, macOS &amp; Linux</title>
-  <meta name="description" content="VividMark is a free, open-source, Typora-like WYSIWYG Markdown editor for Windows, macOS and Linux. Four view modes, KaTeX math, PlantUML diagrams, admonitions, PDF export and one-click static docs site export. MkDocs-ready, built with Tauri 2 + React.">
+  <meta name="description" content="VividMark is a free, open-source, Typora-like WYSIWYG Markdown editor for Windows, macOS and Linux. Four view modes, KaTeX math, Mermaid & PlantUML diagrams, admonitions, footnotes, PDF export and one-click static docs site export. MkDocs-ready, built with Tauri 2 + React.">
   <meta name="keywords" content="markdown editor, typora alternative, wysiwyg markdown editor, open source markdown editor, mkdocs editor, tauri markdown editor, desktop markdown editor, markdown editor windows, markdown editor mac">
   <link rel="canonical" href="https://scottli139.github.io/vividmark/">
   <link rel="alternate" hreflang="en" href="https://scottli139.github.io/vividmark/">
@@ -14,7 +14,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="VividMark">
   <meta property="og:title" content="VividMark - Free Typora-like WYSIWYG Markdown Editor">
-  <meta property="og:description" content="Free, open-source WYSIWYG Markdown editor for Windows, macOS and Linux. KaTeX math, PlantUML, admonitions, PDF export and one-click docs site export. MkDocs-ready.">
+  <meta property="og:description" content="Free, open-source WYSIWYG Markdown editor for Windows, macOS and Linux. KaTeX math, Mermaid & PlantUML, admonitions, footnotes, PDF export and one-click docs site export. MkDocs-ready.">
   <meta property="og:url" content="https://scottli139.github.io/vividmark/">
   <meta property="og:image" content="https://scottli139.github.io/vividmark/images/og-image.png">
   <meta property="og:image:width" content="1200">
@@ -23,7 +23,7 @@
   <meta property="og:locale:alternate" content="zh_CN">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="VividMark - Free Typora-like WYSIWYG Markdown Editor">
-  <meta name="twitter:description" content="Free, open-source WYSIWYG Markdown editor for Windows, macOS and Linux. KaTeX math, PlantUML, admonitions, PDF export and one-click docs site export. MkDocs-ready.">
+  <meta name="twitter:description" content="Free, open-source WYSIWYG Markdown editor for Windows, macOS and Linux. KaTeX math, Mermaid & PlantUML, admonitions, footnotes, PDF export and one-click docs site export. MkDocs-ready.">
   <meta name="twitter:image" content="https://scottli139.github.io/vividmark/images/og-image.png">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" type="image/png" href="images/logo.png">
@@ -36,12 +36,12 @@
     "downloadUrl": "https://github.com/scottli139/vividmark/releases",
     "applicationCategory": "ProductivityApplication",
     "operatingSystem": "Windows, macOS, Linux",
-    "softwareVersion": "0.4.1",
+    "softwareVersion": "0.6.0",
     "license": "https://opensource.org/licenses/MIT",
     "isAccessibleForFree": true,
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "description": "Free, open-source, Typora-like WYSIWYG Markdown editor for Windows, macOS and Linux. Four view modes, KaTeX math, PlantUML diagrams, admonitions, PDF export and one-click static docs site export.",
-    "featureList": "WYSIWYG Markdown editing, Source / Preview / Split view modes, KaTeX math formulas, PlantUML diagrams, admonitions, PDF export, static docs site export, dark mode, i18n (English / Chinese)",
+    "description": "Free, open-source, Typora-like WYSIWYG Markdown editor for Windows, macOS and Linux. Four view modes, KaTeX math, Mermaid & PlantUML diagrams, admonitions, footnotes, PDF export and one-click static docs site export.",
+    "featureList": "WYSIWYG Markdown editing, Source / Preview / Split view modes, KaTeX math formulas, Mermaid & PlantUML diagrams, admonitions & GitHub alerts, footnotes, highlight/superscript/subscript/emoji, PDF export, static docs site export, dark mode, i18n (English / Chinese)",
     "screenshot": "https://scottli139.github.io/vividmark/images/screenshot-wysiwyg-light.png",
     "author": {
       "@type": "Organization",
@@ -79,7 +79,7 @@
         </p>
         <p class="hero-mkdocs">
           <span class="mkdocs-badge">📝 MkDocs-Ready</span>
-          Perfect for editing MkDocs docs with admonitions, PlantUML, KaTeX math & advanced tables
+          Perfect for editing MkDocs docs with admonitions, Mermaid & PlantUML diagrams, KaTeX math & advanced tables
         </p>
         <div class="badges">
           <span class="badge">Tauri 2.0</span>
@@ -126,7 +126,7 @@
         <div class="feature-card">
           <div class="feature-icon">🌐</div>
           <h3>Docs Site Export</h3>
-          <p>Export an opened docs folder as a ready-to-deploy static site — mkdocs-style navigation, rewritten cross-page links, and light/dark toggle, with zero external dependencies.</p>
+          <p>Export an opened docs folder as a ready-to-deploy static site — mkdocs-style navigation, rewritten cross-page links, and light/dark toggle, with zero external dependencies. Config-aware: mkdocs.yml nav / docs_dir / exclude_docs drive the export, with best-effort VuePress support.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📝</div>
@@ -142,6 +142,11 @@
           <div class="feature-icon">🎨</div>
           <h3>Syntax Highlighting</h3>
           <p>Beautiful code highlighting powered by highlight.js.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📈</div>
+          <h3>Mermaid & PlantUML Diagrams</h3>
+          <p>Flowcharts, sequence diagrams, Gantt charts and UML rendered offline by the bundled engines — lazily loaded, dark-mode aware, inlined as SVG in PDF/site exports.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📦</div>
@@ -161,7 +166,7 @@
         <div class="feature-card">
           <div class="feature-icon">📊</div>
           <h3>Extended Markdown</h3>
-          <p>Tables, admonitions, PlantUML diagrams, and KaTeX math formulas support.</p>
+          <p>Tables, admonitions (&amp; GitHub Alerts), footnotes, KaTeX math, ==highlight==, ^superscript^, ~subscript~, emoji shortcodes, and YAML frontmatter — round-trip safe in WYSIWYG.</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🌙</div>
@@ -193,8 +198,11 @@
         <span class="tech-item">Rust</span>
         <span class="tech-item">Vite 7</span>
         <span class="tech-item">Zustand 5</span>
+        <span class="tech-item">Milkdown</span>
+        <span class="tech-item">CodeMirror 6</span>
         <span class="tech-item">markdown-it</span>
         <span class="tech-item">KaTeX</span>
+        <span class="tech-item">Mermaid</span>
       </div>
     </div>
   </section>

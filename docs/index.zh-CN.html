@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VividMark - 类 Typora 所见即所得 Markdown 编辑器（免费开源，支持 Windows/macOS/Linux）</title>
-  <meta name="description" content="VividMark 是一款免费开源的类 Typora 所见即所得 Markdown 编辑器，支持 Windows、macOS、Linux。四种视图模式、KaTeX 数学公式、PlantUML 图表、提示框、PDF 导出、一键导出静态文档站点，完美适配 MkDocs。">
+  <meta name="description" content="VividMark 是一款免费开源的类 Typora 所见即所得 Markdown 编辑器，支持 Windows、macOS、Linux。四种视图模式、KaTeX 数学公式、Mermaid 与 PlantUML 图表、提示框、脚注、PDF 导出、一键导出静态文档站点，完美适配 MkDocs。">
   <meta name="keywords" content="markdown编辑器, 所见即所得markdown编辑器, typora替代, typora替代品, 开源markdown编辑器, mkdocs编辑器, 免费markdown编辑器, markdown编辑器下载">
   <link rel="canonical" href="https://scottli139.github.io/vividmark/index.zh-CN.html">
   <link rel="alternate" hreflang="en" href="https://scottli139.github.io/vividmark/">
@@ -13,7 +13,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="VividMark">
   <meta property="og:title" content="VividMark - 类 Typora 所见即所得 Markdown 编辑器">
-  <meta property="og:description" content="免费开源的所见即所得 Markdown 编辑器，支持 Windows/macOS/Linux。KaTeX 公式、PlantUML、提示框、PDF 导出、一键导出文档站点，完美适配 MkDocs。">
+  <meta property="og:description" content="免费开源的所见即所得 Markdown 编辑器，支持 Windows/macOS/Linux。KaTeX 公式、Mermaid 与 PlantUML、提示框、脚注、PDF 导出、一键导出文档站点，完美适配 MkDocs。">
   <meta property="og:url" content="https://scottli139.github.io/vividmark/index.zh-CN.html">
   <meta property="og:image" content="https://scottli139.github.io/vividmark/images/og-image.png">
   <meta property="og:image:width" content="1200">
@@ -22,7 +22,7 @@
   <meta property="og:locale:alternate" content="en_US">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="VividMark - 类 Typora 所见即所得 Markdown 编辑器">
-  <meta name="twitter:description" content="免费开源的所见即所得 Markdown 编辑器，支持 Windows/macOS/Linux。KaTeX 公式、PlantUML、提示框、PDF 导出、一键导出文档站点，完美适配 MkDocs。">
+  <meta name="twitter:description" content="免费开源的所见即所得 Markdown 编辑器，支持 Windows/macOS/Linux。KaTeX 公式、Mermaid 与 PlantUML、提示框、脚注、PDF 导出、一键导出文档站点，完美适配 MkDocs。">
   <meta name="twitter:image" content="https://scottli139.github.io/vividmark/images/og-image.png">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" type="image/png" href="images/logo.png">
@@ -35,12 +35,12 @@
     "downloadUrl": "https://github.com/scottli139/vividmark/releases",
     "applicationCategory": "ProductivityApplication",
     "operatingSystem": "Windows, macOS, Linux",
-    "softwareVersion": "0.4.1",
+    "softwareVersion": "0.6.0",
     "license": "https://opensource.org/licenses/MIT",
     "isAccessibleForFree": true,
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CNY" },
-    "description": "免费开源的类 Typora 所见即所得 Markdown 编辑器，支持 Windows、macOS、Linux。四种视图模式、KaTeX 数学公式、PlantUML 图表、提示框、PDF 导出、一键导出静态文档站点，完美适配 MkDocs。",
-    "featureList": "所见即所得 Markdown 编辑、源码/预览/分屏四种视图模式、KaTeX 数学公式、PlantUML 图表、提示框、PDF 导出、静态文档站点导出、深色模式、中英双语",
+    "description": "免费开源的类 Typora 所见即所得 Markdown 编辑器，支持 Windows、macOS、Linux。四种视图模式、KaTeX 数学公式、Mermaid 与 PlantUML 图表、提示框、脚注、PDF 导出、一键导出静态文档站点，完美适配 MkDocs。",
+    "featureList": "所见即所得 Markdown 编辑、源码/预览/分屏四种视图模式、KaTeX 数学公式、Mermaid 与 PlantUML 图表、提示框与 GitHub 警示框、脚注、高亮/上标/下标/emoji、PDF 导出、静态文档站点导出、深色模式、中英双语",
     "screenshot": "https://scottli139.github.io/vividmark/images/screenshot-wysiwyg-light.png",
     "author": {
       "@type": "Organization",
@@ -78,7 +78,7 @@
         </p>
         <p class="hero-mkdocs">
           <span class="mkdocs-badge">📝 完美适配 MkDocs</span>
-          支持提示框、PlantUML 图表、KaTeX 数学公式和高级表格，编辑 MkDocs 文档的理想工具
+          支持提示框、Mermaid 与 PlantUML 图表、KaTeX 数学公式和高级表格，编辑 MkDocs 文档的理想工具
         </p>
         <div class="badges">
           <span class="badge">Tauri 2.0</span>
@@ -125,7 +125,7 @@
         <div class="feature-card">
           <div class="feature-icon">🌐</div>
           <h3>文档站点导出</h3>
-          <p>把打开的文档目录一键导出为可直接部署的静态网站：mkdocs 风格导航、自动重写跨页链接、内置浅/深色切换，零外部依赖。</p>
+          <p>把打开的文档目录一键导出为可直接部署的静态网站：mkdocs 风格导航、自动重写跨页链接、内置浅/深色切换，零外部依赖。配置感知：mkdocs.yml 的 nav / docs_dir / exclude_docs 驱动导出，VuePress 尽力支持。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📝</div>
@@ -141,6 +141,11 @@
           <div class="feature-icon">🎨</div>
           <h3>语法高亮</h3>
           <p>基于 highlight.js 的精美代码高亮。</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📈</div>
+          <h3>Mermaid 与 PlantUML 图表</h3>
+          <p>流程图、时序图、甘特图与 UML 由内置引擎离线渲染——按需懒加载、暗色自适应，PDF/站点导出内联 SVG。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">📦</div>
@@ -160,7 +165,7 @@
         <div class="feature-card">
           <div class="feature-icon">📊</div>
           <h3>扩展 Markdown</h3>
-          <p>支持表格、提示框、PlantUML 图表和 KaTeX 数学公式。</p>
+          <p>表格、提示框（含 GitHub 警示框）、脚注、KaTeX 数学公式、==高亮==、^上标^、~下标~、emoji 短码与 YAML frontmatter——WYSIWYG 中往返无损。</p>
         </div>
         <div class="feature-card">
           <div class="feature-icon">🌙</div>
@@ -192,8 +197,11 @@
         <span class="tech-item">Rust</span>
         <span class="tech-item">Vite 7</span>
         <span class="tech-item">Zustand 5</span>
+        <span class="tech-item">Milkdown</span>
+        <span class="tech-item">CodeMirror 6</span>
         <span class="tech-item">markdown-it</span>
         <span class="tech-item">KaTeX</span>
+        <span class="tech-item">Mermaid</span>
       </div>
     </div>
   </section>
