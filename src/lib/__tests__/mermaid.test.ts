@@ -5,7 +5,12 @@
  *       失败重试、dark 透传。
  */
 import { describe, it, expect, beforeEach } from 'vitest'
-import { renderMermaidSvg, setMermaidRendererForTests, resetMermaidForTests } from '../mermaid'
+import {
+  mermaidErrorMessage,
+  renderMermaidSvg,
+  setMermaidRendererForTests,
+  resetMermaidForTests,
+} from '../mermaid'
 
 interface RenderCall {
   source: string
@@ -138,5 +143,26 @@ describe('renderMermaidSvg', () => {
     const svg = await renderMermaidSvg('gitGraph ...')
     expect(svg).toContain('<tspan xml:space="preserve" x="0" class="row" y="16">main</tspan>')
     expect(svg).not.toContain('dy="1em"')
+  })
+})
+
+describe('mermaidErrorMessage', () => {
+  it('extracts message from Error instances', () => {
+    expect(mermaidErrorMessage(new Error('Parse error on line 5:\n...'))).toBe(
+      'Parse error on line 5:\n...'
+    )
+  })
+
+  it('extracts message from mermaid jison-style error objects (non-Error)', () => {
+    // mermaid 解析失败抛的不一定是 Error 实例，而是 { message, str } 形态对象
+    const jisonError = { message: 'Parse error on line 5', str: '...', hash: {} }
+    expect(mermaidErrorMessage(jisonError)).toBe('Parse error on line 5')
+  })
+
+  it('falls back to String for primitives and trims whitespace', () => {
+    expect(mermaidErrorMessage('  plain string  ')).toBe('plain string')
+    expect(mermaidErrorMessage(42)).toBe('42')
+    expect(mermaidErrorMessage(undefined)).toBe('')
+    expect(mermaidErrorMessage(null)).toBe('')
   })
 })

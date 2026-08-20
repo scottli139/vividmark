@@ -195,6 +195,10 @@ describe('mermaid code block view', () => {
       expect(block!.querySelector('.mermaid-diagram .mermaid-error')).toBeInTheDocument()
     })
     expect(block!.querySelector('.mermaid-error code')?.textContent).toContain('not a diagram')
+    // 错误原因（mermaid 解析错误带行号）展示在源码上方
+    expect(block!.querySelector('.mermaid-error-message')?.textContent).toContain(
+      'Parse error on line 1'
+    )
     // 无在线回退 img
     expect(block!.querySelector('.mermaid-diagram img')).toBeNull()
   })

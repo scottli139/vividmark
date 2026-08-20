@@ -14,7 +14,7 @@ import { bangAdmonitionPlugin } from './bangAdmonitionPlugin'
 import { githubAlertPlugin } from './githubAlertPlugin'
 import { parseFrontmatter } from './frontmatter'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../plantuml'
-import { renderMermaidSvg } from '../mermaid'
+import { mermaidErrorMessage, renderMermaidSvg } from '../mermaid'
 import { isTauri, resolveToAbsoluteImagePath } from '../imageSrc'
 import { mathPlugin } from './mathPlugin'
 
@@ -159,9 +159,16 @@ function createMermaidPlaceholder(source: string): string {
   return `<div class="mermaid-diagram" data-mermaid-src="${encodeURIComponent(source)}"><div class="mermaid-loading"></div></div>`
 }
 
-/** 渲染失败时的错误态（语法错误等；无在线服务可回退，展示源码 + 错误样式） */
-function createMermaidErrorFallback(source: string): string {
-  return `<pre class="hljs mermaid-error"><code>${md.utils.escapeHtml(source)}</code></pre>`
+/**
+ * 渲染失败时的错误态（语法错误等；无在线服务可回退，展示错误原因 + 源码 + 错误样式）。
+ * 错误原因放源码上方：mermaid 解析错误带行号和期望 token，用户能直接定位到出错字符。
+ */
+function createMermaidErrorFallback(source: string, error?: unknown): string {
+  const message = error === undefined ? '' : mermaidErrorMessage(error)
+  const messageHtml = message
+    ? `<div class="mermaid-error-message">${md.utils.escapeHtml(message)}</div>`
+    : ''
+  return `${messageHtml}<pre class="hljs mermaid-error"><code>${md.utils.escapeHtml(source)}</code></pre>`
 }
 
 /**
@@ -180,8 +187,8 @@ export async function renderMermaidPlaceholders(
       if (!source.trim()) return
       try {
         el.innerHTML = await renderMermaidSvg(source, { dark: options?.dark === true })
-      } catch {
-        el.innerHTML = createMermaidErrorFallback(source)
+      } catch (error) {
+        el.innerHTML = createMermaidErrorFallback(source, error)
       }
     })
   )
@@ -199,8 +206,8 @@ async function inlineMermaidDiagrams(html: string): Promise<string> {
     let replacement: string
     try {
       replacement = `<div class="mermaid-diagram">${await renderMermaidSvg(source)}</div>`
-    } catch {
-      replacement = `<div class="mermaid-diagram">${createMermaidErrorFallback(source)}</div>`
+    } catch (error) {
+      replacement = `<div class="mermaid-diagram">${createMermaidErrorFallback(source, error)}</div>`
     }
     html = html.replace(match[0], replacement)
   }

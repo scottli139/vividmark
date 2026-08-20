@@ -3,7 +3,7 @@ import type { EditorView, NodeView } from '@milkdown/kit/prose/view'
 import { codeBlockSchema } from '@milkdown/kit/preset/commonmark'
 import { $view } from '@milkdown/kit/utils'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../../lib/plantuml'
-import { renderMermaidSvg } from '../../lib/mermaid'
+import { mermaidErrorMessage, renderMermaidSvg } from '../../lib/mermaid'
 import { viewerHtmlFromDiagram } from '../../lib/diagramZoom'
 import { createViewerZoomButton } from './viewerZoomButton'
 import { useEditorStore } from '../../stores/editorStore'
@@ -37,14 +37,23 @@ function showPlantUmlOnlineFallback(preview: HTMLElement, source: string) {
   preview.appendChild(img)
 }
 
-/** Mermaid 渲染失败的错误态（语法错误等；无在线服务可回退，展示源码 + 错误样式） */
-function showMermaidError(preview: HTMLElement, source: string) {
+/** Mermaid 渲染失败的错误态（语法错误等；无在线服务可回退，展示错误原因 + 源码 + 错误样式） */
+function showMermaidError(preview: HTMLElement, source: string, error?: unknown) {
+  preview.innerHTML = ''
+  if (error !== undefined) {
+    const message = mermaidErrorMessage(error)
+    if (message) {
+      const messageEl = document.createElement('div')
+      messageEl.className = 'mermaid-error-message'
+      messageEl.textContent = message
+      preview.appendChild(messageEl)
+    }
+  }
   const pre = document.createElement('pre')
   pre.className = 'hljs mermaid-error'
   const code = document.createElement('code')
   code.textContent = source
   pre.appendChild(code)
-  preview.innerHTML = ''
   preview.appendChild(pre)
 }
 
@@ -92,12 +101,12 @@ export const plantUmlCodeBlockView = $view(codeBlockSchema.node, () => {
       try {
         const svg = await renderDiagramSvg(language, source, useEditorStore.getState().isDarkMode)
         if (previewEl && seq === previewSeq) previewEl.innerHTML = svg
-      } catch {
+      } catch (error) {
         if (previewEl && seq === previewSeq) {
           if (language === 'plantuml') {
             showPlantUmlOnlineFallback(previewEl, source)
           } else {
-            showMermaidError(previewEl, source)
+            showMermaidError(previewEl, source, error)
           }
         }
       }

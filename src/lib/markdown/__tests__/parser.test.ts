@@ -659,12 +659,14 @@ describe('parseMarkdown - Mermaid', () => {
   })
 
   it('should show error state when mermaid render fails', async () => {
-    // 语法错误等渲染失败：无在线服务可回退，展示源码 + 错误样式
+    // 语法错误等渲染失败：无在线服务可回退，展示错误原因 + 源码 + 错误样式
     vi.mocked(renderMermaidSvg).mockRejectedValue(new Error('Parse error on line 1'))
     const markdown = '```mermaid\nnot a diagram\n```'
     const result = await parseMarkdownAsync(markdown, { inlineMermaid: true })
     expect(result).toContain('mermaid-error')
     expect(result).toContain('not a diagram')
+    expect(result).toContain('mermaid-error-message')
+    expect(result).toContain('Parse error on line 1')
   })
 })
 

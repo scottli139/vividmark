@@ -808,6 +808,27 @@ body {
   color: #cf222e;
 }
 
+/* mermaid 渲染失败的原因提示（解析错误带行号），放在源码 pre 上方 */
+.mermaid-error-message {
+  background-color: #ffebe9;
+  border: 1px solid #ffc2c2;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  color: #cf222e;
+  padding: 0.75em 1em 0.5em;
+  font-size: 0.85em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 错误提示与源码 pre 接缝衔接：pre 去掉上圆角 */
+.mermaid-error-message + .mermaid-error {
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
 /* mermaid 错误态里包着源码 pre，还原其对齐/底色（图表容器是居中 + 有色背景） */
 .mermaid-diagram .mermaid-error {
   text-align: left;

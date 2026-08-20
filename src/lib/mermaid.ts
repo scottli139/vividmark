@@ -171,6 +171,19 @@ export async function renderMermaidSvg(
   }
 }
 
+/**
+ * 提取渲染失败的简要原因，用于错误态展示。
+ * mermaid 解析失败抛的不一定是 Error 实例（jison 解析器抛 { message, str } 形态对象），
+ * 统一走 message 属性；实在没有就 String 兜底。返回值已 trim，可能含多行（解析片段 +
+ * 期望 token 列表），展示方用 pre-wrap 保留换行。
+ */
+export function mermaidErrorMessage(error: unknown): string {
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message).trim()
+  }
+  return String(error ?? '').trim()
+}
+
 /** 测试注入假渲染器（jsdom 无布局引擎，真 mermaid 跑不了） */
 export function setMermaidRendererForTests(renderer: MermaidRenderer | null): void {
   rendererOverride = renderer
