@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open, save } from '@tauri-apps/plugin-dialog'
 import i18n from '../i18n'
 import { useEditorStore } from '../stores/editorStore'
+import { markFileContentKnown } from './fileWatcher'
 import { fileOpsLogger } from './logger'
 
 // 获取当前语言的翻译
@@ -72,6 +73,8 @@ export async function saveFile(): Promise<boolean> {
     fileOpsLogger.timeEnd('save')
     fileOpsLogger.info('File saved:', { path: filePath })
     store.setDirty(false)
+    // 登记磁盘已知内容，抑制文件监听器对自己写入的回声
+    markFileContentKnown(content)
     return true
   }
 
@@ -107,6 +110,7 @@ export async function saveFileAs(): Promise<boolean> {
       store.setFilePath(path)
       store.setFileName(name)
       store.setDirty(false)
+      markFileContentKnown(content)
       fileOpsLogger.info('File saved as:', { path })
       return true
     }
@@ -138,6 +142,7 @@ export async function openFileByPath(path: string): Promise<boolean> {
     store.setFilePath(fileInfo.path)
     store.setFileName(fileInfo.name)
     store.setDirty(false)
+    markFileContentKnown(fileInfo.content)
     // 添加到最近文件列表
     store.addRecentFile(fileInfo.path, fileInfo.name)
 

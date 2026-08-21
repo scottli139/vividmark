@@ -49,7 +49,7 @@ export function Dialog() {
               onClick={() => answer(false)}
               className="px-4 py-2 rounded text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--editor-border)]/50 transition-colors"
             >
-              {t('dialog.cancel')}
+              {current.cancelLabel ?? t('dialog.cancel')}
             </button>
           )}
           <button
@@ -57,7 +57,7 @@ export function Dialog() {
             onClick={() => answer(true)}
             className="px-4 py-2 rounded text-sm font-medium bg-[var(--accent-color)] text-white hover:opacity-90 transition-opacity"
           >
-            {isConfirm ? t('dialog.confirm') : t('dialog.close')}
+            {current.confirmLabel ?? (isConfirm ? t('dialog.confirm') : t('dialog.close'))}
           </button>
         </div>
       </div>

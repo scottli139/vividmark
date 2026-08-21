@@ -151,6 +151,10 @@
   "dialog": {
     "confirmDiscard": "放弃未保存的更改？",
     "confirmDiscardMessage": "您有未保存的更改，确定要放弃吗？",
+    "externalChangeConflict": "文件已被其他程序修改。重新加载将放弃您未保存的更改，保留则下次保存时覆盖外部版本。",
+    "fileDeletedExternal": "文件已被其他程序删除或移动。内容已保留在编辑器中，下次保存时将重新创建文件。",
+    "reload": "重新加载",
+    "keepMine": "保留我的更改",
     "insertTable": "插入表格",
     "rows": "行数（不含表头）",
     "columns": "列数",

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 use tauri::{Manager, WebviewWindow};
 
+mod file_watch;
 mod menu;
 mod pdf;
 mod site_export;
@@ -972,6 +973,7 @@ pub fn run() {
             }
             tauri::WindowEvent::Destroyed => {
                 window_router::remove_window_state(window.label());
+                file_watch::remove_watcher(window.label());
             }
             _ => {}
         })
@@ -1044,6 +1046,8 @@ pub fn run() {
             window_router::open_in_new_window,
             window_router::route_open,
             window_router::take_startup_open_files,
+            file_watch::watch_file,
+            file_watch::unwatch_file,
             titlebar::set_window_title
         ])
         .build(tauri::generate_context!())

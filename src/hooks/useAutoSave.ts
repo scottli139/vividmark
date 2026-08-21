@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useEditorStore } from '../stores/editorStore'
 import { saveFile } from '../lib/fileOps'
+import { isWatchConflictPending } from '../lib/fileWatcher'
 import { autoSaveLogger } from '../lib/logger'
 
 const AUTO_SAVE_DELAY = 2000 // 2 秒后自动保存
@@ -18,6 +19,13 @@ export function useAutoSave() {
 
   const performAutoSave = useCallback(async () => {
     if (!filePath || !isDirty || isSavingRef.current) {
+      return
+    }
+
+    // 外部变更冲突弹窗未决时暂停——静默保存会覆盖用户尚未处置的外部版本。
+    // 解决后不再重试（无新 content 变化不会重排定时器），下次击键即恢复。
+    if (isWatchConflictPending()) {
+      autoSaveLogger.debug('Auto-save paused: file-watch conflict pending')
       return
     }
 

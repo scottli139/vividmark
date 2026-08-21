@@ -1625,3 +1625,22 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 **jsdom 测试适配**：viewport clientWidth 为 0 → 组件回退 `window.innerWidth`（1024×768）；img 异步路径用 `Object.defineProperty(naturalWidth/Height)` + `fireEvent.load` 触发 refit。
 
 测试：diagramZoom.test.ts（数学 + 命中全分支 + 尺寸读取）、ImageLightbox.test.tsx（打开/关闭三路径/按钮与键盘缩放/img 异步 refit）、nodeview 两侧各加按钮用例；E2E `e2e/mermaid.spec.ts` 追加真机用例（点击开查看器 → 放大 125% → 重置 → Esc → 重开点空白关闭）。
+
+## 2026-08-18 文件变更监控（外部修改自动重载，Phase 5 收尾）
+
+需求：外部程序（VS Code/git checkout/脚本）改动当前打开文件时自动感知。冲突策略与多窗口、自动保存同期设计。
+
+**架构**：Rust 定制模块 `src-tauri/src/file_watch.rs`（`notify = "6.1"`，不引 tauri-plugin-fs-watch——需要按窗口定向 emit 与受控防抖，插件是全局广播且无防抖控制）。每窗口一个 watcher（SDI 单文档），label → WatchEntry 注册表；命令 `watch_file` / `unwatch_file`；窗口 `Destroyed` 钩子（lib.rs on_window_event）释放。
+
+**关键决策**：
+- **监听父目录（NonRecursive）再按目标路径过滤**，不直接监听文件——FSEvents 本就目录级，且原子保存（write tmp + rename swap inode）场景直盯文件会丢监视。事件路径与传入路径形态可能不同（symlink），canonicalize 前后两份都比对。
+- **防抖在 Rust**：事件进 mpsc，专属线程 300ms 静默期后按 `fs::metadata` 重新分类 changed/removed——不依赖 notify 事件类型，rename-away 等边界自然归 removed。watcher drop → 发送端断开 → 线程自行退出，无需显式停止信号。
+- **回声抑制在前端**（`src/lib/fileWatcher.ts`）：`lastKnownContent` = 我最后读过或写过的磁盘内容，open/save 成功/reload/冲突选保留 四个时机更新（fileOps.ts 埋点 `markFileContentKnown`）。监听事件先 `read_file` 读盘比对，相等即自身写入回声，忽略。Rust 侧零配合。
+
+**分流**（纯函数 `decideWatchAction`，单测主体）：磁盘==lastKnown → 忽略；外部修改+干净 → 静默重载（setContent+setDirty(false)，复用打开文件的 store→编辑器同步链，CM/WYSIWYG 既有 effect 兜底）；外部修改+脏 → 冲突弹窗「重新加载/保留我的更改」（Dialog 首次支持自定义按钮文案，dialogStore.ask 第三参 labels）；外部删除 → alert 提示一次（removedNotified 幂等，保存重建后复位），不清 filePath，下次保存经 save_file 的 create_dir_all+write 重建。
+
+**自动保存竞态**：冲突弹窗未决期间 `useAutoSave` 跳过（`isWatchConflictPending()`）——否则 2s 定时器会在用户抉择前静默覆盖外部版本。跳过后不重排定时器，下次击键自然恢复（抉择期间本就不该落盘）。冲突选「重新加载」时**重读磁盘**（弹窗期间可能又变），选「保留」时把当前磁盘版记为 lastKnown——下次保存覆盖它，且该事件的重复突发不再弹窗。
+
+**边界**：常开无设置项；只监听当前文档（文件树/文件夹不监听）；浏览器 dev/E2E 无 watcher（isTauri 门控）；重载不保持光标/滚动（同打开文件路径，后续可迭代）。
+
+测试：fileWatcher.test.ts 13 例（decideWatchAction 全分支 + 事件流集成——重载/回声/冲突两分支/未决忽略/删除幂等/路径过滤/watch 切换）。

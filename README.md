@@ -43,6 +43,7 @@ Visit the project website: **[https://scottli139.github.io/vividmark](https://sc
 - **Keyboard shortcuts** - Cmd/Ctrl + O, S, N for quick access
 - **Drag & drop** - Drop Markdown files to open instantly
 - **Auto-save** - Automatic saving after 2 seconds of inactivity
+- **File change watching** - External edits auto-reload when the buffer is clean; with unsaved changes you choose to reload or keep yours (auto-save pauses while deciding); external deletion keeps your content and recreates the file on next save
 - **Recent files** - Quick access to recently opened files
 - **Native menus** - Full system menu bar (File/Edit/Paragraph/Format/View) with localized labels, dynamic Open Recent, and OS-level shortcuts
 - **macOS Dock menu** - Right-click the Dock icon for New/Open and recent files
@@ -268,7 +269,7 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 
 ### In Progress / Planned
 
-- [ ] Phase 5: File management (File tree ✅, Multi-window (Typora-style SDI) ✅, File change watching)
+- [x] Phase 5: File management (File tree ✅, Multi-window (Typora-style SDI) ✅, File change watching ✅)
 - [ ] Phase 6: Advanced features (PDF export ✅, Search & replace ✅, CSS themes, HTML/Word export)
 - [ ] Phase 7: Polish & optimization (Performance, Preferences ✅)
 

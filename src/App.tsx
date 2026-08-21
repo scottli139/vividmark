@@ -11,6 +11,7 @@ import { useAutoSave } from './hooks/useAutoSave'
 import { initNativeMenu } from './lib/nativeMenu'
 import { initOpenWith } from './lib/openWith'
 import { initWindowManager } from './lib/windowManager'
+import { initFileWatcher } from './lib/fileWatcher'
 import { Dialog } from './components/Dialog'
 import { ImageLightbox } from './components/ImageLightbox'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
@@ -52,7 +53,7 @@ function App() {
   // 注册全局快捷键
   useKeyboardShortcuts()
 
-  // 系统原生菜单 / 文件关联 / 多窗口管理（仅 Tauri 桌面端；浏览器 dev 为 no-op）
+  // 系统原生菜单 / 文件关联 / 多窗口管理 / 文件变更监控（仅 Tauri 桌面端；浏览器 dev 为 no-op）
   //
   // 三个 init 都注册事件监听且返回异步 cleanup；React StrictMode 双挂载会让
   // 「cleanup 在 promise resolve 前执行」竞态导致首批 listener 泄漏（每个事件
@@ -66,6 +67,7 @@ function App() {
     void initNativeMenu()
     void initOpenWith()
     void initWindowManager()
+    void initFileWatcher()
   }, [])
 
   // 文件拖放支持

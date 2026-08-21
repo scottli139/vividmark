@@ -151,6 +151,10 @@
   "dialog": {
     "confirmDiscard": "Discard unsaved changes?",
     "confirmDiscardMessage": "You have unsaved changes. Are you sure you want to discard them?",
+    "externalChangeConflict": "This file was modified by another program. Reloading discards your unsaved changes; keeping yours overwrites the external version on next save.",
+    "fileDeletedExternal": "This file was deleted or moved by another program. Your content is kept in the editor and will be recreated on next save.",
+    "reload": "Reload",
+    "keepMine": "Keep My Changes",
     "insertTable": "Insert Table",
     "rows": "Rows (excluding header)",
     "columns": "Columns",

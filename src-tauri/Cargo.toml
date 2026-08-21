@@ -27,6 +27,7 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-clipboard-manager = "2"
+notify = "6.1"
 tokio = { version = "1", features = ["sync", "time"] }
 
 # macOS Dock 右键菜单（applicationDockMenu:）——版本与 tao 0.34 对齐，避免双主版本
