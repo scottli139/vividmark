@@ -473,3 +473,19 @@ eb33688 docs: add Chinese version of README and GitHub Pages
 
 - ✅ 右键打开文件树/最近文件菜单时不再误触分隔条调宽（`useResizable` 补左键判定）；「拖拽调整宽度」tooltip 走 i18n
 - ✅ 视图菜单删除「源代码模式」切换项（与四模式 check 项并列易混淆）；⌘/ 仍由 useKeyboardShortcuts 全局处理
+
+---
+
+### 2026-08-14~18 「下一步行动」第一波 9 项全部完成（2026-08-21 自 PLAN.md 归档）
+
+> 归档说明：`PLAN.md`「下一步行动」区定位调整为纯待办队列，已完成的第一波记录迁至本文件；各方案的依赖与顺序约束见两份方案文档，实现细节见 `docs/implementation-notes.md` 对应日期章节。
+
+1. **站点导出配置感知 P1** ✅（2026-08-14 完成）— mkdocs 核心（风味探测 / docs_dir 收敛 / nav 原文导航 / frontmatter 纯函数；`yaml` 依赖引入；36 个新单测）。方案 `docs/site-export-config-plan.md`
+2. **frontmatter 双端** ✅（2026-08-14 完成）— 预览/导出剥离 + 大纲去噪 + WYSIWYG 只读 atom 节点（remark-frontmatter + 只读 nodeview，`$remark` options 坑已记入 notes；17 个新单测）
+3. **站点导出配置感知 P2** ✅（2026-08-17 完成）— `!!!` admonition 双端（预览自写块级 rule + WYSIWYG 文本预处理 `:::!` 内部形式，PM 节点 `syntax` attr，`!!!` 进 `!!!` 出语法保持往返）+ `exclude_docs` .gitignore 模式过滤（页面与资产同滤）；50 个新单测。方案 `docs/site-export-config-plan.md`
+4. **GitHub Alerts** ✅（2026-08-17 完成）— `> [!NOTE]` 五类双端：预览侧 core rule 后处理 blockquote token（改写复用 admonition 三段式，标记剥离）；WYSIWYG 侧纯 PM Decoration 上色加图标（零 schema 变更，标记行可见可编辑，复用 admonition 配色）；容忍自家序列化产物（`\[` 转义 / 行尾 `\`）；38 个新单测。方案 `docs/syntax-extensions-plan.md`
+5. **脚注** ✅（2026-08-17 完成）— `[^id]` 双端：WYSIWYG 零新增 schema（gfm 预设自带 reference/definition 节点 + remark-gfm 往返），编号装饰按引用首现顺序注入（悬空引用不编号、label 原文降级显示）；预览侧 markdown-it-footnote（caption 覆写恒 `[N]`，未引用定义不渲染同 GitHub）；预览 `#fn` 锚点改页内滚动不走出站；22 个新单测。方案 `docs/syntax-extensions-plan.md`
+6. **站点导出配置感知 P3** ✅（2026-08-17 完成）— vuepress best-effort：`.vuepress/public/*` 镜像站点根（public 覆盖同名资产、撞页面名丢弃）+ config title 正则提取（剥注释后首个引号匹配，config.ts/js/mjs 命中即停）；**devdocs 实仓验收通过**（38 页 40 资产；顺带修复 `file_exists` 目录语义与 preserveImages 未跳过 base64 两个真机 bug）；站点导出管线至此定型；13 个新单测。方案 `docs/site-export-config-plan.md`
+7. **Mermaid** ✅（2026-08-17 完成，语法批次 4 / FR-021.5）— 复用 PlantUML 占位符 + 懒加载基建全链路：`src/lib/mermaid.ts`（dynamic import 拆 chunk、串行队列/缓存/inflight 去重、dark 变化重新 initialize）；预览占位符渐进渲染 + 导出内联 SVG（exportPdf/exportSite 接入）；WYSIWYG 双区 nodeview（plantUmlCodeBlockView 泛化按语言分派，kind 变化重建）；无在线回退——失败统一错误态展示源码；顺手修复 `MarkdownIt.prototype.utils` 坏引用；16 个新单测 + e2e 冒烟。方案 `docs/syntax-extensions-plan.md`
+8. **排版批** ✅（2026-08-18 完成，语法批次 5 / FR-023.4）— `==`高亮 / `^`上标 / `~`下标 / emoji 短码：预览侧 markdown-it-mark/sup/sub/emoji 链式接入；WYSIWYG 侧自写 pairedDelimiter micromark 扩展工厂（定长配对分隔符，flanking 对齐 GFM strikethrough）+ mdast fromMarkdown/toMarkdown（行内容器节点，PM mark）+ 输入规则（含 strikethrough `~~` 限定替代版）；gfm 预设 remarkGFMPlugin 以 `{ singleTilde: false }` 重注册（单 `~` 归下标）；序列化转义策略锁定（`=` 成对转义第二个、`^` 全转义）；emoji 仅预览侧（WYSIWYG 字面短码零建模）；25 个新单测。方案 `docs/syntax-extensions-plan.md`
+9. **图表/图片全屏查看器** ✅（2026-08-18 完成）— GitHub 式放大查看：全局单例 ImageLightbox（`app-open-image-viewer` 事件总线），Mermaid/PlantUML/普通图片三入口（预览点击 + WYSIWYG 双侧 hover 放大按钮）；滚轮光标锚点缩放（0.1×–8×）/拖拽平移/双击重置/Esc 关闭；纯逻辑 `src/lib/diagramZoom.ts`（fit/锚点数学/命中判定/尺寸读取）；28 个新单测 + e2e 用例。实现要点见 notes「2026-08-18 图表/图片全屏查看器」

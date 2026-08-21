@@ -33,7 +33,7 @@ Key features:
 | `docs/typst-standalone-editor-plan.md`                             | 独立 Typst 编辑器预研（📋 未立项；与 VividMark 分离的产品方向）                  |
 | `docs/word-export-plan.md`                                         | Word（docx）导出可行性与实现方案（📋 方案待评审，pandoc 路线）                   |
 | `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（✅ 全部落地：mkdocs nav/docs_dir/exclude_docs/`!!!`；vuepress public/title best-effort）         |
-| `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（🚧 批次 1–3 已落地：Alerts/脚注/frontmatter；Mermaid/排版批待排期） |
+| `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（✅ 批次 1–5 全部落地：Alerts/脚注/frontmatter/Mermaid/排版批） |
 | `CONTRIBUTING.md`（+ `.zh-CN`）                                    | 贡献指南：环境搭建、提交前检查链、PR 流程、AI 辅助贡献政策                       |
 
 ## Technology Stack
