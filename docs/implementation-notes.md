@@ -1335,7 +1335,8 @@ if (lang === 'typst') {
 
 ### 剪贴板（src/lib/clipboard.ts + 新依赖）
 
-- 桌面端 WKWebView 的 `navigator.clipboard.readText` 不可用，必须 **`@tauri-apps/plugin-clipboard-manager`**（npm 2.3.2 + Cargo `tauri-plugin-clipboard-manager = "2"` + `lib.rs` 注册 + capabilities `clipboard-manager:default`）；浏览器 dev/E2E 降级 `navigator.clipboard`。失败返回 null/false 并记日志，调用方零 try/catch。
+- 桌面端 WKWebView 的 `navigator.clipboard.readText` 不可用，必须 **`@tauri-apps/plugin-clipboard-manager`**（npm 2.3.2 + Cargo `tauri-plugin-clipboard-manager = "2"` + `lib.rs` 注册 + capabilities 显式授权）；浏览器 dev/E2E 降级 `navigator.clipboard`。失败返回 null/false 并记日志，调用方零 try/catch。
+- **⚠️ 权限坑（2026-08-24 实机定位）**：插件 2.3.2 的 `default.toml` 权限集为**空**（"Clipboard interaction needs to be explicitly enabled"）——capabilities 写 `clipboard-manager:default` 等于零授权，读写全部被 ACL 静默拒绝（前端走 catch → warn → null/false，无任何界面表现），症状是「右键复制/剪切/粘贴全部没反应」。必须显式写 `clipboard-manager:allow-read-text` + `clipboard-manager:allow-write-text`。浏览器 dev 降级 `navigator.clipboard` 正常，所以该问题只在打包/dev 的 Tauri 应用里出现。
 - WYSIWYG 的 copy/cut 序列化为**纯文本**（`doc.textBetween`）——保留格式的剪贴板序列化未接，属已知限制；paste 读剪贴板后按 markdown 解析插入（与 Milkdown 原生粘贴一致，`insertWysiwygSnippet`），异常输入回退纯文本。
 
 ### WYSIWYG 上下文（wysiwygContextMenu.ts）
@@ -1366,6 +1367,21 @@ if (lang === 'typst') {
 - **探针结论**（`save_file` 写 /tmp 日志，事件级时序）：WebKit/WKWebView 在右键 `mousedown`→`contextmenu` 之间把词/行选择写入 DOM——**不可取消的内部步骤**（`mousedown`/`contextmenu` 的 preventDefault 都无效）；此刻编辑器内核（PM/CM）状态尚未被污染，但随后经 `selectionchange` 采纳 DOM 选择，污染固化。
 - **修法（覆盖而非拦截）**：`contextmenu` 时 `posAtCoords` 求落点 → 落点在选区外则 dispatch 折叠选区到落点 → **再直接 `window.getSelection().collapse(view.domAtPos(head))` 把 DOM 选择压回光标**。内核随后同步到的就是光标。mousedown 快照/preventDefault 均无效已移除。
 - **注意**：`TextSelection.near` 找不到文本位置时会退回 NodeSelection；`domAtPos` 极端位置可能抛错（try/catch 忽略即可，内核侧选区仍正确）。
+
+### 右键选区加固与剪贴板权限修复（2026-08-24，实机定位）
+
+- **剪贴板权限根因**：见上「⚠️ 权限坑」——用户报「WYSIWYG 右键复制没作用」的主因是它，不是选区。
+- **选区加固（WysiwygEditor / CodeMirrorEditor 对称实现）**：WKWebView 右键手势**不派发 mousedown**（macOS WebKit 惯例），且抢选可能早于任何 JS 事件落地，contextmenu 时内核选区可能已被污染。对策两层：
+  1. **候选选区恢复**：持续 `selectionchange` 跟踪维护 cur/prev 双缓冲选区史（带 doc 身份校验，文档一变即作废）；contextmenu 时取「mousedown 快照（Chromium 有效）→ 当前选区 → 选区史」中首个**严格包含**落点（`from <= pos < to`，排除 head 被压到右键点的污染选区）的候选恢复（dispatch + `setBaseAndExtent` 双写 DOM）。
+  2. **菜单打开期间选区守卫**：打开时刻锚点存入 ref，期间任何 `selectionchange` 都把 DOM/内核选区锁回锚点（覆盖迟到的抢选与菜单项点击导致的 DOM 坍缩）；任一 `mousedown`（点菜单项/点外部关菜单）后即停用——内核本就忽略编辑器外的 DOM 选择，菜单动作读内核状态不受影响。
+- **Preview 区**：copy 改用菜单打开时刻快照的 `selectedText`（`PreviewMenuContext` 新字段），不再依赖点击时刻的实时 DOM 选择。
+- **已知边界**：若抢选形态是「词选择」（而非 head 截断/坍缩），候选会命中被污染的词选区（与旧行为持平，不算回归）。
+
+### 窗口级双滚动条（2026-08-24，实机定位）
+
+- **现象**：编辑器滚动条旁多出一条几乎满高的窗口级滚动条（WYSIWYG 下最明显）。
+- **根因**：状态栏 `h-6`（24px）扣 1px 上边框内容盒仅 23px，而视图模式 `Dropdown` 触发按钮 `p-1.5` + text-xs 行高达 28px——垂直居中后向下溢出 2.5px，把 document 撑出视口（`scrollHeight` 比视口高 ~3px），产生窗口级滚动。
+- **修法**：`Dropdown` 的 `triggerClassName` 提供时**替代**默认 `p-1.5`（避免依赖 Tailwind 冲突类的层叠顺序），状态栏传 `px-1.5 py-0.5`；App 根容器补 `overflow-hidden` 兜底，任何 chrome 区溢出都不再产生窗口滚动条。
 
 ## 2026-08-07 P5：菜单补全 / Dock 菜单 / 文件关联 / 拖拽修复
 
