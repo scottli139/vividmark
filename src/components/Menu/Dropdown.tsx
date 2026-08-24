@@ -16,7 +16,7 @@ interface DropdownProps {
   openUp?: boolean
   /** 面板宽度类名，如 w-48 */
   widthClass?: string
-  /** 触发按钮附加类名 */
+  /** 触发按钮自定义类名；提供时替代默认的 p-1.5 内边距（状态栏等矮容器需要更小的纵向 padding） */
   triggerClassName?: string
 }
 
@@ -71,9 +71,7 @@ export function Dropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`p-1.5 rounded-md hover:bg-[var(--hover-bg)] transition-colors${
-          triggerClassName ? ` ${triggerClassName}` : ''
-        }`}
+        className={`rounded-md hover:bg-[var(--hover-bg)] transition-colors ${triggerClassName ?? 'p-1.5'}`}
         title={title}
         aria-haspopup="menu"
         aria-expanded={isOpen}

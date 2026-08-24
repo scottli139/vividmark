@@ -78,6 +78,7 @@ export function StatusBar() {
           align="right"
           openUp
           widthClass="min-w-40"
+          triggerClassName="px-1.5 py-0.5"
           trigger={
             <span data-testid="statusbar-viewmode">{t(`toolbar.viewMode.${viewMode}`)}</span>
           }

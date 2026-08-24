@@ -77,7 +77,7 @@ function App() {
   useAutoSave()
 
   return (
-    <div className="h-screen flex flex-col bg-[var(--editor-bg)] text-[var(--editor-text)]">
+    <div className="h-screen flex flex-col overflow-hidden bg-[var(--editor-bg)] text-[var(--editor-text)]">
       <Toolbar />
       <div className="flex-1 flex overflow-hidden relative">
         <Sidebar />
