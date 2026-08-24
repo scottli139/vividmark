@@ -13,7 +13,8 @@
     "dialog:default",
     "fs:default",
     "shell:default",
-    "clipboard-manager:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
     {
       "identifier": "fs:allow-read-file",
       "allow": [

@@ -215,27 +215,144 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
   // 右键菜单（Source/Split 下容器可见，非激活模式 contextmenu 不会触发）
   const { menu, openMenu, closeMenu } = useContextMenu<{ hasSelection: boolean }>()
 
+  /** 右键 mousedown 时的 CM 选区快照（Chromium 下右键派 mousedown；WKWebView 不派发） */
+  const rightClickSelRef = useRef<{ anchor: number; head: number } | null>(null)
+
+  /**
+   * 选区史（WKWebView 右键抢选对策，同 WysiwygEditor）：WKWebView 右键手势不派
+   * mousedown，抢选可能早于任何 JS 事件落地——唯一可信来源是持续跟踪的上一个选区
+   * （cur/prev 双缓冲 + doc 身份校验）。
+   */
+  const selHistRef = useRef<{
+    prev: { from: number; to: number } | null
+    cur: { from: number; to: number } | null
+    doc: unknown | null
+  }>({ prev: null, cur: null, doc: null })
+
+  useEffect(() => {
+    const track = () => {
+      const view = editorViewRef.current
+      if (!view) return
+      const sel = view.state.selection.main
+      const hist = selHistRef.current
+      const range = sel.empty ? null : { from: sel.from, to: sel.to }
+      // doc 身份变化（编辑/重载）时整段历史作废，避免旧位置落回新文档
+      const doc = view.state.doc
+      if (hist.doc !== doc) {
+        hist.prev = null
+        hist.cur = null
+        hist.doc = doc
+      }
+      const changed = range?.from !== hist.cur?.from || range?.to !== hist.cur?.to
+      if (changed) {
+        hist.prev = hist.cur
+        hist.cur = range
+      }
+    }
+    document.addEventListener('selectionchange', track)
+    return () => document.removeEventListener('selectionchange', track)
+  }, [])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 2) return
+    const view = editorViewRef.current
+    if (!view) return
+    const { anchor, head } = view.state.selection.main
+    rightClickSelRef.current = { anchor, head }
+  }
+
   const handleContextMenu = (e: React.MouseEvent) => {
     const view = editorViewRef.current
     if (!view) return
-    // 右键落点在选区外时，光标先落到右键位置（编辑器标准行为），并把 DOM 选择
-    // 压回光标——WebKit/WKWebView 会在 mousedown→contextmenu 之间抢先写入词/行
-    // 选择（不可取消），CM 随后经 selectionchange 采纳 DOM 选择，必须覆盖
+    // WebKit/WKWebView 右键抢选污染对策（同 WysiwygEditor）：候选选区取
+    // mousedown 快照 / 当前 / 选区史，严格包含（pos < to）排除「head 被压到
+    // 右键点」的污染选区；落点在选区外时光标落到右键位置，并把 DOM 选择压回光标
     const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
-    if (pos !== null) {
-      const { from, to } = view.state.selection.main
-      if (from === to || pos < from || pos > to) {
-        view.dispatch({ selection: { anchor: pos } })
-        try {
-          const domPos = view.domAtPos(view.state.selection.main.head)
-          window.getSelection()?.collapse(domPos.node, domPos.offset)
-        } catch {
-          // domAtPos 在极端位置可能抛错；忽略，CM 侧选区仍正确
-        }
+    const snapshot = rightClickSelRef.current
+    rightClickSelRef.current = null
+    const { from, to } = view.state.selection.main
+    const candidates: { from: number; to: number }[] = []
+    if (snapshot && snapshot.anchor !== snapshot.head) {
+      candidates.push({
+        from: Math.min(snapshot.anchor, snapshot.head),
+        to: Math.max(snapshot.anchor, snapshot.head),
+      })
+    }
+    if (from < to) candidates.push({ from, to })
+    const hist = selHistRef.current
+    if (hist.doc === view.state.doc) {
+      if (hist.cur) candidates.push(hist.cur)
+      if (hist.prev) candidates.push(hist.prev)
+    }
+    const target =
+      pos !== null && candidates.find((c) => c.from < c.to && pos >= c.from && pos < c.to)
+    if (pos !== null && target) {
+      if (from !== target.from || to !== target.to) {
+        view.dispatch({ selection: { anchor: target.from, head: target.to } })
+      }
+      try {
+        const anchorPos = view.domAtPos(target.from)
+        const headPos = view.domAtPos(target.to)
+        window
+          .getSelection()
+          ?.setBaseAndExtent(anchorPos.node, anchorPos.offset, headPos.node, headPos.offset)
+      } catch {
+        // domAtPos 在极端位置可能抛错；忽略，CM 侧选区仍正确
+      }
+    } else if (pos !== null && (from === to || pos < from || pos > to)) {
+      view.dispatch({ selection: { anchor: pos } })
+      try {
+        const domPos = view.domAtPos(view.state.selection.main.head)
+        window.getSelection()?.collapse(domPos.node, domPos.offset)
+      } catch {
+        // domAtPos 在极端位置可能抛错；忽略，CM 侧选区仍正确
       }
     }
     openMenu(e, { hasSelection: !view.state.selection.main.empty })
+    // 菜单打开期间的选区锚点：守卫据此把 DOM/CM 选区锁回（见下方 useEffect）
+    menuSelRangeRef.current = view.state.selection.main.empty
+      ? null
+      : { from: view.state.selection.main.from, to: view.state.selection.main.to }
   }
+
+  /** 菜单打开时的选区锚点（选区守卫的目标） */
+  const menuSelRangeRef = useRef<{ from: number; to: number } | null>(null)
+
+  // 选区守卫（WKWebView 专属对策，同 WysiwygEditor）：WebKit 抢选可能迟于
+  // contextmenu 落地，点击菜单项也会坍缩 DOM 选择——菜单打开期间任何
+  // selectionchange 都把 DOM/CM 选区锁回打开时刻的锚点；任一 mousedown 后停止干预
+  useEffect(() => {
+    if (!menu) return
+    const range = menuSelRangeRef.current
+    if (!range) return
+    let active = true
+    const forceSelection = () => {
+      if (!active) return
+      const view = editorViewRef.current
+      if (!view) return
+      const { from, to } = view.state.selection.main
+      if (from !== range.from || to !== range.to) {
+        view.dispatch({ selection: { anchor: range.from, head: range.to } })
+      }
+      try {
+        const anchor = view.domAtPos(range.from)
+        const head = view.domAtPos(range.to)
+        window.getSelection()?.setBaseAndExtent(anchor.node, anchor.offset, head.node, head.offset)
+      } catch {
+        // domAtPos 在极端位置可能抛错；忽略
+      }
+    }
+    const deactivate = () => {
+      active = false
+    }
+    document.addEventListener('selectionchange', forceSelection)
+    document.addEventListener('mousedown', deactivate, true)
+    return () => {
+      active = false
+      document.removeEventListener('selectionchange', forceSelection)
+      document.removeEventListener('mousedown', deactivate, true)
+    }
+  }, [menu])
 
   const handleMenuSelect = (id: string) => {
     const view = editorViewRef.current
@@ -418,6 +535,7 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
         ref={containerRef}
         className="flex-1 min-h-0 overflow-hidden"
         onContextMenu={handleContextMenu}
+        onMouseDown={handleMouseDown}
       />
       {menu && (
         <ContextMenu

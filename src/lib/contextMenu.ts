@@ -327,6 +327,9 @@ export function buildWysiwygMenuItems(
 /** Preview 右键落点的上下文 */
 export interface PreviewMenuContext {
   hasSelection: boolean
+  /** 菜单打开时刻的选区文本快照：copy 用它而非实时 DOM 选择
+   * （WKWebView 下点击菜单项会坍缩 DOM 选择，点击时已读不到原文） */
+  selectedText?: string
   /** 落点在 <a> 上时为 href */
   linkHref?: string
   /** 落点在 <img> 上时为 src */

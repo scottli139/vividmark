@@ -41,8 +41,10 @@ export function Editor() {
       const linkElement = target.closest('a[href]') as HTMLAnchorElement | null
       const imageElement = target.closest('img')
       const selection = window.getSelection()
+      const selectedText = selection && !selection.isCollapsed ? selection.toString() : ''
       openMenu(e, {
-        hasSelection: !!selection && !selection.isCollapsed && selection.toString().length > 0,
+        hasSelection: selectedText.length > 0,
+        selectedText,
         linkHref: linkElement?.getAttribute('href') ?? undefined,
         imageSrc: imageElement?.getAttribute('src') ?? undefined,
       })
@@ -55,7 +57,8 @@ export function Editor() {
       const data = menu?.data
       switch (id) {
         case 'copy': {
-          const text = window.getSelection()?.toString()
+          // 用菜单打开时刻的快照（WKWebView 下点击菜单项后 DOM 选择已坍缩）
+          const text = data?.selectedText || window.getSelection()?.toString()
           if (text) await writeClipboardText(text)
           break
         }

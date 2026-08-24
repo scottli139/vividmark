@@ -27,9 +27,15 @@ import { applyWysiwygContextAction, resolveWysiwygContext } from './wysiwygConte
 const logger = createLogger('WysiwygEditor')
 
 /**
- * WebKit/WKWebView 在右键 mousedown→contextmenu 之间会抢先写入 DOM 词/行选择
- * （不可取消的内部步骤），PM 随后经 selectionchange 采纳 DOM 选择形成污染。
- * 对策：contextmenu 时把 DOM 选择直接压回目标光标——PM 同步到的就是光标。
+ * WebKit/WKWebView 在右键 mousedown→contextmenu 之间会抢先改写 DOM 选择
+ * （词/行选择，或把 head 压到右键点——不可取消的内部步骤），PM 随后经
+ * selectionchange 采纳 DOM 选择形成污染：菜单动作会作用在错误的选区上
+ * （实测：选 "Welcome to VividMark" 后右键，Cut 只删到右键点）。
+ *
+ * 对策：right-mousedown（默认行为之前）快照 PM 选区；contextmenu 时
+ * - 落点在快照选区内 → 恢复快照（PM 状态与 DOM 选择双写，迟到的
+ *   selectionchange 也会收敛到快照）
+ * - 落点在快照选区外 → 光标落到右键位置，并把 DOM 选择压回光标
  */
 function collapseDomSelectionToCursor(view: EditorView) {
   const selection = view.state.selection
@@ -37,6 +43,19 @@ function collapseDomSelectionToCursor(view: EditorView) {
   try {
     const { node, offset } = view.domAtPos(selection.head)
     window.getSelection()?.collapse(node, offset)
+  } catch {
+    // domAtPos 在极端位置可能抛错；忽略，PM 侧选区仍正确
+  }
+}
+
+/** 把 PM 选区写回 DOM 选择（右键选区恢复的另一半：保证迟到的 selectionchange 采纳它） */
+function restoreDomSelection(view: EditorView) {
+  const selection = view.state.selection
+  if (!(selection instanceof TextSelection)) return
+  try {
+    const anchor = view.domAtPos(selection.anchor)
+    const head = view.domAtPos(selection.head)
+    window.getSelection()?.setBaseAndExtent(anchor.node, anchor.offset, head.node, head.offset)
   } catch {
     // domAtPos 在极端位置可能抛错；忽略，PM 侧选区仍正确
   }
@@ -88,30 +107,157 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
     hasSelection: boolean
   }>()
 
+  /** 右键 mousedown 时的 PM 选区快照（Chromium 下右键会派 mousedown；WKWebView 不派发，见下方选区史） */
+  const rightClickSelRef = useRef<{ anchor: number; head: number } | null>(null)
+
+  /**
+   * 选区史（WKWebView 右键抢选对策的核心）：WKWebView 右键手势不派 mousedown，
+   * 且 UIProcess 侧的抢选可能早于任何 JS 事件落地——contextmenu 时 PM 选区已被污染
+   * （head 被压到右键点/坍缩/词选择）。唯一可信来源是持续跟踪的「上一个选区」：
+   * cur/prev 双缓冲 + doc 身份校验（文档一变，历史作废）。
+   */
+  const selHistRef = useRef<{
+    prev: { from: number; to: number } | null
+    cur: { from: number; to: number } | null
+    doc: unknown | null
+  }>({ prev: null, cur: null, doc: null })
+
+  useEffect(() => {
+    const track = () => {
+      const editor = editorRef.current
+      if (!editor) return
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        const sel = view.state.selection
+        const hist = selHistRef.current
+        const range =
+          sel instanceof TextSelection && !sel.empty ? { from: sel.from, to: sel.to } : null
+        // doc 身份变化（编辑/重载）时整段历史作废，避免旧位置落回新文档
+        if (hist.doc !== view.state.doc) {
+          hist.prev = null
+          hist.cur = null
+          hist.doc = view.state.doc
+        }
+        const changed = range?.from !== hist.cur?.from || range?.to !== hist.cur?.to
+        if (changed) {
+          hist.prev = hist.cur
+          hist.cur = range
+        }
+      })
+    }
+    document.addEventListener('selectionchange', track)
+    return () => document.removeEventListener('selectionchange', track)
+  }, [])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 2) return
+    const editor = editorRef.current
+    if (!editor) return
+    editor.action((ctx) => {
+      const sel = ctx.get(editorViewCtx).state.selection
+      rightClickSelRef.current =
+        sel instanceof TextSelection ? { anchor: sel.anchor, head: sel.head } : null
+    })
+  }
+
   const handleContextMenu = (e: React.MouseEvent) => {
     const editor = editorRef.current
     if (!editor) return
     editor.action((ctx) => {
       const view = ctx.get(editorViewCtx)
-      // contextmenu 触发时 PM 选区尚未被 DOM 污染（探针验证）——落点在选区外时
-      // 光标落到右键位置，并把 DOM 选择压回光标（WebKit 抢先写入的词/行选择
-      // 不可取消，只能覆盖；PM 随后经 selectionchange 同步到的就是光标）
       const coords = view.posAtCoords({ left: e.clientX, top: e.clientY })
-      if (coords) {
-        const { from, to } = view.state.selection
-        if (from === to || coords.pos < from || coords.pos > to) {
+      const snapshot = rightClickSelRef.current
+      rightClickSelRef.current = null
+      const { from, to } = view.state.selection
+      // 候选选区（新→旧）：mousedown 快照、当前（可能已被污染）、选区史 cur/prev。
+      // 严格包含（pos < to）才能排除「head 被压到右键点」的污染选区
+      const candidates: { from: number; to: number }[] = []
+      if (snapshot && snapshot.anchor !== snapshot.head) {
+        candidates.push({
+          from: Math.min(snapshot.anchor, snapshot.head),
+          to: Math.max(snapshot.anchor, snapshot.head),
+        })
+      }
+      if (from < to) candidates.push({ from, to })
+      const hist = selHistRef.current
+      if (hist.doc === view.state.doc) {
+        if (hist.cur) candidates.push(hist.cur)
+        if (hist.prev) candidates.push(hist.prev)
+      }
+      const target =
+        coords && candidates.find((c) => c.from < c.to && coords.pos >= c.from && coords.pos < c.to)
+      if (coords && target) {
+        // 落点在（原始）选区内：WebKit 抢选可能已污染选区，恢复目标选区
+        if (from !== target.from || to !== target.to) {
           view.dispatch(
-            view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(coords.pos)))
+            view.state.tr.setSelection(TextSelection.create(view.state.doc, target.from, target.to))
           )
-          collapseDomSelectionToCursor(view)
         }
+        restoreDomSelection(view)
+      } else if (coords && (from === to || coords.pos < from || coords.pos > to)) {
+        // 落点在选区外：光标落到右键位置（编辑器标准行为）
+        view.dispatch(
+          view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(coords.pos)))
+        )
+        collapseDomSelectionToCursor(view)
       }
       openMenu(e, {
         context: resolveWysiwygContext(view),
         hasSelection: !view.state.selection.empty,
       })
+      // 菜单打开期间的选区锚点：守卫据此把 DOM/PM 选区锁回（见下方 useEffect）
+      menuSelRangeRef.current = view.state.selection.empty
+        ? null
+        : { from: view.state.selection.from, to: view.state.selection.to }
     })
   }
+
+  /** 菜单打开时的选区锚点（选区守卫的目标） */
+  const menuSelRangeRef = useRef<{ from: number; to: number } | null>(null)
+
+  // 选区守卫（WKWebView 专属对策）：WebKit 的抢选可能迟于 contextmenu 落地，
+  // 点击菜单项也会坍缩 DOM 选择——菜单打开期间任何 selectionchange 都把
+  // DOM/PM 选区锁回打开时刻的锚点；任一 mousedown（点菜单项或点外部关闭）
+  // 后停止干预（PM 本就忽略编辑器外的 DOM 选择，菜单动作读 PM 状态不受影响）
+  useEffect(() => {
+    if (!menu) return
+    const range = menuSelRangeRef.current
+    if (!range) return
+    let active = true
+    const forceSelection = () => {
+      if (!active) return
+      const editor = editorRef.current
+      if (!editor) return
+      editor.action((ctx) => {
+        const view = ctx.get(editorViewCtx)
+        const { from, to } = view.state.selection
+        if (from !== range.from || to !== range.to) {
+          view.dispatch(
+            view.state.tr.setSelection(TextSelection.create(view.state.doc, range.from, range.to))
+          )
+        }
+        try {
+          const anchor = view.domAtPos(range.from)
+          const head = view.domAtPos(range.to)
+          window
+            .getSelection()
+            ?.setBaseAndExtent(anchor.node, anchor.offset, head.node, head.offset)
+        } catch {
+          // domAtPos 在极端位置可能抛错；忽略
+        }
+      })
+    }
+    const deactivate = () => {
+      active = false
+    }
+    document.addEventListener('selectionchange', forceSelection)
+    document.addEventListener('mousedown', deactivate, true)
+    return () => {
+      active = false
+      document.removeEventListener('selectionchange', forceSelection)
+      document.removeEventListener('mousedown', deactivate, true)
+    }
+  }, [menu])
 
   const handleMenuSelect = (id: string) => {
     const editor = editorRef.current
@@ -348,7 +494,11 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
 
   return (
     <>
-      <div className="flex-1 min-h-0 overflow-auto" onContextMenu={handleContextMenu}>
+      <div
+        className="flex-1 min-h-0 overflow-auto"
+        onContextMenu={handleContextMenu}
+        onMouseDown={handleMouseDown}
+      >
         {createError && (
           <div className="p-4 text-sm text-[var(--text-secondary)]">
             {t('editor.loadFailed')}: {createError}
