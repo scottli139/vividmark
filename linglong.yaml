@@ -1,0 +1,16 @@
+version: "1"
+
+package:
+  id: com.vividmark.app
+  name: vividmark
+  version: 0.8.0.0
+  kind: app
+  description: |
+    VividMark - lightweight Markdown editor (Tauri 2 + React 19).
+
+command: [/opt/apps/com.vividmark.app/files/bin/vividmark]
+
+base: org.deepin.base/23.1.0.2
+
+build: |
+  bash /project/linglong/build.sh

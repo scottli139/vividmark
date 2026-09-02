@@ -33,3 +33,9 @@ playwright-report
 
 # Claude local settings
 .claude/
+
+# Linglong (玲珑) packaging artifacts
+*.uab
+*.layer
+linglong/output/
+.pnpm-store/
