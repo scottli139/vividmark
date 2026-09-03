@@ -125,6 +125,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           draft: true
+          # 只挂面向用户的 binary layer + uab；develop layer（调试 shell 模块）不进 release
           files: |
-            ./*.layer
+            ./com.vividmark.app_*_binary.layer
             ./*.uab
