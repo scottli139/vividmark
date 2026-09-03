@@ -59,7 +59,7 @@ jobs:
             | macOS | `VividMark_*.dmg` |
             | Windows | `VividMark_*_x64-setup.exe` |
             | Linux | `VividMark_*_amd64.deb` / `.AppImage` |
-            | UOS 20 / deepin (玲珑, arm64) | `com.vividmark.app_*_arm64_binary.layer` |
+            | UOS 20 / deepin (玲珑, arm64) | `com.vividmark.app_*_arm64_binary.layer`（老设备 `ll-cli install`）/ `com.vividmark.app_*.uab`（新系统双击安装） |
           releaseDraft: true
           prerelease: false
 
@@ -107,11 +107,17 @@ jobs:
       - name: Export layer
         run: ll-builder export --layer
 
+      # UAB 离线包：面向新系统双击安装/市场上架；老设备（玲珑 1.5.6）用 .layer
+      - name: Export UAB
+        run: ll-builder export
+
       - name: Upload layer artifact
         uses: actions/upload-artifact@v7
         with:
           name: vividmark-linglong-arm64
-          path: ./*.layer
+          path: |
+            ./*.layer
+            ./*.uab
 
       - name: Attach layer to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
@@ -119,4 +125,6 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           draft: true
-          files: ./*.layer
+          files: |
+            ./*.layer
+            ./*.uab

@@ -26,7 +26,7 @@ ll-cli run com.vividmark.app
 - Ubuntu 24.04 需 `sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` 放开 ll-box 的非特权 user namespace
 - 包版本自动从 tag 同步（`v0.8.0` → `0.8.0.0`，sed 改写 `linglong.yaml`，仓库内不随 tag 手改）
 - `~/.cache/linglong-builder`（base 镜像）走 actions/cache，二次构建显著提速
-- 产物 `.layer`：tag 触发时直挂 Release draft；`workflow_dispatch` 手动触发只传 artifact（供验证构建）
+- 产物同时出两种格式：`.layer`（老设备如玲珑 1.5.6 用 `ll-cli install`）+ `.uab`（离线包，新系统双击安装/免安装运行/市场上架；**本机 1.5.6 无法验证 uab，兼容性未实测**）。tag 触发时两者直挂 Release draft；`workflow_dispatch` 手动触发只传 artifact（供验证构建）
 - **base 版本必须写三位**（`org.deepin.base/23.1.0`）：ll-builder 1.13+ 拒绝四位版本（`base version is not valid`，纯本地格式校验），1.5.6 对三位做模糊匹配可解析到本地缓存的 23.1.0.2，两头兼容
 
 ## 关键实现点（踩坑记录）
@@ -52,3 +52,21 @@ ll-cli run com.vividmark.app
 - 纯软件渲染 + X11(XWayland) 后端（稳定性优先的有意取舍，见踩坑 8），重度滚动性能一般。
 - `injected bundle` 警告无害（wry 不使用 web extension）。
 - ll-cli 1.5.6 在 UOS 20 上**起第二个实例会失败**（`ll-box exec` 走 `nsenter --wdns`，老 util-linux 不认识该选项）：换新包测试前先关掉旧实例。
+
+## 不要升级设备上的玲珑工具链（UOS 20 / kernel 5.4 实测结论）
+
+官方 `uos_1070` 源（release = ll-cli 1.11.0 + ll-box 2.2.1；latest = ll-cli 1.12.1 + ll-box 1.8.1）在本机均**确定性破坏无 tty 启动**（桌面菜单双击场景），终端启动正常。根因有两个，都只在老内核/老系统组合上触发：
+
+1. 新版 ll-box 的 `close_range` fallback（内核 <5.9 无 `close_range` 系统调用）遍历 `/proc/self/fd` 时对并发消失的 fd 直接抛 EBADF 中止容器启动（`clone failed: failed to set up close-on-exec to 6: Bad file descriptor`）；无 tty 时 ll-cli 走管道转发 IO，fd 布局恰好踩中。
+2. ll-cli ≤1.12 给 ldconfig 缓存生成容器无条件 `terminal=true`，无控制终端时 ll-box 打开 `/dev/tty` 抛 ENXIO（`failed to generate ld cache`）。上游 master 已改为 `isatty(stdin)` 条件设置，但该修复未进入任何 uos_1070 源版本。
+
+回退方法（升级到新版后想回 1.5.6）：删 `/etc/apt/sources.list.d/linglong.list` 后 `apt install --allow-downgrades linglong-bin=1.5.6.1-1 linglong-box=1.5.6.1-1 linglong-builder=1.5.6.1-1 fuse`，再手工恢复数据目录——新版会把 `/var/lib/linglong/config.yaml` 改写成 v2 schema（`repos` 为列表），1.5.6 的 `ll-package-manager` 解析失败 CrashLoop（`tl::expected ... has_value() 失败`），改回 v1 格式即可：
+
+```yaml
+defaultRepo: stable
+repos:
+  stable: https://mirror-repo-linglong.deepin.com
+version: 1
+```
+
+升级时迁移的 layers（hash 目录布局）与 ostree 内容向后兼容，回退后已装应用无需重装；重打踩坑 10 的 `ld.so.cache~` 补丁后即可正常运行。`.uab` 双击安装（linglong-installer）因此暂时与本机无缘，等上游修复进入 uos_1070 源后再评估。
