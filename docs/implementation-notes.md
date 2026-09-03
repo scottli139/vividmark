@@ -67,6 +67,19 @@
 
 **验证方法**（可复用的引擎级探针）：`/tmp/wktest/probe41.c`（宿主机 gcc 链接玲珑包内 .so + base glibc，经 `ll-cli run … -- /run/host/rootfs/…` 在容器内跑真实 2.46.3），页内 JS 用 Range rect 量化文字垂直位置（零度量时 Range 高度塌为 0，居中时等于 em 盒高）。正常引擎（2.38/macOS）上两种方式都居中。
 
+### Linux 玲珑包桌面/菜单快捷方式无法启动、图标齿轮
+
+> ✅ 已解决（2026-09-03）：Exec 去掉 `%F` 占位符，见下。细节见 `linglong/README.md` 踩坑 11/13/14。
+
+**现象**：开始菜单图标与「发送到桌面」的快捷方式双击均无法启动；桌面快捷方式图标显示为两个齿轮的回退图标。
+
+**根因（两个独立问题）**：
+
+1. **无法启动 = ll-cli 1.5.6 的 desktop 重写 bug**：构建期 ll-builder 会把包内 desktop 的 `Exec` 改写为 `ll-cli run` 形式。原 Exec 含 `%F` 时被改写成 `ll-cli run <id> --file %F -- -- <bin> %%F`——无文件双击时 `%F` 展开为空，`--file` 缺参数报用法错误退出；有文件时内层多出的 `--` 被当成命令执行（`--: command not found`），两种路径全废。去掉 `%F` 后重写结果为干净的 `ll-cli run <id> -- <bin>`（探针包 + 真机 `GDesktopAppInfo.launch` 验证）。1.5.6 的 `--file` 也不会把路径代入容器命令行（`%F` 不替换、argv 不追加），文件关联打开路径本来也传不进来。
+2. **图标齿轮 = dde-desktop 进程级图标缓存过期**：Qt 与 GTK 对新装玲珑应用的图标均可正常解析（entries 已在 XDG_DATA_DIRS），但 dde-desktop 若早于图标安装启动就持续显示回退图标，`killall dde-desktop`（自动拉起）或重新登录后恢复。
+
+**运维陷阱**：ll-cli 1.5.6 `install` 新版本**不刷新 entries 导出**（符号链接钉在首装版本的 commit 目录），换包验证前须逐版本 `ll-cli uninstall <id>/<version>` 全量卸载再装。
+
 ---
 
 ## Markdown 扩展实现

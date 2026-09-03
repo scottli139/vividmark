@@ -108,11 +108,16 @@ chmod +x "$PREFIX/bin/vividmark"
 
 mkdir -p "$PREFIX/share/applications" "$PREFIX/share/icons/hicolor/128x128/apps"
 cp src-tauri/icons/128x128.png "$PREFIX/share/icons/hicolor/128x128/apps/$APPID.png"
+# Exec 不能带 %F 等占位符：ll-cli 1.5.6 安装期的 desktop 重写会把它改写成
+# `--file %F -- -- <bin> %%F`——无文件双击时 --file 缺参数直接报用法错误，有文件时
+# 内层多出的 `--` 又被当成命令执行，两种路径全废。不带占位符则重写为
+# `ll-cli run <id> -- <bin>`（探针包实测验证）。且 Linux 侧 argv 打开文件未实现，
+# %F 本来也传不进 app，故只保留 MimeType 注册关联。
 cat > "$PREFIX/share/applications/$APPID.desktop" <<EOF
 [Desktop Entry]
 Name=VividMark
 Comment=Lightweight Markdown editor
-Exec=/opt/apps/$APPID/files/bin/vividmark %F
+Exec=/opt/apps/$APPID/files/bin/vividmark
 Icon=$APPID
 Type=Application
 Categories=Utility;TextEditor;

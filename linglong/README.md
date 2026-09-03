@@ -44,8 +44,10 @@ ll-cli run com.vividmark.app
     ```bash
     sudo touch "/var/lib/linglong/layers/main/org.deepin.base/23.1.0.2/arm64/binary/files/etc/ld.so.cache~"
     ```
-11. **图标/desktop**：构建时装入 `$PREFIX/share/applications|icons`，玲珑的 `entries/` 导出由 ll-builder 自动处理。
+11. **desktop 的 Exec 不能带 `%F` 等占位符**：ll-cli 1.5.6 安装期重写 desktop 文件时，若原 Exec 含 `%F`，会改写成 `ll-cli run <id> --file %F -- -- <bin> %%F`——无文件双击（开始菜单/桌面快捷方式）时 `%F` 展开为空，`--file` 缺参数直接报用法错误（rc=255）；有文件时内层多出的 `--` 又被当成命令执行（`--: command not found`），两条路径全废，app 完全无法从桌面环境启动。且该版本的 `--file` 并不会把文件路径代入命令行（实测内层 `%F` 不被替换、argv 无追加），app 的 Linux argv 打开也未实现——故 Exec 只写裸路径。不带占位符时重写结果为 `ll-cli run <id> -- <bin>`（探针包实测，双击/菜单均正常启动）。图标/desktop 装入 `$PREFIX/share/applications|icons`，`entries/` 导出由玲珑自动处理。
 12. **文字「顶部对齐」（垂直居中全失效）**：内置的 beige webkit2gtk-4.1 实为 **2.46.3**，它对非字面安装的 font-family 名（`-apple-system`、`sans-serif` 等别名/通用名，fontconfig 模糊匹配到同一字体文件也照样中招）返回零度量字体——布局居中正确但墨迹从坍缩基线向上绘制，视觉上文字顶偏。修复：前端所有 font-family 栈在通用名之前补 Linux 实体字体名（正文 `'Noto Sans CJK SC'/'Source Han Sans SC'/…`，等宽 `'Noto Sans Mono CJK SC'/'DejaVu Sans Mono'/…`），WebKit 跳过非字面名命中实体名即正常。详见 `docs/implementation-notes.md`「已知问题」。
+13. **ll-cli 1.5.6 安装新版不刷新 entries 导出**：`ll-cli install` 新版本后，`/var/lib/linglong/entries/` 下的 desktop/图标符号链接仍钉在**首次安装的那个版本**的 commit 目录上——desktop 内容变了也不会更新，菜单/桌面一直跑旧 Exec。换包验证前必须全量卸载：`ll-cli uninstall <id>` 和 `--all` 都只卸最新版，要逐版本 `ll-cli uninstall <id>/<version>`；最后一个版本卸掉后 entries 导出才会清除，再装新版即重建。
+14. **桌面/开始菜单图标齿轮 + 无法启动的两个独立成因**（UOS 20 实测）：(a) 无法启动 = 踩坑 11 的 Exec 重写 bug；(b) 图标齿轮 = **dde-desktop 的进程级图标缓存过期**——Qt/PyQt5 与 GTK 对新装玲珑应用的图标都能正常解析（`/var/lib/linglong/entries/share/icons` 已在 XDG_DATA_DIRS），但 dde-desktop 进程启动早于图标出现就显示回退齿轮。`killall dde-desktop`（会被自动拉起）或重新登录后图标恢复。玲珑导出的 desktop 文件是符号链接，「发送到桌面」副本会丢执行位（644），补上 `chmod +x` 与系统自带快捷方式一致。
 
 ## 已知限制
 
@@ -53,6 +55,7 @@ ll-cli run com.vividmark.app
 - 纯软件渲染 + X11(XWayland) 后端（稳定性优先的有意取舍，见踩坑 8），重度滚动性能一般。
 - `injected bundle` 警告无害（wry 不使用 web extension）。
 - ll-cli 1.5.6 在 UOS 20 上**起第二个实例会失败**（`ll-box exec` 走 `nsenter --wdns`，老 util-linux 不认识该选项）：换新包测试前先关掉旧实例。
+- **双击 .md 文件关联打开不会携带文件路径**（只拉起空窗口）：desktop 的 Exec 不能带 `%F`（踩坑 11），且 1.5.6 的 `--file` 不会把路径代入容器内命令行；Linux argv 打开本身也未实现（见 AGENTS.md 文件关联一节）。MimeType 关联保留，仅作「打开方式」入口。
 
 ## 不要升级设备上的玲珑工具链（UOS 20 / kernel 5.4 实测结论）
 
