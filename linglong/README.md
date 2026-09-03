@@ -18,6 +18,16 @@ ll-cli run com.vividmark.app
 
 构建流水线：`linglong.yaml`（入口）→ `linglong/build.sh`（容器内全部逻辑）→ `linglong/collect-deps.sh`（依赖收集）。
 
+## CI 构建（GitHub Actions）
+
+`release.yml` 的 `build-linglong` job（`ubuntu-24.04-arm` runner，public 仓库免费）随 `v*` tag 或手动触发运行：
+
+- 工具链装自官方 release 源 `ci.deepin.com/repo/obs/linglong:/CI:/release/Ubuntu_24.04/`（ll-builder 1.13.x，有 arm64 包）；注意官方 `linglong-builder-action` 内嵌的 `ppa.linyaps.org.cn` 源已失效，故不用该 action
+- Ubuntu 24.04 需 `sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` 放开 ll-box 的非特权 user namespace
+- 包版本自动从 tag 同步（`v0.8.0` → `0.8.0.0`，sed 改写 `linglong.yaml`，仓库内不随 tag 手改）
+- `~/.cache/linglong-builder`（base 镜像）走 actions/cache，二次构建显著提速
+- 产物 `.layer`：tag 触发时直挂 Release draft；`workflow_dispatch` 手动触发只传 artifact（供验证构建）
+
 ## 关键实现点（踩坑记录）
 
 1. **构建容器 rootfs 只读**（/usr、/var 不可写，/opt 可写）：系统依赖不能 `apt install`，改为 apt 状态目录重定向（`Dir::State::Lists/status`、`Dir::Cache` 指向 /tmp）+ `--download-only` 下载 + `dpkg-deb -x` 解到 `/opt/deps`，编译用 `PKG_CONFIG_PATH` + `PKG_CONFIG_SYSROOT_DIR=$DEPS` 指向解包前缀。

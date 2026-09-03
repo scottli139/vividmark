@@ -59,5 +59,64 @@ jobs:
             | macOS | `VividMark_*.dmg` |
             | Windows | `VividMark_*_x64-setup.exe` |
             | Linux | `VividMark_*_amd64.deb` / `.AppImage` |
+            | UOS 20 / deepin (玲珑, arm64) | `com.vividmark.app_*_arm64_binary.layer` |
           releaseDraft: true
           prerelease: false
+
+  # 玲珑（Linglong）打包：面向 UOS 20 等老系统的 arm64 交付路径，见 linglong/README.md。
+  # 构建全程在玲珑容器（Deepin 23 base）内进行，不依赖 runner 上的 Node/Rust。
+  build-linglong:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install linglong toolchain
+        run: |
+          echo "deb [trusted=yes] https://ci.deepin.com/repo/obs/linglong:/CI:/release/Ubuntu_24.04/ ./" | sudo tee /etc/apt/sources.list.d/linglong.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends linglong-builder linglong-box
+          # Ubuntu 24.04 默认用 AppArmor 限制非特权 user namespace，ll-box 需要放开
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          ll-builder --version
+
+      # 玲珑包版本与 tag 对齐（不足 4 段补 0，如 v0.8.0 → 0.8.0.0）
+      - name: Sync package version from tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          while [ "$(awk -F. '{print NF}' <<<"$TAG")" -lt 4 ]; do TAG="$TAG.0"; done
+          sed -i "s/^  version: .*/  version: $TAG/" linglong.yaml
+          grep -A3 '^package:' linglong.yaml
+
+      # 缓存玲珑 base 镜像（org.deepin.base ~1GB+），避免每次重新拉取
+      - name: Cache linglong base image
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/linglong-builder
+          key: linglong-builder-${{ runner.arch }}-${{ hashFiles('linglong.yaml') }}
+          restore-keys: |
+            linglong-builder-${{ runner.arch }}-
+
+      - name: Build linglong package
+        run: ll-builder build
+
+      - name: Export layer
+        run: ll-builder export --layer
+
+      - name: Upload layer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: vividmark-linglong-arm64
+          path: ./*.layer
+
+      - name: Attach layer to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: ./*.layer

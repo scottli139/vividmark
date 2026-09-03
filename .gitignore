@@ -38,4 +38,5 @@ playwright-report
 *.uab
 *.layer
 linglong/output/
+linglong/entry.sh
 .pnpm-store/
