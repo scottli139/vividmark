@@ -51,3 +51,4 @@ ll-cli run com.vividmark.app
 - 包体积大（约 133MB layer，webkit 全家桶内置）；上游正在做内置 GTK/WebKit 的玲珑 Runtime（[linyaps#1374](https://github.com/OpenAtom-Linyaps/linyaps/issues/1374)），成熟后可大幅瘦身。
 - 纯软件渲染 + X11(XWayland) 后端（稳定性优先的有意取舍，见踩坑 8），重度滚动性能一般。
 - `injected bundle` 警告无害（wry 不使用 web extension）。
+- ll-cli 1.5.6 在 UOS 20 上**起第二个实例会失败**（`ll-box exec` 走 `nsenter --wdns`，老 util-linux 不认识该选项）：换新包测试前先关掉旧实例。
