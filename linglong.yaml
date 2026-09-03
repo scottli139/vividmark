@@ -10,7 +10,8 @@ package:
 
 command: [/opt/apps/com.vividmark.app/files/bin/vividmark]
 
-base: org.deepin.base/23.1.0.2
+# 三位版本号（模糊匹配第四位）：ll-builder 1.13+ 只接受三位，1.5.6 也兼容（模糊解析到本地缓存的 23.1.0.2）
+base: org.deepin.base/23.1.0
 
 build: |
   bash /project/linglong/build.sh

@@ -27,6 +27,7 @@ ll-cli run com.vividmark.app
 - 包版本自动从 tag 同步（`v0.8.0` → `0.8.0.0`，sed 改写 `linglong.yaml`，仓库内不随 tag 手改）
 - `~/.cache/linglong-builder`（base 镜像）走 actions/cache，二次构建显著提速
 - 产物 `.layer`：tag 触发时直挂 Release draft；`workflow_dispatch` 手动触发只传 artifact（供验证构建）
+- **base 版本必须写三位**（`org.deepin.base/23.1.0`）：ll-builder 1.13+ 拒绝四位版本（`base version is not valid`，纯本地格式校验），1.5.6 对三位做模糊匹配可解析到本地缓存的 23.1.0.2，两头兼容
 
 ## 关键实现点（踩坑记录）
 
