@@ -100,7 +100,7 @@ export GIO_EXTRA_MODULES="$HERE/../lib/gio/modules"
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
 # 容器内无 GPU 驱动，禁用合成加速走纯软件渲染，避免窗口 resize 时 EGL 断言 SIGABRT
 export WEBKIT_DISABLE_COMPOSITING_MODE=1
-# wayland 下 WebKitGTK 2.38 系在 resize 时仍会 SIGABRT，强制走 X11（XWayland）后端
+# wayland 下 WebKitGTK（beige 源的 4.1 实为 2.46.3）在 resize 时仍会 SIGABRT，强制走 X11（XWayland）后端
 export GDK_BACKEND=x11
 exec "$HERE/vividmark.bin" "$@"
 EOF

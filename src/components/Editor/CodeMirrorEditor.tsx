@@ -44,7 +44,7 @@ function buildThemeExtensions(isDark: boolean): Extension {
       '.cm-scroller': {
         overflow: 'auto',
         fontFamily:
-          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+          'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", "Noto Sans Mono CJK SC", "DejaVu Sans Mono", monospace',
       },
       '.cm-content': {
         padding: '2rem',

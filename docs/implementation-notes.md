@@ -55,6 +55,18 @@
 
 > ✅ 已解决（Typora 式直存）：导出改为「保存对话框 → 静默生成 PDF 文件」，文件名即用户所选，不再经过打印对话框。见下文「Export PDF 详解」。
 
+### Linux 玲珑包文字「顶部对齐」（按钮/表格/输入框垂直居中失效）
+
+> ✅ 已解决（2026-09-03）：font-family 栈补 Linux 实体字体名兜底，见下。
+
+**现象**：玲珑包（内置 deepin beige 的 webkit2gtk-4.1 **2.46.3**）里，按钮文字、表格单元格文字、输入框占位文本等一切垂直居中全部顶偏；宿主机 WebKitGTK 2.38（UOS 1070 自带 2.38.6-deepin1）与 macOS 均正常。
+
+**根因**：该引擎对**非字面安装的 family 名**（`-apple-system`、`BlinkMacSystemFont`、通用名 `sans-serif`/`system-ui` 等——fontconfig 别名/模糊匹配到的结果）返回**零度量字体**（ascent/descent=0）：布局本身正确（盒高、居中计算都对），但文字墨迹从坍缩的零高内联盒向上绘制，视觉上整体顶偏。字面安装的实体 family（如 `Source Han Sans SC`、`Noto Sans CJK SC`、`DejaVu Sans`）完全正常。旧栈在 Linux 上全是非字面名，整页中招。
+
+**修复**：所有 font-family 栈在通用名之前补 Linux 实体字体名——正文栈加 `'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans', 'DejaVu Sans'`（globals.css body），等宽栈加 `'Noto Sans Mono CJK SC', 'DejaVu Sans Mono'`（globals.css 各 code 规则 + CodeMirrorEditor cm-scroller）。WebKit 会跳过非字面名命中第一个实体名；macOS/Windows 原有命中（-apple-system/Segoe UI/Courier New）不变，零回归。
+
+**验证方法**（可复用的引擎级探针）：`/tmp/wktest/probe41.c`（宿主机 gcc 链接玲珑包内 .so + base glibc，经 `ll-cli run … -- /run/host/rootfs/…` 在容器内跑真实 2.46.3），页内 JS 用 Range rect 量化文字垂直位置（零度量时 Range 高度塌为 0，居中时等于 em 盒高）。正常引擎（2.38/macOS）上两种方式都居中。
+
 ---
 
 ## Markdown 扩展实现

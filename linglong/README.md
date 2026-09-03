@@ -45,6 +45,7 @@ ll-cli run com.vividmark.app
     sudo touch "/var/lib/linglong/layers/main/org.deepin.base/23.1.0.2/arm64/binary/files/etc/ld.so.cache~"
     ```
 11. **图标/desktop**：构建时装入 `$PREFIX/share/applications|icons`，玲珑的 `entries/` 导出由 ll-builder 自动处理。
+12. **文字「顶部对齐」（垂直居中全失效）**：内置的 beige webkit2gtk-4.1 实为 **2.46.3**，它对非字面安装的 font-family 名（`-apple-system`、`sans-serif` 等别名/通用名，fontconfig 模糊匹配到同一字体文件也照样中招）返回零度量字体——布局居中正确但墨迹从坍缩基线向上绘制，视觉上文字顶偏。修复：前端所有 font-family 栈在通用名之前补 Linux 实体字体名（正文 `'Noto Sans CJK SC'/'Source Han Sans SC'/…`，等宽 `'Noto Sans Mono CJK SC'/'DejaVu Sans Mono'/…`），WebKit 跳过非字面名命中实体名即正常。详见 `docs/implementation-notes.md`「已知问题」。
 
 ## 已知限制
 

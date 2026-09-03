@@ -7,7 +7,7 @@
 .hljs {
   background: #f6f8fa;
   color: #24292e;
-  font-family: 'Courier New', 'Courier', monospace;
+  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
   font-size: 0.9em;
   line-height: 1.5;
   white-space: pre;
@@ -79,7 +79,8 @@ pre,
 pre.hljs,
 .markdown-body pre,
 .markdown-body pre.hljs {
-  font-family: 'Courier New', 'Courier', monospace !important;
+  font-family:
+    'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace !important;
   font-variant-ligatures: none;
   font-feature-settings: 'liga' 0;
   letter-spacing: 0;
@@ -92,7 +93,8 @@ pre code.hljs,
 .markdown-body pre.hljs code,
 .hljs code,
 code.hljs {
-  font-family: 'Courier New', 'Courier', monospace !important;
+  font-family:
+    'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace !important;
   white-space: pre !important;
   word-wrap: normal !important;
   word-break: normal !important;
@@ -250,8 +252,11 @@ body,
 }
 
 body {
+  /* Linux 上 -apple-system 等非字面 family 会被 WebKitGTK 2.46(deepin beige 玲珑包内置)
+     解析成零度量字体（文字顶部对齐），必须在通用名前放 Linux 实体字体名兜底 */
   font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans', 'DejaVu Sans', sans-serif;
   background-color: var(--editor-bg);
   color: var(--editor-text);
   line-height: 1.6;
@@ -303,7 +308,7 @@ body {
   background-color: rgba(0, 0, 0, 0.05);
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: 'Courier New', 'Courier', monospace;
+  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
   font-size: 0.9em;
 }
 
@@ -317,7 +322,7 @@ body {
   border-radius: 6px;
   overflow-x: auto;
   margin-bottom: 1em;
-  font-family: 'Courier New', 'Courier', monospace;
+  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
   font-size: 0.9em;
   line-height: 1.5;
   white-space: pre;
@@ -817,7 +822,9 @@ body {
   color: #cf222e;
   padding: 0.75em 1em 0.5em;
   font-size: 0.85em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono',
+    monospace;
   text-align: left;
   white-space: pre-wrap;
   word-break: break-word;
@@ -994,7 +1001,7 @@ body {
   border-radius: 4px;
   background: var(--editor-bg);
   color: var(--editor-text);
-  font-family: 'Courier New', 'Courier', monospace;
+  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
   font-size: 0.9em;
   line-height: 1.5;
   resize: vertical;
@@ -1033,7 +1040,7 @@ body {
   margin: 0;
   padding: 8px 12px;
   color: var(--text-secondary);
-  font-family: 'Courier New', 'Courier', monospace;
+  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
   font-size: 0.85em;
   line-height: 1.5;
   white-space: pre;
