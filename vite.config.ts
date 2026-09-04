@@ -5,6 +5,13 @@ import { viteStaticCopy } from 'vite-plugin-static-copy'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Windows 下 cargo 构建写入 src-tauri/target 的 exe 会被 chokidar 盯上并以
+  // EBUSY 崩溃（Tauri 官方模板同款配置；POSIX 无此问题但同样减少无效监听）
+  server: {
+    watch: {
+      ignored: ['**/src-tauri/**'],
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
