@@ -26,8 +26,9 @@ APT="apt-get
 $APT update -qq
 
 # ---------- 2. 下载并解包构建/运行依赖 ----------
+# patchelf 显式安装：collect-deps.sh 用它改 RPATH，不能依赖 base 镜像恰好自带
 $APT install -y --download-only \
-    build-essential pkg-config \
+    build-essential pkg-config patchelf \
     libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libgtk-3-dev \
     libglib2.0-dev libsoup-3.0-dev libssl-dev \
     libayatana-appindicator3-dev librsvg2-dev libxdo-dev
@@ -113,6 +114,8 @@ cp src-tauri/icons/128x128.png "$PREFIX/share/icons/hicolor/128x128/apps/$APPID.
 # 内层多出的 `--` 又被当成命令执行，两种路径全废。不带占位符则重写为
 # `ll-cli run <id> -- <bin>`（探针包实测验证）。且 Linux 侧 argv 打开文件未实现，
 # %F 本来也传不进 app，故只保留 MimeType 注册关联。
+# TODO: Linux/Windows argv 打开落地后（见 AGENTS.md「文件关联」后续项），
+# 需重新评估此处 MimeType 与 Exec 占位符（届时 ll-cli 版本若仍 < 修复版，%F 依旧不能加）。
 cat > "$PREFIX/share/applications/$APPID.desktop" <<EOF
 [Desktop Entry]
 Name=VividMark
