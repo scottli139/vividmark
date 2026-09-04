@@ -80,6 +80,32 @@
 
 **运维陷阱**：ll-cli 1.5.6 `install` 新版本**不刷新 entries 导出**（符号链接钉在首装版本的 commit 目录），换包验证前须逐版本 `ll-cli uninstall <id>/<version>` 全量卸载再装。
 
+### Linux 顶部三条栏过厚 → 无边框自绘标题栏（frameless）
+
+> ✅ 已解决（2026-09-04）：Linux 关闭窗口装饰，工具栏兼作自绘标题栏，见下。
+> （2026-09-03 曾用注入 GTK CSS 给 menubar 补顶边线修复「标题栏与菜单栏间无分割线」，
+> 已被本方案取代——无边框后系统标题栏不复存在，分割线问题随之消失，CSS 注入已移除。）
+
+**现象**：deepin/UOS 上窗口顶部叠了三条栏——KWin SSD 标题栏（~35px）+ 原生 GTK 菜单栏（~30px）+ 应用工具栏（48px），合计 ~113px，显得臃肿。macOS 上三者合一（红绿灯 + 文档名 + ⋮ 同处一条 48px 工具栏），没有该问题。另：SSD 模式下 deepin GTK 主题画在 CSD `.titlebar` 上的标题栏/菜单栏分割线也不生效（主题不参与 SSD 标题栏绘制，宿主机原生 GTK3 探针同样没线，属 X11 固有表现）。
+
+**方案**（对标 VSCode 等 Linux 桌面应用的 custom titlebar 惯例）：
+
+- **Rust**：主窗口（lib.rs setup）与新文档窗口（window_router `create_document_window`）在 Linux 下 `set_decorations(false)` / `.decorations(false)`，去掉系统标题栏。**GTK 原生菜单栏保留**——桌面端快捷键全部由原生菜单 accelerator 驱动（webview 收不到带 accelerator 的键），菜单栏不能动。顶部从 3 条变 2 条（菜单栏 + 工具栏 ≈ 78px）。
+- **前端 Toolbar 兼作标题栏**（`isLinuxDesktop()` 门控，`src/lib/platform.ts` UA 探测 + isTauri）：自绘居中文档名（左右容器 `flex-1 basis-0` 等宽保证真居中，<760px 隐藏，同 macOS 惯例）；右侧 `WindowControls.tsx` 自绘最小化/最大化切换/关闭按钮（最大化状态经 `isMaximized()` + `onResized` 跟踪）。**关闭走 `win.close()`** → 触发 `CloseRequested` → windowManager 的脏确认拦截，与系统标题栏关闭同路径。
+- **拖拽/双击最大化零新增代码**：Toolbar 根及左/右分组容器本就有 `data-tauri-drag-region`；tauri 内建 drag.js 在 Windows/Linux 上 mousedown → `start_dragging`、双击 → `internal_toggle_maximize`。
+- **边缘缩放**：decorations 关闭后 WM 不再提供缩放边框，`WindowResizeHandles.tsx` 在窗口四边（4px）/四角（12px）铺透明热区，mousedown → `startResizeDragging(dir)`（内部走 `gtk_window_begin_resize_drag`，KWin 照常接管）；最大化时隐藏手柄（避免遮挡右侧滚动条/状态栏）。
+- **capabilities**：新增 `core:window:allow-minimize` / `allow-close` / `allow-toggle-maximize` / `allow-internal-toggle-maximize`（drag.js 双击用）/ `allow-is-maximized` / `allow-start-resize-dragging`。
+
+**坑**：`@tauri-apps/api` 2.10 未导出 `ResizeDirection` 类型（仅在 window.d.ts 本地声明），组件内本地复刻该联合类型。
+
+**配套修复（2026-09-04，菜单两问题）**：
+
+- **窗口菜单空 / File 无退出 / View 无全屏**：muda 0.17 GTK 后端 `is_item_supported` 白名单仅放行 `Separator`/`Cut`/`Copy`/`Paste`/`SelectAll`/`About`，`Minimize`/`Maximize`/`Quit`/`CloseWindow`/`Fullscreen` 预定义项**静默丢弃**（Windows/macOS 后端正常）。Linux 下全部改自定义项：`window:minimize`/`window:maximize`（窗口菜单）、`view:fullscreen` F11（视图菜单）、`file:exit` Ctrl+Q（文件菜单，→ Rust `quit_app` 命令逐窗口 `close()` 走各窗口 CloseRequested 脏确认，不用 `app.exit` 绕过）。macOS/Windows 保留预定义项不变。
+- **菜单弹窗文字偏高（非打包问题）**：弹窗行高 42px、20px 墨迹呈上 8 下 14——deepin GTK 主题 menuitem padding 对称（5px），但菜单字体（思源黑体/Noto CJK）行盒偏大且 baseline 偏高所致；**宿主机原生 GTK3 探针同表现**（`/tmp/gtk3_menu_probe2.py`，GLib 定时自动弹菜单），与玲珑无关。修复：`fix_deepin_menuitem_alignment()`（lib.rs，仅 gtk-theme-name 含 deepin 时）注入 `menu menuitem { padding-top: 8px; padding-bottom: 2px; }` 把墨迹压回视觉居中；其他主题不动。Cargo.toml 的 Linux-only `gtk`/`gdk` 0.18 依赖为此重新引入。菜单栏带区本身文字居中（实测上 11 下 9），未动。
+- **菜单栏文字水平右偏（muda 控件结构问题）**：菜单栏项 80px 宽、文字墨迹左 30 右 8 明显偏右（原生 GTK 对称 8/8）。根因：muda 0.17 GTK 后端给**每个**菜单项打包 `GtkBox(spacing=6) + GtkImage + AccelLabel`，无图标时 image 是 `unwrap_or_default()` 的空 GtkImage——其 natural width 恒为 16（GTK 默认图标尺寸），占位 16+6=22px 把文字右推（复刻探针实测 item w=80、left=30/right=8，与 app 截图像素测量一致；deepin 主题本身 `menubar > menuitem { padding: 4px 8px }` 对称，非主题问题）。`image.hide()` 无效（GtkBox 仍给隐藏子控件留位），**必须从 Box 中 `remove`**（探针验证回到 8/8）。修复：`strip_menubar_icon_placeholders()`（lib.rs，仅 Linux）——遍历各窗口 gtk_window 控件树找 GtkMenuBar，摘除菜单项 Box 内无 pixbuf 的空 Image；三个调用点：setup、rebuild_menu（set_menu 重建控件树）、window_router 建新窗口后（app 菜单建窗时同步挂入）。只处理菜单栏；弹窗项 muda 已用 `margin-left:-22px` 自行补偿，不动。
+
+**验证**：玲珑包重建后真机截图确认——顶部只剩菜单栏 + 工具栏两条，居中标题、三按钮、拖拽移动、双击最大化、边缘缩放、F10 菜单均正常；窗口菜单两项可用、文件菜单有退出、弹窗文字居中。
+
 ---
 
 ## Markdown 扩展实现

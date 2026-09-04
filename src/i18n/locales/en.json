@@ -2,6 +2,10 @@
   "toolbar": {
     "tooltip": {
       "toggleSidebar": "Toggle Sidebar",
+      "minimize": "Minimize",
+      "maximize": "Maximize",
+      "restore": "Restore",
+      "close": "Close",
       "newFile": "New File ({{shortcut}})",
       "openFile": "Open File ({{shortcut}})",
       "save": "Save ({{shortcut}})",

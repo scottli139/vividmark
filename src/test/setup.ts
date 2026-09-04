@@ -29,6 +29,10 @@ vi.mock('react-i18next', () => ({
       }
       const translations: Record<string, string> = {
         'toolbar.tooltip.toggleSidebar': 'Toggle Sidebar',
+        'toolbar.tooltip.minimize': 'Minimize',
+        'toolbar.tooltip.maximize': 'Maximize',
+        'toolbar.tooltip.restore': 'Restore',
+        'toolbar.tooltip.close': 'Close',
         'toolbar.tooltip.newFile': shortcut ? `New File (${shortcut})` : 'New File',
         'toolbar.tooltip.openFile': shortcut ? `Open File (${shortcut})` : 'Open File',
         'toolbar.tooltip.save': shortcut ? `Save (${shortcut})` : 'Save',

@@ -2,6 +2,10 @@
   "toolbar": {
     "tooltip": {
       "toggleSidebar": "切换侧边栏",
+      "minimize": "最小化",
+      "maximize": "最大化",
+      "restore": "还原",
+      "close": "关闭",
       "newFile": "新建文件 ({{shortcut}})",
       "openFile": "打开文件 ({{shortcut}})",
       "save": "保存 ({{shortcut}})",

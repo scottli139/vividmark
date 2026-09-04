@@ -577,6 +577,98 @@ fn reveal_in_folder(path: String) -> Result<(), String> {
 
 // ===== 原生菜单命令 =====
 
+/// 退出应用（Linux File 菜单「退出」；muda GTK 不支持 Quit 预定义项）。
+/// 逐窗口 close()——每窗口触发自己的 CloseRequested 脏确认，任一窗口取消
+/// 则该窗口保留（其余照关），不强制 app.exit 绕过确认。
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    for w in app.webview_windows().values() {
+        if let Err(e) = w.close() {
+            log::warn!("[menu] quit_app close {} failed: {}", w.label(), e);
+        }
+    }
+}
+
+/// Linux/deepin：修正菜单弹窗文字偏高。deepin 主题 menuitem padding 对称（5px），
+/// 但菜单字体（思源黑体/Noto CJK）行盒偏大且 baseline 偏高——实测 42px 行内
+/// 20px 墨迹呈上 8 下 14（宿主机原生 GTK3 探针同表现，属主题+字体固有，非打包
+/// 问题）。仅 deepin 主题下注入补偿 padding 把墨迹压回视觉居中；其他主题保持
+/// 系统原样不动。
+#[cfg(target_os = "linux")]
+fn fix_deepin_menuitem_alignment() {
+    use gtk::prelude::*;
+    let is_deepin = gtk::Settings::default()
+        .and_then(|s| s.gtk_theme_name())
+        .map(|n| n.to_lowercase().contains("deepin"))
+        .unwrap_or(false);
+    if !is_deepin {
+        return;
+    }
+    let provider = gtk::CssProvider::new();
+    if provider
+        .load_from_data(b"menu menuitem { padding-top: 8px; padding-bottom: 2px; }")
+        .is_err()
+    {
+        return;
+    }
+    if let Some(screen) = gdk::Screen::default() {
+        gtk::StyleContext::add_provider_for_screen(
+            &screen,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+        log::info!("[menu] Injected menuitem alignment CSS for deepin theme");
+    }
+}
+
+/// Linux：摘除菜单栏项的空图标占位。muda GTK 后端给每个菜单项都打包一个
+/// 16px 空 GtkImage（无图标时 unwrap_or_default）+ 6px spacing，把文字右推
+/// 22px——hover 高亮框内文字明显偏右（原生 GTK 探针对比：muda 结构 30/8，
+/// 原生对称 8/8）。image.hide() 无效（GtkBox 仍给隐藏子控件留位），必须把
+/// 空图从 Box 中 remove（探针验证回到 8/8）。仅摘除无 pixbuf 的空图，带图标
+/// 项不受影响；只处理菜单栏（弹窗项 muda 已用 margin-left:-22px 自行补偿）。
+/// 每次 set_menu/建新窗口后都要重跑（menubar 控件树是重建的）。
+#[cfg(target_os = "linux")]
+pub(crate) fn strip_menubar_icon_placeholders(app: &tauri::AppHandle) {
+    for window in app.webview_windows().values() {
+        if let Ok(gtk_window) = window.gtk_window() {
+            use gtk::prelude::Cast;
+            strip_menubar_icons_in(&gtk_window.upcast::<gtk::Widget>());
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn strip_menubar_icons_in(widget: &gtk::Widget) {
+    use gtk::prelude::*;
+    if let Ok(menubar) = widget.clone().downcast::<gtk::MenuBar>() {
+        for child in menubar.children() {
+            let Ok(item) = child.downcast::<gtk::MenuItem>() else {
+                continue;
+            };
+            let Some(box_widget) = item.child() else {
+                continue;
+            };
+            let Ok(bx) = box_widget.downcast::<gtk::Box>() else {
+                continue;
+            };
+            for kid in bx.children() {
+                if let Ok(image) = kid.clone().downcast::<gtk::Image>() {
+                    if image.pixbuf().is_none() {
+                        bx.remove(&image);
+                    }
+                }
+            }
+        }
+        return;
+    }
+    if let Ok(container) = widget.clone().downcast::<gtk::Container>() {
+        for child in container.children() {
+            strip_menubar_icons_in(&child);
+        }
+    }
+}
+
 /// 递归查找菜单项（tauri 的 Menu::get 只查顶层直接子项，子菜单内的项必须递归）
 fn find_menu_item<R: tauri::Runtime>(
     items: Vec<tauri::menu::MenuItemKind<R>>,
@@ -607,6 +699,9 @@ fn rebuild_menu(
 ) -> Result<(), String> {
     let native_menu = menu::build_menu(&app, &lang, &recent_files).map_err(|e| e.to_string())?;
     app.set_menu(native_menu).map_err(|e| e.to_string())?;
+    // Linux：set_menu 重建了 menubar 控件树，空图标占位需要重新摘除
+    #[cfg(target_os = "linux")]
+    strip_menubar_icon_placeholders(&app);
     log::info!(
         "[menu] Menu rebuilt by {} (lang={}, recent={})",
         window.label(),
@@ -1017,6 +1112,27 @@ pub fn run() {
             app.set_menu(native_menu)?;
             log::info!("[menu] Native menu installed");
 
+            // Linux：关闭原生窗口装饰（frameless）。X11 下 KWin SSD 标题栏 +
+            // GTK 菜单栏 + 应用工具栏三条堆叠，顶部过厚；去掉系统标题栏后由
+            // 前端工具栏自绘标题栏（居中标题 + 拖拽区 + 窗口控制按钮），
+            // 窗口缩放由前端 startResizeDragging 边缘手柄实现。菜单栏保留
+            // （桌面端快捷键全部由原生菜单 accelerator 驱动，不能动）。
+            // 新文档窗口同款处理见 window_router::create_document_window。
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = window.set_decorations(false) {
+                    log::warn!("[window] Failed to disable decorations: {}", e);
+                }
+            }
+
+            // Linux/deepin：菜单弹窗文字偏高的 padding 补偿（详见函数注释）
+            #[cfg(target_os = "linux")]
+            fix_deepin_menuitem_alignment();
+
+            // Linux：摘除菜单栏项的空图标占位（文字右偏修复，详见函数注释）
+            #[cfg(target_os = "linux")]
+            strip_menubar_icon_placeholders(app.handle());
+
             // macOS Dock 右键菜单（前端 rebuild_menu 时同步重建）
             #[cfg(target_os = "macos")]
             dock_menu::install(app.handle());
@@ -1039,6 +1155,7 @@ pub fn run() {
             pdf::export_pdf_file,
             site_export::export_site,
             rebuild_menu,
+            quit_app,
             set_menu_item_enabled,
             set_menu_item_checked,
             update_dock_menu,

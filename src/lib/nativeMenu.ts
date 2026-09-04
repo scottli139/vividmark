@@ -161,6 +161,20 @@ export async function handleMenuAction(id: string): Promise<void> {
     case 'settings':
       store.setSettingsOpen(true)
       break
+    // 以下三项仅 Linux 菜单（muda GTK 不支持对应预定义项，见 menu.rs）
+    case 'window:minimize':
+      await getCurrentWindow().minimize()
+      break
+    case 'window:maximize':
+      await getCurrentWindow().toggleMaximize()
+      break
+    case 'view:fullscreen':
+      await getCurrentWindow().setFullscreen(!(await getCurrentWindow().isFullscreen()))
+      break
+    case 'file:exit':
+      // 逐窗口 close（各窗口 CloseRequested 脏确认），见 Rust quit_app
+      await invoke('quit_app')
+      break
     default:
       // predefined 项（cut/copy/paste/about 等）由系统处理，无需前端动作
       break

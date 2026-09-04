@@ -78,6 +78,15 @@ struct Labels {
     theme_dark: &'static str,
     theme_system: &'static str,
     window: &'static str,
+    // 仅 Linux 使用：GTK 后端不支持 Minimize/Maximize/Quit/Fullscreen 预定义项
+    // （muda 0.17 gtk is_item_supported 仅放行 Separator/剪贴板四件/About，
+    // 其余静默丢弃），改用自定义项经 native-menu-event 分发
+    #[allow(dead_code)]
+    window_minimize: &'static str,
+    #[allow(dead_code)]
+    window_maximize: &'static str,
+    #[allow(dead_code)]
+    fullscreen: &'static str,
     // 仅 macOS 文件菜单使用
     #[allow(dead_code)]
     close_window: &'static str,
@@ -145,6 +154,9 @@ fn labels(lang: &str) -> Labels {
             theme_dark: "深色",
             theme_system: "跟随系统",
             window: "窗口",
+            window_minimize: "最小化",
+            window_maximize: "最大化",
+            fullscreen: "全屏",
             close_window: "关闭窗口",
             help: "帮助",
             exit: "退出",
@@ -212,6 +224,9 @@ fn labels(lang: &str) -> Labels {
             theme_dark: "Dark",
             theme_system: "System",
             window: "Window",
+            window_minimize: "Minimize",
+            window_maximize: "Maximize",
+            fullscreen: "Fullscreen",
             close_window: "Close Window",
             help: "Help",
             exit: "Exit",
@@ -475,7 +490,12 @@ fn sidebar_tab_accel(key: &'static str) -> Option<&'static str> {
 /// 视图模式加速器用 CmdOrCtrl+Alt+1~4；实际大小用 ⇧⌘0（⌘0 让位给段落菜单的「正文」）
 fn view_submenu<R: Runtime>(app: &AppHandle<R>, l: &Labels) -> tauri::Result<Submenu<R>> {
     let theme = theme_submenu(app, l)?;
-    Submenu::with_items(
+    // GTK 不支持 Fullscreen 预定义项（静默丢弃），Linux 用自定义项
+    #[cfg(target_os = "linux")]
+    let fullscreen = MenuItem::with_id(app, "view:fullscreen", l.fullscreen, true, Some("F11"))?;
+    #[cfg(not(target_os = "linux"))]
+    let fullscreen = PredefinedMenuItem::fullscreen(app, None)?;
+    return Submenu::with_items(
         app,
         l.view,
         true,
@@ -549,9 +569,24 @@ fn view_submenu<R: Runtime>(app: &AppHandle<R>, l: &Labels) -> tauri::Result<Sub
             &PredefinedMenuItem::separator(app)?,
             &theme,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::fullscreen(app, None)?,
+            &fullscreen,
         ],
     )
+}
+
+/// About 元数据。GTK AboutDialog 缺省回退二进制名（vividmark.bin）且无图标，
+/// 必须显式给名称/图标；版本取 Cargo.toml（三处版本号同步约定）。
+fn about_metadata() -> AboutMetadata<'static> {
+    AboutMetadata {
+        name: Some("VividMark".to_string()),
+        version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        copyright: Some("Copyright © 2025 Scott Li".to_string()),
+        license: Some("MIT License".to_string()),
+        website: Some("https://github.com/scottli139/vividmark".to_string()),
+        website_label: Some("GitHub".to_string()),
+        icon: tauri::image::Image::from_bytes(include_bytes!("../icons/128x128.png")).ok(),
+        ..Default::default()
+    }
 }
 
 /// 构建完整菜单。macOS 带 App 菜单（About/Settings/Services/Hide/Quit）；
@@ -567,6 +602,20 @@ pub fn build_menu<R: Runtime>(
     let paragraph = paragraph_submenu(app, &l)?;
     let format = format_submenu(app, &l)?;
     let view = view_submenu(app, &l)?;
+    // 窗口菜单：macOS/Windows 用预定义 Minimize/Maximize（muda 原生处理）；
+    // GTK 后端对这些预定义项静默丢弃（见上 Labels 注释），Linux 用自定义项，
+    // 点击经 native-menu-event → 前端 window:minimize / window:maximize 分发
+    #[cfg(target_os = "linux")]
+    let window = Submenu::with_items(
+        app,
+        l.window,
+        true,
+        &[
+            &MenuItem::with_id(app, "window:minimize", l.window_minimize, true, None::<&str>)?,
+            &MenuItem::with_id(app, "window:maximize", l.window_maximize, true, None::<&str>)?,
+        ],
+    )?;
+    #[cfg(not(target_os = "linux"))]
     let window = Submenu::with_items(
         app,
         l.window,
@@ -584,7 +633,7 @@ pub fn build_menu<R: Runtime>(
             "VividMark",
             true,
             &[
-                &PredefinedMenuItem::about(app, Some(l.about), Some(AboutMetadata::default()))?,
+                &PredefinedMenuItem::about(app, Some(l.about), Some(about_metadata()))?,
                 &PredefinedMenuItem::separator(app)?,
                 &MenuItem::with_id(app, "settings", l.settings, true, Some("CmdOrCtrl+,"))?,
                 &PredefinedMenuItem::separator(app)?,
@@ -619,6 +668,10 @@ pub fn build_menu<R: Runtime>(
         let sep1 = PredefinedMenuItem::separator(app)?;
         let settings = MenuItem::with_id(app, "settings", l.settings, true, Some("CmdOrCtrl+,"))?;
         let sep2 = PredefinedMenuItem::separator(app)?;
+        // GTK 不支持 Quit 预定义项（静默丢弃），Linux 用自定义项 → quit_app 命令
+        #[cfg(target_os = "linux")]
+        let quit = MenuItem::with_id(app, "file:exit", l.exit, true, Some("CmdOrCtrl+Q"))?;
+        #[cfg(not(target_os = "linux"))]
         let quit = PredefinedMenuItem::quit(app, Some(l.exit))?;
         file_refs.push(&sep1);
         file_refs.push(&settings);
@@ -632,7 +685,7 @@ pub fn build_menu<R: Runtime>(
             &[&PredefinedMenuItem::about(
                 app,
                 Some(l.about),
-                Some(AboutMetadata::default()),
+                Some(about_metadata()),
             )?],
         )?;
         Menu::with_items(

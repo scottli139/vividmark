@@ -105,9 +105,20 @@ pub fn create_document_window(app: &AppHandle, path: Option<String>) -> Result<S
             )));
     }
 
+    // Linux：与主窗口一致，无边框（前端自绘标题栏，见 lib.rs setup）
+    #[cfg(target_os = "linux")]
+    {
+        builder = builder.decorations(false);
+    }
+
     builder
         .build()
         .map_err(|e| format!("failed to create window: {}", e))?;
+
+    // Linux：新窗口的 app 菜单在建窗时同步挂入（menubar 控件树随之创建），
+    // 空图标占位修复需要对每个新窗口重跑
+    #[cfg(target_os = "linux")]
+    crate::strip_menubar_icon_placeholders(app);
 
     if let Some(p) = path {
         startup_open_files()

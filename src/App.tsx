@@ -15,6 +15,7 @@ import { initFileWatcher } from './lib/fileWatcher'
 import { Dialog } from './components/Dialog'
 import { ImageLightbox } from './components/ImageLightbox'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
+import { WindowResizeHandles } from './components/WindowResizeHandles'
 import { isMacOSDesktop } from './lib/platform'
 import './styles/globals.css'
 
@@ -77,7 +78,7 @@ function App() {
   useAutoSave()
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-[var(--editor-bg)] text-[var(--editor-text)]">
+    <div className="h-screen flex flex-col overflow-hidden relative bg-[var(--editor-bg)] text-[var(--editor-text)]">
       <Toolbar />
       <div className="flex-1 flex overflow-hidden relative">
         <Sidebar />
@@ -112,6 +113,8 @@ function App() {
       <Dialog />
       <SettingsDialog />
       <ImageLightbox />
+      {/* Linux 无边框窗口的边缘缩放手柄（其他平台不渲染） */}
+      <WindowResizeHandles />
     </div>
   )
 }
