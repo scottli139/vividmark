@@ -66,7 +66,9 @@ printf '[source.crates-io]\nreplace-with = "rsproxy-sparse"\n[source.rsproxy-spa
 cd /project
 export CI=true  # 无 TTY，允许 pnpm 直接重建 node_modules
 # npm 全局安装默认读 PREFIX 环境变量，会污染玲珑包目录，显式指定独立前缀
-npm install -g --prefix /opt/npm-global pnpm --registry=https://registry.npmmirror.com --force
+# 锁定 pnpm 10（与 release.yml 的 pnpm/action-setup version: 10 一致）：
+# 裸装 latest（如 pnpm 12）CLI 参数不兼容（--fetch-retries 已移除）且 allowBuilds 行为可能变
+npm install -g --prefix /opt/npm-global pnpm@10 --registry=https://registry.npmmirror.com --force
 export PATH=/opt/npm-global/bin:$PATH
 pnpm config set registry https://registry.npmmirror.com
 pnpm install --fetch-retries=5 --fetch-timeout=300000
