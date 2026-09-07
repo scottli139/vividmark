@@ -1116,6 +1116,10 @@ pub fn run() {
 
             log::info!("[VividMark] Application started successfully");
 
+            // 记录主线程 id：Windows 上从 IPC worker 线程建窗会挂起 WebView2 控制器
+            // 创建（wry#583），window_router 建窗需按此分流到主线程（详见函数注释）
+            window_router::mark_main_thread();
+
             // 安装系统原生菜单（初始英文 + 空最近文件；前端启动后按持久化状态重建）。
             // Windows 不挂：无边框窗口不绘制菜单栏，菜单由前端自绘（Toolbar 内
             // MenuBar 组件），快捷键由 useKeyboardShortcuts 全量接管。

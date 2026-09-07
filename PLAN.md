@@ -240,7 +240,7 @@ logger.error('Failed to sync:', error)
 - [x] macOS 融合标题栏 ✅（Overlay + hiddenTitle + 自绘居中标题）
 - [x] 右键菜单 ✅（自绘 ContextMenu；文件树 + 编辑器三区域 Source/WYSIWYG/Preview 已接入，WYSIWYG 上下文感知：表格行列增删/链接/图片/代码块；不依赖原生菜单）
 - [x] 原生菜单 ✅（macOS App/File/Edit/View/Window 菜单栏，Windows/Linux 适配布局；2026-08-05）
-- [x] Windows 无边框 + 自绘菜单栏 ✅（2026-09-04：去系统标题栏+原生菜单栏，MenuBar 嵌 Toolbar 单行；快捷键由 useKeyboardShortcuts 全量接管；附带修复原生菜单语言停在英文的焦点门控 bug，惠及 macOS/Linux）
+- [x] Windows 无边框 + 自绘菜单栏 ✅（2026-09-04：去系统标题栏+原生菜单栏，MenuBar 嵌 Toolbar 单行；快捷键由 useKeyboardShortcuts 全量接管；附带修复原生菜单语言停在英文的焦点门控 bug，惠及 macOS/Linux；**0.9.1 hotfix（2026-09-07）**：建窗命令转 `#[tauri::command(async)]`，修复同步命令在主线程创建 WebView2 窗口的自死锁——此前 Ctrl+N/最近文件触发新窗口后留下透明僵尸窗口致 app 假死）
 - [x] 多窗口 + 会话恢复（Typora 式 SDI；2026-08-13 方向调整替代原多标签页方案，多窗口当日落地 ✅；会话恢复留二期）
 - [x] 主题系统（部分）✅ - 亮/暗/跟随系统三态 + 控件颜色收编 CSS 变量（CSS 主题包/自定义主题未做）
 - [ ] 专注模式 / 打字机模式
@@ -316,6 +316,7 @@ logger.error('Failed to sync:', error)
 - **Split 模式同步滚动精准化** - 当前基于百分比，内容长度差异大时不精准；可考虑基于 heading/段落位置或 caret 位置的智能同步、灵敏度调节
 - **Admonitions 增强** - `??? note` 可折叠语法（已发 good first issue #4）；嵌套支持
 - **菜单键盘导航** - 菜单原语（MenuPanel/MenuBar/Dropdown/ContextMenu）统一补方向键导航与 Alt 助记符（2026-09-04 自绘菜单栏落地后显性化）
+- **新窗口白闪过渡** - Windows 新建窗口先全白再渲染内容（WebView2 默认白底 + 页面加载前的窗口底色）；可让前端调 `open_in_new_window` 时带上当前主题背景色，建窗时设置窗口/WebView2 背景色（0.9.1 用户实测反馈）
 
 ### 工程化
 

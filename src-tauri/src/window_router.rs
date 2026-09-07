@@ -82,13 +82,20 @@ pub fn emit_to_focused(app: &AppHandle, event: &str, payload: &str) {
 
 // ==================== 新窗口创建 ====================
 
-/// 创建文档窗口（选项与 tauri.conf.json 的主窗口配置保持一致；macOS 融合标题栏
-/// 三项按平台门控）。path 非空时写入启动待打开队列。
-pub fn create_document_window(app: &AppHandle, path: Option<String>) -> Result<String, String> {
-    let label = format!("doc-{}", WINDOW_COUNTER.fetch_add(1, Ordering::Relaxed));
+static MAIN_THREAD_ID: OnceLock<std::thread::ThreadId> = OnceLock::new();
 
+/// 在 setup（主线程）记录主线程 id：macOS/Linux 建窗必须在主线程，
+/// create_document_window 据此决定直接建还是 run_on_main_thread 派发
+pub fn mark_main_thread() {
+    let _ = MAIN_THREAD_ID.set(std::thread::current().id());
+}
+
+/// 窗口构建器（选项与 tauri.conf.json 的主窗口配置保持一致；macOS 融合标题栏
+/// 三项按平台门控）。builder 生命周期绑定 app 引用，故 Windows 的 with_webview
+/// 路径必须在闭包内重新构造（builder 无法 'static 化移入闭包）。
+fn base_builder<'a>(app: &'a AppHandle, label: &str) -> WebviewWindowBuilder<'a, tauri::Wry, AppHandle> {
     #[allow(unused_mut)]
-    let mut builder = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html".into()))
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App("index.html".into()))
         .title("VividMark")
         .inner_size(1200.0, 800.0)
         .min_inner_size(600.0, 400.0)
@@ -105,15 +112,71 @@ pub fn create_document_window(app: &AppHandle, path: Option<String>) -> Result<S
             )));
     }
 
-    // Linux/Windows：与主窗口一致，无边框（前端自绘标题栏，见 lib.rs setup）
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    // Linux：与主窗口一致，建窗时即无边框（前端自绘标题栏，见 lib.rs setup）。
+    // Windows 不这么干——见 build_document_window 的 set_decorations 注释。
+    #[cfg(target_os = "linux")]
     {
         builder = builder.decorations(false);
     }
 
     builder
+}
+
+/// 实际建窗。Windows 调用方必须在**非主线程**（async 命令的 runtime worker）：
+/// 主线程事件循环运转后，主线程上 build() 会自死锁（WebView2 创建的完成回调
+/// 要由事件循环处理，而它被 build() 自身阻塞——wry#583 家族，0.9.0 实测
+/// 「新建窗口后 app 假死、窗口无法关闭」）。worker 线程上 wry 的 wait_with_pump
+/// 能正常收到完成回调（Tauri 文档要求建窗命令必须 async 的原因）。
+/// macOS/Linux 相反：必须在主线程（AppKit/GTK 线程亲和），由调用方保证。
+fn build_document_window(app: &AppHandle, label: &str) -> Result<WebviewWindow, String> {
+    let window = base_builder(app, label)
         .build()
         .map_err(|e| format!("failed to create window: {}", e))?;
+
+    // Windows：与主窗口同款「build 成功后 set_decorations(false)」，保持窗口形态一致
+    #[cfg(target_os = "windows")]
+    if let Err(e) = window.set_decorations(false) {
+        log::warn!(
+            "[window-router] Failed to disable decorations on {}: {}",
+            label,
+            e
+        );
+    }
+
+    Ok(window)
+}
+
+/// 创建文档窗口。path 非空时写入启动待打开队列。
+///
+/// 线程模型（按平台分流，见 build_document_window 注释）：
+/// - Windows：直接在当前线程建——**调用链必须是 async 命令（worker 线程）**，
+///   见 open_in_new_window / route_open 的 `#[tauri::command(async)]`；
+/// - macOS/Linux：必须主线程——调用点已在主线程（macOS RunEvent::Opened）直接建；
+///   否则（async 命令的 worker）run_on_main_thread 派发 + channel 等结果，
+///   此时主事件循环空闲，无自死锁。
+pub fn create_document_window(app: &AppHandle, path: Option<String>) -> Result<String, String> {
+    let label = format!("doc-{}", WINDOW_COUNTER.fetch_add(1, Ordering::Relaxed));
+
+    #[cfg(target_os = "windows")]
+    build_document_window(app, &label)?;
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let on_main_thread = MAIN_THREAD_ID.get() == Some(&std::thread::current().id());
+        if on_main_thread {
+            build_document_window(app, &label)?;
+        } else {
+            let (tx, rx) = std::sync::mpsc::channel::<Result<WebviewWindow, String>>();
+            let app_handle = app.clone();
+            let label_clone = label.clone();
+            app.run_on_main_thread(move || {
+                let _ = tx.send(build_document_window(&app_handle, &label_clone));
+            })
+            .map_err(|e| format!("failed to dispatch window creation to main thread: {}", e))?;
+            rx.recv()
+                .map_err(|_| "window creation channel closed unexpectedly".to_string())??;
+        }
+    }
 
     // Linux：新窗口的 app 菜单在建窗时同步挂入（menubar 控件树随之创建），
     // 空图标占位修复需要对每个新窗口重跑
@@ -240,14 +303,22 @@ pub fn report_window_state(window: WebviewWindow, path: Option<String>, dirty: b
         .insert(window.label().to_string(), WindowDocState { path, dirty });
 }
 
-/// 新建文档窗口（file-new：path=None 打开空文档）
-#[tauri::command]
+/// 新建文档窗口（file-new：path=None 打开空文档）。
+/// **必须 async**：同步命令在主线程执行，主线程 build() 会自死锁
+/// （见 build_document_window 注释）；async 后 Tauri 在 runtime worker 线程执行。
+#[tauri::command(async)]
 pub fn open_in_new_window(app: AppHandle, path: Option<String>) -> Result<String, String> {
-    create_document_window(&app, path)
+    let result = create_document_window(&app, path);
+    // 失败时前端只在 webview 控制台可见（release 不可见），落文件日志便于诊断
+    if let Err(e) = &result {
+        log::error!("[window-router] open_in_new_window failed: {}", e);
+    }
+    result
 }
 
-/// 前端智能打开（file-open 对话框 / 最近文件 / 侧栏最近文件）：经路由决策
-#[tauri::command]
+/// 前端智能打开（file-open 对话框 / 最近文件 / 侧栏最近文件）：经路由决策。
+/// async 的原因同 open_in_new_window（新建窗口分支会在 worker 线程建窗）。
+#[tauri::command(async)]
 pub fn route_open(app: AppHandle, window: WebviewWindow, paths: Vec<String>) {
     route_open_paths(&app, &paths, Some(window.label().to_string()));
 }
