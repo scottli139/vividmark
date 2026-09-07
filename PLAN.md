@@ -284,7 +284,7 @@ logger.error('Failed to sync:', error)
 - [x] **格式能力补齐** ✅：FormatType 增加 h4-h6/ol/paragraph（CM 纯函数 + Milkdown 双端实现），原生菜单/右键菜单/快捷键三入口同源
 - [x] **工具栏二轮精简** ✅：只留侧边栏切换/撤销重做/视图切换/暗色/⋮更多；文件操作与格式化入口全部由菜单+右键菜单+快捷键覆盖；表格/提示框对话框改由 `app-open-dialog` 事件触发
 - [x] **macOS Dock 右键菜单** ✅：objc2 运行时给 tao AppDelegate 追加 `applicationDockMenu:`（新建/打开/最近文件/清空），点击复用 native-menu-event 通道
-- [x] **文件关联（Open With）** ✅：`bundle.fileAssociations` 声明 md/markdown/mdown/mkd；`RunEvent::Opened` → 排队 + `file-open-request` 事件 → 前端打开（冷启动队列补偿）；仅打包安装后生效。**2026-09-07 补**：Windows/Linux argv 打开落地（setup `collect_argv_files()` → 同一路由），双击 .md 不再只显示欢迎页；单实例仍留二期
+- [x] **文件关联（Open With）** ✅：`bundle.fileAssociations` 声明 md/markdown/mdown/mkd；`RunEvent::Opened` → 排队 + `file-open-request` 事件 → 前端打开（冷启动队列补偿）；仅打包安装后生效。**2026-09-07 补**：Windows/Linux argv 打开落地（setup `collect_argv_files()` → 同一路由），双击 .md 不再只显示欢迎页；连带修复启动「先闪欢迎页再显示文件」（App 门控 Editor 挂载到 `initOpenWith` 完成——resolve 时启动队列已取走并打开完毕，欢迎页不再首帧渲染）；单实例仍留二期
 - [x] **侧边栏精致化** ✅：实心「打开文件夹」按钮、最近文件行 hover 底色/圆角/大图标、过滤框内嵌搜索图标、空态居中插画、大纲行 hover 底色、文件树选中态改 accent 淡底圆角行
 
 #### P6 — 极简工具栏与 macOS 窗口修复 ✅ (已完成，2026-08-14)

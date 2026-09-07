@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useEditorStore } from './stores/editorStore'
 import { Editor } from './components/Editor/Editor'
@@ -62,12 +62,18 @@ function App() {
   // 处理两次——多窗口下 open-recent 双调用会竞态建出重复窗口）。useRef 防重
   // 保证每次挂载周期只初始化一次；listener 生命周期跟随 webview 上下文，
   // 窗口销毁即释放，无需手动 cleanup。
+  //
+  // Editor 挂载门控：欢迎页是 store 初始 content，Editor 一挂载就渲染；
+  // initOpenWith resolve 时启动待打开队列已取走并完成打开（双击文件启动场景
+  // content 已是文件内容），此时再放行挂载，避免「先闪欢迎页再显示文件」。
+  // StrictMode 第二轮 effect 提前返回，状态由首轮 promise 补齐（setState 稳定）。
+  const [startupOpenChecked, setStartupOpenChecked] = useState(false)
   const tauriInitedRef = useRef(false)
   useEffect(() => {
     if (tauriInitedRef.current) return
     tauriInitedRef.current = true
     void initNativeMenu()
-    void initOpenWith()
+    void initOpenWith().finally(() => setStartupOpenChecked(true))
     void initWindowManager()
     void initFileWatcher()
   }, [])
@@ -83,9 +89,7 @@ function App() {
       <Toolbar />
       <div className="flex-1 flex overflow-hidden relative">
         <Sidebar />
-        <main className="flex-1 flex overflow-hidden">
-          <Editor />
-        </main>
+        <main className="flex-1 flex overflow-hidden">{startupOpenChecked && <Editor />}</main>
 
         {/* 拖放覆盖层 */}
         {isDragging && (
