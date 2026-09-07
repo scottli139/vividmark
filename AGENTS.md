@@ -34,6 +34,7 @@ Key features:
 | `docs/word-export-plan.md`                                         | Word（docx）导出可行性与实现方案（📋 方案待评审，pandoc 路线）                   |
 | `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（✅ 全部落地：mkdocs nav/docs_dir/exclude_docs/`!!!`；vuepress public/title best-effort）         |
 | `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（✅ 批次 1–5 全部落地：Alerts/脚注/frontmatter/Mermaid/排版批） |
+| `docs/tauri-evaluation.md`                                         | Tauri 框架选型评估报告（基于本项目实战的优势/成本/生态分析，供外部读者选型参考）            |
 | `CONTRIBUTING.md`（+ `.zh-CN`）                                    | 贡献指南：环境搭建、提交前检查链、PR 流程、AI 辅助贡献政策                       |
 | `linglong/README.md`                                               | 玲珑（Linglong）打包方案与踩坑记录（UOS 20 等老系统；构建入口 `linglong.yaml` + `linglong/build.sh`） |
 
