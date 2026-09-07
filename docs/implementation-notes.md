@@ -1489,7 +1489,7 @@ if (lang === 'typst') {
 ### 文件关联（Open With）
 
 - `tauri.conf.json` `bundle.fileAssociations`（md/markdown/mdown/mkd，role=Editor）→ 打包生成 macOS `CFBundleDocumentTypes`（Open With 列表出现，非默认 handler）、Windows 注册表项、Linux mime。**仅打包安装的 .app 生效**（LaunchServices 在安装/首次启动注册），`pnpm tauri:dev` 验证不了。
-- 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `route_open_paths` 窗口路由（聚焦/复用/新建；冷启动入 main 窗口的启动待打开队列）→ 前端 `src/lib/openWith.ts`；启动积压由 `take_startup_open_files` 命令按窗口 label 补取。Windows/Linux 是拉起新进程传 argv（无 Opened 事件），argv 打开未接（后续项，含单实例）。
+- 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `route_open_paths` 窗口路由（聚焦/复用/新建；冷启动入 main 窗口的启动待打开队列）→ 前端 `src/lib/openWith.ts`；启动积压由 `take_startup_open_files` 命令按窗口 label 补取。Windows/Linux 是拉起新进程传 argv（无 Opened 事件）：setup 里 `collect_argv_files()` 解析 argv（跳过 `-` 开关与不存在的路径）→ 同样走 `route_open_paths`（冷启动必中「main 未就绪→入启动队列」分支，不会触发新建窗口——Windows 主线程建窗自死锁，见 window_router）。**未接单实例**：app 运行中再双击文件会拉起第二个进程（各自独立窗口注册表，功能可用但无跨进程「已打开→聚焦」），后续项。
 - **平台门控坑（v0.2.3 CI 实踩）**：`RunEvent::Opened` 变体本身是 `#[cfg(any(target_os = "macos", target_os = "ios"))]`，Windows/Linux 编译直接 E0599——macOS 本机打包发现不了。事件分支与 `handle_opened_urls` 都需 `#[cfg(target_os = "macos")]` 门控（闭包参数改 `_app/_event` 避免其他平台 unused 警告）。新增平台专属 API 时先在 registry 源码确认其 cfg 条件。
 
 ### 2026-08-07 追加修复（右键误触 resize / 视图菜单混淆项）

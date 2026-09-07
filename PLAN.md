@@ -284,7 +284,7 @@ logger.error('Failed to sync:', error)
 - [x] **格式能力补齐** ✅：FormatType 增加 h4-h6/ol/paragraph（CM 纯函数 + Milkdown 双端实现），原生菜单/右键菜单/快捷键三入口同源
 - [x] **工具栏二轮精简** ✅：只留侧边栏切换/撤销重做/视图切换/暗色/⋮更多；文件操作与格式化入口全部由菜单+右键菜单+快捷键覆盖；表格/提示框对话框改由 `app-open-dialog` 事件触发
 - [x] **macOS Dock 右键菜单** ✅：objc2 运行时给 tao AppDelegate 追加 `applicationDockMenu:`（新建/打开/最近文件/清空），点击复用 native-menu-event 通道
-- [x] **文件关联（Open With）** ✅：`bundle.fileAssociations` 声明 md/markdown/mdown/mkd；`RunEvent::Opened` → 排队 + `file-open-request` 事件 → 前端打开（冷启动队列补偿）；仅打包安装后生效
+- [x] **文件关联（Open With）** ✅：`bundle.fileAssociations` 声明 md/markdown/mdown/mkd；`RunEvent::Opened` → 排队 + `file-open-request` 事件 → 前端打开（冷启动队列补偿）；仅打包安装后生效。**2026-09-07 补**：Windows/Linux argv 打开落地（setup `collect_argv_files()` → 同一路由），双击 .md 不再只显示欢迎页；单实例仍留二期
 - [x] **侧边栏精致化** ✅：实心「打开文件夹」按钮、最近文件行 hover 底色/圆角/大图标、过滤框内嵌搜索图标、空态居中插画、大纲行 hover 底色、文件树选中态改 accent 淡底圆角行
 
 #### P6 — 极简工具栏与 macOS 窗口修复 ✅ (已完成，2026-08-14)
@@ -305,7 +305,7 @@ logger.error('Failed to sync:', error)
 
 - **Word 导出**（Phase 6 / FR-040.4；pandoc 路线 PoC 已验证——方案 `docs/word-export-plan.md`；`wordPreprocess` 语法映射需覆盖已落地的全部语法批次）
 - **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条（插入入口需覆盖新语法）、`@startuml` 裸行内形态支持（当前显示为源码文本，渲染仅 Source/Preview/Split）
-- **多窗口会话恢复** - 重启后重开窗口组（多窗口二期项，含 Windows/Linux 单实例 + argv 文件关联）
+- **多窗口会话恢复** - 重启后重开窗口组（多窗口二期项，含 Windows/Linux 单实例——运行中双击文件应转发给已运行进程而非另起进程；argv 文件关联已落地）
 - **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3；语法面已定型，可梳理覆盖面）
 - **专注模式 / 打字机模式**（Phase 13 P3）
 - **导出 HTML**（Phase 6 / FR-040.2/.3；已发 good first issue #5）

@@ -1055,6 +1055,23 @@ fn handle_opened_urls(app: &tauri::AppHandle, urls: Vec<tauri::Url>) {
     window_router::route_open_paths(app, &paths, None);
 }
 
+/// 解析启动 argv 中的文件路径（Windows/Linux 文件关联：Explorer 双击/「打开方式」
+/// 以文件路径为 argv 拉起新进程，无 RunEvent::Opened）。跳过命令行开关与不存在的
+/// 路径；目录不接（「打开文件夹」语义不同，双击场景只会传文件）。
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+fn collect_argv_files() -> Vec<String> {
+    std::env::args_os()
+        .skip(1) // argv[0] = 可执行文件自身
+        .filter_map(|arg| {
+            let path = std::path::PathBuf::from(arg);
+            if path.to_string_lossy().starts_with('-') || !path.is_file() {
+                return None;
+            }
+            Some(path.to_string_lossy().to_string())
+        })
+        .collect()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1119,6 +1136,19 @@ pub fn run() {
             // 记录主线程 id：Windows 上从 IPC worker 线程建窗会挂起 WebView2 控制器
             // 创建（wry#583），window_router 建窗需按此分流到主线程（详见函数注释）
             window_router::mark_main_thread();
+
+            // Windows/Linux 文件关联冷启动：双击 .md 以 argv 传路径（见 collect_argv_files）。
+            // 此刻 main 前端未就绪，route_open_paths 走「main 启动队列」分支入队，
+            // 前端 initOpenWith 就绪后经 take_startup_open_files 取走打开——不会触发
+            // 新建窗口分支（Windows 主线程建窗会自死锁，见 window_router）。
+            #[cfg(any(target_os = "windows", target_os = "linux"))]
+            {
+                let argv_files = collect_argv_files();
+                if !argv_files.is_empty() {
+                    log::info!("[open-with] Startup argv files: {:?}", argv_files);
+                    window_router::route_open_paths(app.handle(), &argv_files, None);
+                }
+            }
 
             // 安装系统原生菜单（初始英文 + 空最近文件；前端启动后按持久化状态重建）。
             // Windows 不挂：无边框窗口不绘制菜单栏，菜单由前端自绘（Toolbar 内
@@ -1188,7 +1218,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, _event| {
-            // macOS Finder「打开方式」/ 双击关联文件（Windows/Linux 走 argv，暂不支持）
+            // macOS Finder「打开方式」/ 双击关联文件（Windows/Linux 走 argv，见 setup 的 collect_argv_files）
             // RunEvent::Opened 仅 macOS/iOS 存在，其他平台编译时整段剔除
             #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Opened { urls } = _event {
