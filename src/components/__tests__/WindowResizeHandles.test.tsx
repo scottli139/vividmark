@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, fireEvent, waitFor } from '@testing-library/react'
 import { WindowResizeHandles } from '../WindowResizeHandles'
-import { isLinuxDesktop } from '../../lib/platform'
+import { isLinuxDesktop, isWindowsDesktop } from '../../lib/platform'
 
 const mockWindow = vi.hoisted(() => ({
   startResizeDragging: vi.fn().mockResolvedValue(undefined),
@@ -15,20 +15,24 @@ vi.mock('@tauri-apps/api/window', () => ({
 
 vi.mock('../../lib/platform', () => ({
   isLinuxDesktop: vi.fn(),
+  isWindowsDesktop: vi.fn(),
 }))
 
 const mockIsLinuxDesktop = vi.mocked(isLinuxDesktop)
+const mockIsWindowsDesktop = vi.mocked(isWindowsDesktop)
 
 describe('WindowResizeHandles', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsLinuxDesktop.mockReturnValue(true)
+    mockIsWindowsDesktop.mockReturnValue(false)
     mockWindow.isMaximized.mockResolvedValue(false)
     mockWindow.onResized.mockResolvedValue(vi.fn())
   })
 
-  it('renders nothing on non-Linux-desktop platforms', () => {
+  it('renders nothing on platforms with native window chrome', () => {
     mockIsLinuxDesktop.mockReturnValue(false)
+    mockIsWindowsDesktop.mockReturnValue(false)
     const { container } = render(<WindowResizeHandles />)
     expect(container).toBeEmptyDOMElement()
   })
@@ -50,6 +54,13 @@ describe('WindowResizeHandles', () => {
         'SouthWest',
       ])
     )
+  })
+
+  it('renders handles on Windows desktop too (frameless)', () => {
+    mockIsLinuxDesktop.mockReturnValue(false)
+    mockIsWindowsDesktop.mockReturnValue(true)
+    const { container } = render(<WindowResizeHandles />)
+    expect(container.querySelectorAll('[data-resize-direction]')).toHaveLength(8)
   })
 
   it('starts resize dragging with the handle direction on left mousedown', () => {

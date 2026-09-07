@@ -479,6 +479,36 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
       openSearchPanel(view)
       focusIfEditing()
     }
+    // 自绘菜单栏（Windows/浏览器）的剪贴板动作，与右键菜单同一实现
+    const handleCutEvent = () => {
+      if (!isActive()) return
+      const { from, to, empty } = view.state.selection.main
+      if (!empty) {
+        void writeClipboardText(view.state.sliceDoc(from, to))
+        view.dispatch(view.state.replaceSelection(''))
+      }
+      focusIfEditing()
+    }
+    const handleCopyEvent = () => {
+      if (!isActive()) return
+      const { from, to, empty } = view.state.selection.main
+      if (!empty) void writeClipboardText(view.state.sliceDoc(from, to))
+      focusIfEditing()
+    }
+    const handlePasteEvent = () => {
+      if (!isActive()) return
+      void readClipboardText().then((text) => {
+        if (text) {
+          view.dispatch(view.state.replaceSelection(text))
+          view.focus()
+        }
+      })
+    }
+    const handleSelectAllEvent = () => {
+      if (!isActive()) return
+      view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } })
+      focusIfEditing()
+    }
 
     window.addEventListener('editor-format', handleFormatEvent)
     window.addEventListener('editor-insert', handleInsertEvent)
@@ -486,6 +516,10 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
     window.addEventListener('editor-redo', handleRedoEvent)
     window.addEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
     window.addEventListener('editor-find', handleFindEvent)
+    window.addEventListener('editor-cut', handleCutEvent)
+    window.addEventListener('editor-copy', handleCopyEvent)
+    window.addEventListener('editor-paste', handlePasteEvent)
+    window.addEventListener('editor-select-all', handleSelectAllEvent)
 
     return () => {
       scroller.removeEventListener('scroll', handleScroll)
@@ -495,6 +529,10 @@ function CodeMirrorEditorView({ onScroll, viewRef }: CodeMirrorEditorProps) {
       window.removeEventListener('editor-redo', handleRedoEvent)
       window.removeEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
       window.removeEventListener('editor-find', handleFindEvent)
+      window.removeEventListener('editor-cut', handleCutEvent)
+      window.removeEventListener('editor-copy', handleCopyEvent)
+      window.removeEventListener('editor-paste', handlePasteEvent)
+      window.removeEventListener('editor-select-all', handleSelectAllEvent)
       view.destroy()
       editorViewRef.current = null
       if (viewRef) viewRef.current = null

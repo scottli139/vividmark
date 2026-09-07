@@ -56,6 +56,9 @@ export interface EditorState {
   // 设置面板（不持久化）
   isSettingsOpen: boolean
 
+  // About 对话框（不持久化；Windows/浏览器自绘菜单栏 Help ▸ About）
+  isAboutOpen: boolean
+
   // Actions
   setContent: (content: string) => void
   setFilePath: (path: string | null) => void
@@ -80,6 +83,7 @@ export interface EditorState {
   setLanguage: (lang: Language) => void
   setOpenedFolder: (path: string | null) => void
   setSettingsOpen: (open: boolean) => void
+  setAboutOpen: (open: boolean) => void
   resetDocument: (content?: string) => void
   setZoomLevel: (level: number) => void
   zoomIn: () => void
@@ -200,6 +204,7 @@ export const useEditorStore = create<EditorState>()(
       openedFolder: null,
       zoomLevel: 100,
       isSettingsOpen: false,
+      isAboutOpen: false,
 
       setContent: (content) => set({ content, isDirty: true }),
       setFilePath: (path) => set({ filePath: path }),
@@ -269,6 +274,7 @@ export const useEditorStore = create<EditorState>()(
       setLanguage: (lang: Language) => set({ language: lang }),
       setOpenedFolder: (path) => set({ openedFolder: path }),
       setSettingsOpen: (open) => set({ isSettingsOpen: open }),
+      setAboutOpen: (open) => set({ isAboutOpen: open }),
       resetDocument: (content?: string) =>
         set({
           content: content ?? '',

@@ -105,8 +105,8 @@ pub fn create_document_window(app: &AppHandle, path: Option<String>) -> Result<S
             )));
     }
 
-    // Linux：与主窗口一致，无边框（前端自绘标题栏，见 lib.rs setup）
-    #[cfg(target_os = "linux")]
+    // Linux/Windows：与主窗口一致，无边框（前端自绘标题栏，见 lib.rs setup）
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     {
         builder = builder.decorations(false);
     }

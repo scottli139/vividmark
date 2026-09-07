@@ -1,6 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 // 注意：mocks 必须先于 nativeMenu 导入，@tauri-apps/api 的 mock 才能先生效
-import { mockInvoke, mockListen } from '../../test/mocks/tauri'
+import {
+  mockInvoke,
+  mockListen,
+  mockIsFocused,
+  mockOnFocusChanged,
+  mockMinimize,
+  mockToggleMaximize,
+  mockSetFullscreen,
+  mockIsFullscreen,
+} from '../../test/mocks/tauri'
 import { handleMenuAction, initNativeMenu } from '../nativeMenu'
 import { useEditorStore } from '../../stores/editorStore'
 import { openFileSmart, saveFile, saveFileAs } from '../fileOps'
@@ -93,6 +102,10 @@ describe('nativeMenu handleMenuAction', () => {
       ['edit-undo', 'editor-undo'],
       ['edit-redo', 'editor-redo'],
       ['edit-find', 'editor-find'],
+      ['edit-cut', 'editor-cut'],
+      ['edit-copy', 'editor-copy'],
+      ['edit-paste', 'editor-paste'],
+      ['edit-select-all', 'editor-select-all'],
     ])('%s 派发 %s 事件', async (menuId, eventType) => {
       const spy = vi.spyOn(window, 'dispatchEvent')
       await handleMenuAction(menuId)
@@ -142,6 +155,30 @@ describe('nativeMenu handleMenuAction', () => {
     it('settings 打开设置面板', async () => {
       await handleMenuAction('settings')
       expect(useEditorStore.getState().isSettingsOpen).toBe(true)
+    })
+
+    it('help-about 打开 About 对话框（自绘菜单平替）', async () => {
+      useEditorStore.setState({ isAboutOpen: false })
+      await handleMenuAction('help-about')
+      expect(useEditorStore.getState().isAboutOpen).toBe(true)
+    })
+
+    it('window:minimize / window:maximize（Linux GTK + Windows 自绘菜单）', async () => {
+      await handleMenuAction('window:minimize')
+      expect(mockMinimize).toHaveBeenCalledOnce()
+      await handleMenuAction('window:maximize')
+      expect(mockToggleMaximize).toHaveBeenCalledOnce()
+    })
+
+    it('view:fullscreen 切换全屏', async () => {
+      mockIsFullscreen.mockResolvedValue(false)
+      await handleMenuAction('view:fullscreen')
+      expect(mockSetFullscreen).toHaveBeenCalledWith(true)
+    })
+
+    it('file:exit 走 quit_app（逐窗口脏确认关闭）', async () => {
+      await handleMenuAction('file:exit')
+      expect(mockInvoke).toHaveBeenCalledWith('quit_app')
     })
 
     it('未知 id（predefined 项）静默忽略', async () => {
@@ -373,6 +410,52 @@ describe('initNativeMenu 状态同步', () => {
         id: 'file-reveal',
         enabled: true,
       })
+    })
+    cleanup()
+  })
+})
+
+describe('initNativeMenu 平台门控与焦点补齐', () => {
+  const originalPlatform = navigator.platform
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // isTauri() 依赖 __TAURI_INTERNALS__
+    ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
+    mockInvoke.mockResolvedValue(null)
+    mockIsFocused.mockResolvedValue(true)
+    useEditorStore.setState({
+      viewMode: 'wysiwyg',
+      themeMode: 'system',
+      language: 'zh-CN',
+      recentFiles: [],
+    })
+  })
+
+  afterEach(() => {
+    Object.defineProperty(navigator, 'platform', { value: originalPlatform, writable: true })
+  })
+
+  it('Windows 桌面端整体跳过（无原生菜单可同步）', async () => {
+    Object.defineProperty(navigator, 'platform', { value: 'Win32', writable: true })
+    const cleanup = await initNativeMenu()
+    expect(mockListen).not.toHaveBeenCalled()
+    expect(mockInvoke).not.toHaveBeenCalledWith('rebuild_menu', expect.anything())
+    cleanup()
+  })
+
+  it('回归：启动时未聚焦 → 聚焦后补重建（菜单语言不停留在英文默认值）', async () => {
+    // 启动时序下 isFocused() 可能为 false（Windows 实测），初始重建被跳过；
+    // 聚焦时必须补一次 rebuildMenu（payload 取唯一值，避开模块级 lastRebuildKey 去重）
+    mockIsFocused.mockResolvedValue(false)
+    useEditorStore.setState({ language: 'zh-CN', recentFiles: [] })
+    const cleanup = await initNativeMenu()
+    expect(mockInvoke).not.toHaveBeenCalledWith('rebuild_menu', expect.anything())
+
+    const focusCb = mockOnFocusChanged.mock.calls[0]?.[0] as (e: { payload: boolean }) => void
+    focusCb({ payload: true })
+    await vi.waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledWith('rebuild_menu', { lang: 'zh-CN', recentFiles: [] })
     })
     cleanup()
   })

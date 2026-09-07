@@ -97,29 +97,36 @@ export function Editor() {
     [menu]
   )
 
-  // 全局快捷键监听（包括缩放）- 在 Preview 模式下也能使用
-  // 使用 getState() 避免闭包问题
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey
-      const store = useEditorStore.getState()
+  // 缩放快捷键已统一收口到 useKeyboardShortcuts（macOS/Linux 桌面端由原生菜单
+  // accelerator 拦截；Windows 桌面端/浏览器由该 hook 处理），此处不再重复监听，
+  // 否则 Windows/浏览器下 Ctrl+=/- 会双重缩放。
 
-      // 缩放快捷键（浏览器 dev/E2E 路径；桌面端这些键由原生菜单 accelerator 拦截）
-      // ⌘0 在桌面端是段落菜单的「正文」，浏览器无菜单占用故保留缩放重置；⇧⌘0 与桌面端一致
-      if (isMod && (e.code === 'Equal' || e.code === 'NumpadAdd')) {
-        e.preventDefault()
-        store.zoomIn()
-      } else if (isMod && (e.code === 'Minus' || e.code === 'NumpadSubtract')) {
-        e.preventDefault()
-        store.zoomOut()
-      } else if (isMod && (e.code === 'Digit0' || e.code === 'Numpad0')) {
-        e.preventDefault()
-        store.zoomReset()
+  // 自绘菜单栏（Windows/浏览器）的剪贴板动作 —— Preview 模式的 copy/select-all
+  // （cut/paste 对只读预览无意义；split 模式由 CodeMirrorEditor 处理）
+  useEffect(() => {
+    const isPreview = () => useEditorStore.getState().viewMode === 'preview'
+    const handleCopyEvent = () => {
+      if (!isPreview()) return
+      const text = window.getSelection()?.toString()
+      if (text) void writeClipboardText(text)
+    }
+    const handleSelectAllEvent = () => {
+      if (!isPreview()) return
+      const container = previewContainerRef.current
+      const selection = window.getSelection()
+      if (container && selection) {
+        const range = document.createRange()
+        range.selectNodeContents(container)
+        selection.removeAllRanges()
+        selection.addRange(range)
       }
     }
-
-    window.addEventListener('keydown', handleGlobalKeyDown)
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+    window.addEventListener('editor-copy', handleCopyEvent)
+    window.addEventListener('editor-select-all', handleSelectAllEvent)
+    return () => {
+      window.removeEventListener('editor-copy', handleCopyEvent)
+      window.removeEventListener('editor-select-all', handleSelectAllEvent)
+    }
   }, [])
 
   // 同步滚动状态

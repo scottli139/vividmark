@@ -27,3 +27,14 @@ export function isLinux(): boolean {
 export function isLinuxDesktop(): boolean {
   return isTauri() && isLinux()
 }
+
+// 是否为 Windows（UA 探测，浏览器/dev 环境同样可用）
+export function isWindows(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /win/i.test(navigator.platform) || /windows/i.test(navigator.userAgent)
+}
+
+// 是否为「Windows 上的 Tauri 桌面窗口」——无边框自绘标题栏 + 自绘菜单栏在此场景生效
+export function isWindowsDesktop(): boolean {
+  return isTauri() && isWindows()
+}

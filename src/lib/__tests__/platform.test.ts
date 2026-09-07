@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { isLinux, isLinuxDesktop, isMacOS } from '../platform'
+import { isLinux, isLinuxDesktop, isMacOS, isWindows, isWindowsDesktop } from '../platform'
 
 // setup.ts 把 navigator.platform mock 为 MacIntel（writable）；这里按需覆盖并恢复
 const originalPlatform = navigator.platform
@@ -65,6 +65,40 @@ describe('platform', () => {
       mockNavigator('MacIntel', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
       mockTauriRuntime(true)
       expect(isLinuxDesktop()).toBe(false)
+    })
+  })
+
+  describe('isWindows', () => {
+    it('returns true for Windows UA', () => {
+      mockNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+      expect(isWindows()).toBe(true)
+    })
+
+    it('returns false for macOS / Linux', () => {
+      mockNavigator('MacIntel', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
+      expect(isWindows()).toBe(false)
+      mockNavigator('Linux x86_64', 'Mozilla/5.0 (X11; Linux x86_64)')
+      expect(isWindows()).toBe(false)
+    })
+  })
+
+  describe('isWindowsDesktop', () => {
+    it('returns true only on Windows inside Tauri runtime', () => {
+      mockNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+      mockTauriRuntime(true)
+      expect(isWindowsDesktop()).toBe(true)
+    })
+
+    it('returns false on Windows in plain browser', () => {
+      mockNavigator('Win32', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+      mockTauriRuntime(false)
+      expect(isWindowsDesktop()).toBe(false)
+    })
+
+    it('returns false on macOS even inside Tauri runtime', () => {
+      mockNavigator('MacIntel', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)')
+      mockTauriRuntime(true)
+      expect(isWindowsDesktop()).toBe(false)
     })
   })
 })

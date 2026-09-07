@@ -106,6 +106,24 @@
 
 **验证**：玲珑包重建后真机截图确认——顶部只剩菜单栏 + 工具栏两条，居中标题、三按钮、拖拽移动、双击最大化、边缘缩放、F10 菜单均正常；窗口菜单两项可用、文件菜单有退出、弹窗文字居中。
 
+### Windows 顶部三条栏 → 无边框 + 自绘菜单栏（frameless + MenuBar）
+
+> ✅ 已解决（2026-09-04）：Windows 关闭窗口装饰并**移除原生菜单栏**，菜单/快捷键全部前端化。
+
+**现象**：Windows 桌面端顶部同样是三条——系统标题栏 + 原生菜单栏（Win32 经典样式恒白，深色主题下刺眼）+ 应用工具栏。附带两问题：原生菜单弹窗位置由 OS 决定（观感偏右，应用不可控）；菜单语言依赖 rebuild_menu 链路，启动时序下可能停在英文（见下「根因」）。
+
+**方案**（对标 VS Code / Typora-for-Windows 的 custom titlebar 惯例，单条 48px 工具栏容纳一切）：
+
+- **Rust**：主窗口（lib.rs setup）与新文档窗口（window_router）在 `any(linux, windows)` 下关装饰；**Windows 不挂应用菜单**（setup 的 `build_menu`/`set_menu` 包 `cfg(not(windows))`，`rebuild_menu` 命令 Windows no-op）。menu.rs 的构建函数仅 macOS/Linux 使用，模块顶部 `#![cfg_attr(target_os = "windows", allow(dead_code))]` 保留编译（`RecentFilePayload` 类型仍被 rebuild_menu 签名引用）。
+- **菜单栏**：`src/components/Menu/MenuBar.tsx` 嵌 Toolbar 左组（菜单按钮 + 点击开合 + 打开后 hover 平移切换 + Escape/外部点击关闭；下拉 MenuPanel 左缘与菜单项左缘对齐，位置精确可控）。渲染门控 `!isMacOSDesktop() && !isLinuxDesktop()`——**浏览器 dev/E2E 同样显示**（`e2e/menubar.spec.ts` 直接覆盖）。构建器 `src/lib/menuBar.ts` 纯函数：结构/id 对齐 menu.rs Windows 布局（File/Edit/Paragraph/Format/View/Window/Help），checked/disabled 响应式直读 store（甩开 set_menu_item_checked 命令式同步与多窗口焦点门控）；Open Recent 子菜单由 recentFiles 动态生成。点击复用 `handleMenuAction`；`initNativeMenu` 在 Windows 整体跳过。
+- **快捷键**：Windows 无原生菜单 → accelerator 不再被 OS 拦截，`useKeyboardShortcuts.ts` 扩展为全量表（键位与 menu.rs 对齐）。**防重入靠 `e.defaultPrevented` 守卫**：编辑器自家 keymap（CM Mod-F/Z、Milkdown Mod-B/I）先处理并 preventDefault，hook 跳过；编辑器不绑定的键（Ctrl+1~6 等）正常落到 hook。输入框内只放行非文本编辑类（文件/视图/设置/F11）。Editor.tsx 旧的窗口级 zoom 监听（Ctrl+=/-/0）已删除并入 hook（否则会双重缩放）。
+- **预定义项平替**（原生 Cut/Copy/Paste/About 等不再存在）：Edit 剪贴板四项 → `editor-cut/copy/paste/select-all` CustomEvent，三个编辑器各自监听并复用右键菜单实现（CM：selection.sliceDoc/clipboard.ts；WYSIWYG：`applyWysiwygContextAction` 已有 cut/copy/paste/select-all；Preview：仅 copy/select-all，copy 读 window.getSelection）；Help ▸ About → `AboutDialog.tsx`（版本 `getVersion()`，浏览器回退 dev）；Window 菜单 Minimize/Maximize、View 全屏、File 退出复用 Linux 自定义 id（`window:*`/`view:fullscreen`/`file:exit`）。
+- **窗口 chrome**：Toolbar 自绘文件名 + `WindowControls`（渲染条件 `linuxFrameless || windowsFrameless`）+ `WindowResizeHandles`（同条件）。capabilities 此前 Linux 已全量授予（`windows: ["*"]`），零改动。
+
+**根因记录（菜单停在英文）**：`initNativeMenu` 仅在 `isFocused()` 为 true 时做初始 `rebuildMenu`（Windows 启动时序下可能为 false），而 `onFocusChanged` 聚焦回调只同步 check/enabled 不重建标签 → 菜单停在 Rust setup 的 "en" 默认值；且 `rebuildMenu` 在 invoke 前就写 `lastRebuildKey`，一次失败永久去重。修复：聚焦回调补 `rebuildMenu`（有去重，廉价）+ invoke 失败重置 key。该修复同时惠及 macOS/Linux（nativeMenu.ts），Windows 因自绘菜单响应式渲染而天然免疫。
+
+**遗留/后续**：菜单栏无键盘导航（方向键/Alt 助记符）——菜单原语整体缺键盘导航，统一后续项；Win11 snap layouts 悬停（原生最大化按钮特有）在无边框下不可用，拖拽贴边 snap 不受影响。
+
 ---
 
 ## Markdown 扩展实现
@@ -958,29 +976,30 @@ Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`�
 
 ## 键盘快捷键一览
 
-带 accelerator 的键在桌面端被 OS 拦截（webview 收不到 keydown）——桌面端快捷键全部由原生菜单事件驱动；`useKeyboardShortcuts.ts` 仅在浏览器 dev/E2E 生效，两者互不重迭。
+macOS/Linux 桌面端带 accelerator 的键被 OS 拦截（webview 收不到 keydown）——快捷键由原生菜单事件驱动；**Windows 桌面端（无原生菜单）与浏览器 dev/E2E 由 `useKeyboardShortcuts.ts` 全量接管**（编辑器 keymap 已处理的键经 `e.defaultPrevented` 守卫跳过）。
 
-| Shortcut                           | Action                                 | Implementation                                                                                                            |
-| ---------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `Cmd/Ctrl + O / S / Shift+S`       | Open / Save / Save As                  | 原生菜单（桌面端）/ `useKeyboardShortcuts.ts`（浏览器）                                                                   |
-| `Cmd/Ctrl + N`                     | 新建**窗口**（多窗口 SDI）             | 原生菜单 → open_in_new_window；浏览器端仍为原地新建（`useKeyboardShortcuts.ts`）                                          |
-| `Cmd/Ctrl + Shift+O`               | 打开文件夹                             | 原生菜单（文件菜单）                                                                                                      |
-| `Cmd/Ctrl + /`                     | WYSIWYG ⇄ Source 切换                  | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview） |
-| `Cmd/Ctrl + B / I / K`             | Bold / Italic / Link                   | 原生菜单（格式菜单，桌面端）→ editor-format；浏览器走 CM keymap / Milkdown keymap                                         |
-| `Cmd/Ctrl + 0`                     | 正文（剥掉块级前缀）                   | 原生菜单（段落菜单，桌面端）                                                                                              |
-| `Cmd/Ctrl + 1 ~ 6`                 | Heading 1 ~ 6                          | 原生菜单（段落菜单，桌面端）→ editor-format；浏览器走 CM keymap / `wysiwygShortcutPlugin`（仅 1~3）                       |
-| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（段落菜单，桌面端）→ editor-format                                                                               |
-| `Cmd/Ctrl + Shift+V`               | 粘贴为纯文本                           | 原生菜单（编辑菜单）→ clipboard 读文本 → editor-insert                                                                    |
-| `Cmd/Ctrl + Z / Shift+Z`           | Undo / Redo                            | 原生菜单 → editor-undo/redo；CM / Milkdown history                                                                        |
-| `Cmd/Ctrl + F`                     | Find & replace                         | 原生菜单 → editor-find → `@codemirror/search`                                                                             |
-| `Cmd/Ctrl + =/+ / -`               | Zoom in / out                          | 原生菜单 / `Editor.tsx`                                                                                                   |
-| `Cmd/Ctrl + Shift+0`               | Zoom reset（⌘0 已让位「正文」）        | 原生菜单 / `Editor.tsx`                                                                                                   |
-| `Cmd/Ctrl + ,`                     | Settings                               | 原生菜单（App/File 菜单）                                                                                                 |
-| `Cmd/Ctrl + Shift+B`               | Toggle Sidebar                         | 原生菜单（View 菜单）                                                                                                     |
-| `Ctrl+Cmd + 1 / 2`（仅 macOS）     | 侧栏 文件 / 大纲 tab                   | 原生菜单（View 菜单 check 项）                                                                                            |
-| `Cmd/Ctrl + Alt+1~4`               | WYSIWYG / Source / Split / Preview     | 原生菜单（View 菜单 check 项）                                                                                            |
-| `Cmd/Ctrl + P`                     | Export PDF                             | 原生菜单 / `MoreMenu`                                                                                                     |
-| `Escape`                           | Exit edit mode                         | `Editor.tsx`                                                                                                              |
+| Shortcut                           | Action                                 | Implementation                                                                                                              |
+| ---------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `Cmd/Ctrl + O / S / Shift+S`       | Open / Save / Save As                  | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                        |
+| `Cmd/Ctrl + N`                     | 新建**窗口**（多窗口 SDI）             | 原生菜单（macOS/Linux）→ open_in_new_window；Windows 桌面端 hook 同路；浏览器端原地新建                                     |
+| `Cmd/Ctrl + Shift+O`               | 打开文件夹                             | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                        |
+| `Cmd/Ctrl + /`                     | WYSIWYG ⇄ Source 切换                  | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview）   |
+| `Cmd/Ctrl + B / I / K`             | Bold / Italic / Link                   | 原生菜单（macOS/Linux）→ editor-format；Windows/浏览器 hook → editor-format（Milkdown Mod-B/I 等自家 keymap 优先）          |
+| `Cmd/Ctrl + 0`                     | 正文（剥掉块级前缀）                   | 原生菜单（macOS/Linux）/ hook → editor-format                                                                               |
+| `Cmd/Ctrl + 1 ~ 6`                 | Heading 1 ~ 6                          | 原生菜单（macOS/Linux）/ hook → editor-format；浏览器另有 CM keymap / `wysiwygShortcutPlugin`（仅 1~3）                     |
+| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（macOS/Linux）/ hook → editor-format                                                                               |
+| `Cmd/Ctrl + Shift+V`               | 粘贴为纯文本                           | 原生菜单（macOS/Linux）/ hook → clipboard 读文本 → editor-insert                                                            |
+| `Cmd/Ctrl + Z / Shift+Z`           | Undo / Redo                            | 原生菜单（macOS/Linux）/ hook → editor-undo/redo；编辑器内 CM / Milkdown history keymap 优先（defaultPrevented 守卫）       |
+| `Cmd/Ctrl + F`                     | Find & replace                         | 原生菜单（macOS/Linux）/ hook → editor-find → `@codemirror/search`（CM 自家 Mod-F 优先）                                    |
+| `Cmd/Ctrl + =/+ / -`               | Zoom in / out                          | 原生菜单（macOS/Linux）/ hook（Editor.tsx 旧窗口级 zoom 监听已并入，不再重复）                                              |
+| `Cmd/Ctrl + Shift+0`               | Zoom reset（⌘0 已让位「正文」）        | 原生菜单（macOS/Linux）/ hook                                                                                               |
+| `Cmd/Ctrl + ,`                     | Settings                               | 原生菜单（macOS/Linux）/ hook                                                                                               |
+| `Cmd/Ctrl + Shift+B`               | Toggle Sidebar                         | 原生菜单（macOS/Linux）/ hook                                                                                               |
+| `Ctrl+Cmd + 1 / 2`（仅 macOS）     | 侧栏 文件 / 大纲 tab                   | 原生菜单（View 菜单 check 项）                                                                                              |
+| `Cmd/Ctrl + Alt+1~4`               | WYSIWYG / Source / Split / Preview     | 原生菜单（macOS/Linux）/ hook                                                                                               |
+| `Cmd/Ctrl + P`                     | Export PDF                             | 原生菜单（macOS/Linux）/ hook → editor-export-pdf / `MoreMenu`                                                              |
+| `F11`                              | 全屏切换                               | macOS 预定义 Fullscreen；Linux 自定义 `view:fullscreen`；Windows hook + 自绘菜单（View ▸ 全屏）                             |
+| `Escape`                           | Exit edit mode                         | `Editor.tsx`                                                                                                                |
 
 ---
 

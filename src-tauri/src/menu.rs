@@ -2,13 +2,18 @@
 //!
 //! 事件流：菜单点击 → lib.rs on_menu_event → emit("native-menu-event", id)
 //! → 前端 src/lib/nativeMenu.ts 分发。
-//! 注意：带 accelerator 的键（Cmd+O/S/N/B/I/K/1~6 等）在桌面端被 OS 拦截，webview
-//! 收不到 keydown，因此桌面端快捷键完全由菜单事件驱动；浏览器 dev 环境
-//! 无原生菜单，仍走 useKeyboardShortcuts / CM keymap / Milkdown keymap。
+//! 注意：带 accelerator 的键（Cmd+O/S/N/B/I/K/1~6 等）在 macOS/Linux 桌面端被
+//! OS 拦截，webview 收不到 keydown，因此这两个平台的桌面端快捷键完全由菜单事件
+//! 驱动；Windows 桌面端（无原生菜单，前端自绘菜单栏）与浏览器 dev 环境走
+//! useKeyboardShortcuts / CM keymap / Milkdown keymap。
 //!
 //! 结构对齐 Typora：App / 文件 / 编辑 / 段落 / 格式 / 视图 / 窗口。
 //! format:* 与 insert:* 的 id 与编辑器右键菜单（src/lib/contextMenu.ts）同源，
 //! 前端统一转发 editor-format / editor-insert 事件总线。
+
+// Windows 不挂原生菜单（前端自绘菜单栏，快捷键 JS 接管），构建函数仅
+// macOS/Linux 使用；保留 Windows 编译以复用 RecentFilePayload 类型
+#![cfg_attr(target_os = "windows", allow(dead_code))]
 
 use tauri::{
     menu::{AboutMetadata, CheckMenuItem, IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},

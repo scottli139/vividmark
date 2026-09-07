@@ -697,18 +697,27 @@ fn rebuild_menu(
     lang: String,
     recent_files: Vec<menu::RecentFilePayload>,
 ) -> Result<(), String> {
-    let native_menu = menu::build_menu(&app, &lang, &recent_files).map_err(|e| e.to_string())?;
-    app.set_menu(native_menu).map_err(|e| e.to_string())?;
-    // Linux：set_menu 重建了 menubar 控件树，空图标占位需要重新摘除
-    #[cfg(target_os = "linux")]
-    strip_menubar_icon_placeholders(&app);
-    log::info!(
-        "[menu] Menu rebuilt by {} (lang={}, recent={})",
-        window.label(),
-        lang,
-        recent_files.len()
-    );
-    Ok(())
+    // Windows 无原生菜单（前端自绘菜单栏），重建为 no-op
+    #[cfg(target_os = "windows")]
+    {
+        let _ = (app, window, lang, recent_files);
+        return Ok(());
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let native_menu = menu::build_menu(&app, &lang, &recent_files).map_err(|e| e.to_string())?;
+        app.set_menu(native_menu).map_err(|e| e.to_string())?;
+        // Linux：set_menu 重建了 menubar 控件树，空图标占位需要重新摘除
+        #[cfg(target_os = "linux")]
+        strip_menubar_icon_placeholders(&app);
+        log::info!(
+            "[menu] Menu rebuilt by {} (lang={}, recent={})",
+            window.label(),
+            lang,
+            recent_files.len()
+        );
+        Ok(())
+    }
 }
 
 /// 同步菜单项可用态（如 undo/redo）
@@ -1107,18 +1116,23 @@ pub fn run() {
 
             log::info!("[VividMark] Application started successfully");
 
-            // 安装系统原生菜单（初始英文 + 空最近文件；前端启动后按持久化状态重建）
-            let native_menu = menu::build_menu(app.handle(), "en", &[])?;
-            app.set_menu(native_menu)?;
-            log::info!("[menu] Native menu installed");
+            // 安装系统原生菜单（初始英文 + 空最近文件；前端启动后按持久化状态重建）。
+            // Windows 不挂：无边框窗口不绘制菜单栏，菜单由前端自绘（Toolbar 内
+            // MenuBar 组件），快捷键由 useKeyboardShortcuts 全量接管。
+            #[cfg(not(target_os = "windows"))]
+            {
+                let native_menu = menu::build_menu(app.handle(), "en", &[])?;
+                app.set_menu(native_menu)?;
+                log::info!("[menu] Native menu installed");
+            }
 
-            // Linux：关闭原生窗口装饰（frameless）。X11 下 KWin SSD 标题栏 +
-            // GTK 菜单栏 + 应用工具栏三条堆叠，顶部过厚；去掉系统标题栏后由
-            // 前端工具栏自绘标题栏（居中标题 + 拖拽区 + 窗口控制按钮），
-            // 窗口缩放由前端 startResizeDragging 边缘手柄实现。菜单栏保留
-            // （桌面端快捷键全部由原生菜单 accelerator 驱动，不能动）。
+            // Linux/Windows：关闭原生窗口装饰（frameless）。系统标题栏 + 菜单栏 +
+            // 应用工具栏三条堆叠，顶部过厚；去掉系统标题栏后由前端工具栏自绘标题栏
+            // （居中标题 + 拖拽区 + 窗口控制按钮），窗口缩放由前端
+            // startResizeDragging 边缘手柄实现。Linux 保留 GTK 菜单栏（其桌面端
+            // 快捷键由原生菜单 accelerator 驱动）；Windows 连菜单栏一起去掉。
             // 新文档窗口同款处理见 window_router::create_document_window。
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
             if let Some(window) = app.get_webview_window("main") {
                 if let Err(e) = window.set_decorations(false) {
                     log::warn!("[window] Failed to disable decorations: {}", e);

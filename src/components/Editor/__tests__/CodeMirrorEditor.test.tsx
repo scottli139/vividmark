@@ -252,4 +252,65 @@ describe('CodeMirrorEditor', () => {
 
     expect(view.state.selection.main.head).toBe(INITIAL_CONTENT.length)
   })
+
+  // 自绘菜单栏（Windows/浏览器）的剪贴板事件，与右键菜单同一实现
+  it('should handle editor-cut / editor-copy events', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText, readText: vi.fn() } })
+    const { viewRef } = setup()
+    const view = viewRef.current!
+
+    // 选中 "Hello"（文档 '# Hello\n\nworld' 的 2..7）
+    act(() => {
+      view.dispatch({ selection: { anchor: 2, head: 7 } })
+    })
+    act(() => {
+      window.dispatchEvent(new CustomEvent('editor-copy'))
+    })
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Hello'))
+    // copy 不改变文档
+    expect(view.state.doc.toString()).toBe(INITIAL_CONTENT)
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('editor-cut'))
+    })
+    await waitFor(() => expect(view.state.doc.toString()).toBe('# \n\nworld'))
+  })
+
+  it('should handle editor-paste / editor-select-all events', async () => {
+    Object.assign(navigator, {
+      clipboard: { writeText: vi.fn(), readText: vi.fn().mockResolvedValue('pasted') },
+    })
+    const { viewRef } = setup()
+    const view = viewRef.current!
+
+    act(() => {
+      view.dispatch({ selection: { anchor: 0 } })
+    })
+    act(() => {
+      window.dispatchEvent(new CustomEvent('editor-paste'))
+    })
+    await waitFor(() => expect(view.state.doc.toString()).toBe('pasted' + INITIAL_CONTENT))
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('editor-select-all'))
+    })
+    expect(view.state.selection.main.anchor).toBe(0)
+    expect(view.state.selection.main.head).toBe(view.state.doc.length)
+  })
+
+  it('should ignore menubar clipboard events in preview mode', () => {
+    useEditorStore.setState({ viewMode: 'preview' })
+    const { viewRef } = setup()
+    const view = viewRef.current!
+
+    act(() => {
+      view.dispatch({ selection: { anchor: 0 } })
+    })
+    act(() => {
+      window.dispatchEvent(new CustomEvent('editor-select-all'))
+    })
+
+    expect(view.state.selection.main.head).toBe(0)
+  })
 })

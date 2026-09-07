@@ -5,6 +5,7 @@ import { useEditorStore, type EditorState } from '../stores/editorStore'
 import type { ThemeMode } from './theme'
 import { openFileSmart, saveFile, saveFileAs } from './fileOps'
 import { isTauri } from './imageSrc'
+import { isWindowsDesktop } from './platform'
 import { createLogger } from './logger'
 import type { FormatType } from './markdownEditing'
 import { insertImageFromPicker, openFolderFromPicker } from './editorActions'
@@ -19,7 +20,9 @@ const logger = createLogger('NativeMenu')
  *
  * 事件流：菜单点击 → Rust on_menu_event → emit("native-menu-event", id)
  * → handleMenuAction 分发到现有动作（fileOps / store / editor-* 事件总线）。
- * 带 accelerator 的键在桌面端被 OS 拦截，不走 useKeyboardShortcuts。
+ * macOS/Linux 桌面端带 accelerator 的键被 OS 拦截，不走 useKeyboardShortcuts；
+ * Windows 桌面端无原生菜单（Toolbar 内自绘菜单栏直接调 handleMenuAction，
+ * 快捷键由 useKeyboardShortcuts 全量接管）。
  *
  * id 约定（与编辑器右键菜单同源）：
  * - format:<FormatType> → editor-format 事件总线（段落/格式菜单）
@@ -121,6 +124,20 @@ export async function handleMenuAction(id: string): Promise<void> {
       }
       break
     }
+    // 剪贴板四项：仅自绘菜单（Windows/浏览器）产生——各编辑器监听事件后
+    // 复用右键菜单的既有实现（cut/copy 读当前选区，paste 异步读剪贴板）
+    case 'edit-cut':
+      window.dispatchEvent(new CustomEvent('editor-cut'))
+      break
+    case 'edit-copy':
+      window.dispatchEvent(new CustomEvent('editor-copy'))
+      break
+    case 'edit-paste':
+      window.dispatchEvent(new CustomEvent('editor-paste'))
+      break
+    case 'edit-select-all':
+      window.dispatchEvent(new CustomEvent('editor-select-all'))
+      break
     case 'edit-find':
       window.dispatchEvent(new CustomEvent('editor-find'))
       break
@@ -161,7 +178,12 @@ export async function handleMenuAction(id: string): Promise<void> {
     case 'settings':
       store.setSettingsOpen(true)
       break
-    // 以下三项仅 Linux 菜单（muda GTK 不支持对应预定义项，见 menu.rs）
+    case 'help-about':
+      // 自绘菜单（Windows/浏览器）的 About；macOS/Linux 由系统预定义项处理
+      store.setAboutOpen(true)
+      break
+    // 以下四项仅 Linux（muda GTK 丢弃对应预定义项，见 menu.rs）与
+    // Windows 自绘菜单（无原生菜单）使用；macOS 由系统预定义项处理
     case 'window:minimize':
       await getCurrentWindow().minimize()
       break
@@ -232,13 +254,19 @@ function rebuildMenu(state: EditorState): void {
   const key = JSON.stringify(payload)
   if (key === lastRebuildKey) return
   lastRebuildKey = key
-  void invoke('rebuild_menu', payload).then(() => {
-    // 重建后 check/enabled 回到构建默认值（wysiwyg✓/system✓/undo/redo 可用），
-    // 必须按最新状态重新同步一轮
-    const latest = useEditorStore.getState()
-    syncMenuChecks(latest)
-    syncMenuEnabled(latest)
-  })
+  void invoke('rebuild_menu', payload)
+    .then(() => {
+      // 重建后 check/enabled 回到构建默认值（wysiwyg✓/system✓/undo/redo 可用），
+      // 必须按最新状态重新同步一轮
+      const latest = useEditorStore.getState()
+      syncMenuChecks(latest)
+      syncMenuEnabled(latest)
+    })
+    .catch((e) => {
+      // 失败必须允许重试，否则 lastRebuildKey 卡住导致菜单语言/最近文件永不更新
+      lastRebuildKey = ''
+      logger.error('Failed to rebuild menu:', e)
+    })
   // macOS Dock 右键菜单同步重建（非 macOS 为 no-op 桩）
   void invoke('update_dock_menu', payload)
 }
@@ -257,11 +285,12 @@ export function syncAllMenuState(): void {
 }
 
 /**
- * 初始化原生菜单对接（仅 Tauri 桌面端生效）。
+ * 初始化原生菜单对接（仅 Tauri 桌面端生效；Windows 无原生菜单，整体跳过——
+ * 自绘菜单栏为窗口级响应式渲染，无需监听/重建/同步，但仍复用 handleMenuAction）。
  * 返回 cleanup：取消事件监听与 store 订阅。
  */
 export async function initNativeMenu(): Promise<() => void> {
-  if (!isTauri()) return () => {}
+  if (!isTauri() || isWindowsDesktop()) return () => {}
 
   let unlisten: UnlistenFn | undefined
   try {
@@ -275,13 +304,19 @@ export async function initNativeMenu(): Promise<() => void> {
     return () => {}
   }
 
-  // 焦点跟踪：仅焦点窗口驱动菜单状态；成为焦点时全量重同步
+  // 焦点跟踪：仅焦点窗口驱动菜单状态；成为焦点时全量重同步。
+  // 聚焦时也要补一次 rebuildMenu：启动时若 isFocused() 尚未为 true（Windows 时序），
+  // 下方初始重建会被跳过，不补则菜单标签永远停留在 Rust setup 的英文默认值；
+  // 有 lastRebuildKey 去重，已重建时是廉价 no-op。
   const win = getCurrentWindow()
   windowFocused = await win.isFocused().catch(() => true)
   const unlistenFocus = await win
     .onFocusChanged(({ payload: focused }) => {
       windowFocused = focused
-      if (focused) syncAllMenuState()
+      if (focused) {
+        rebuildMenu(useEditorStore.getState())
+        syncAllMenuState()
+      }
     })
     .catch(() => () => {})
 

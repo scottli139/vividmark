@@ -442,11 +442,28 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
       })
     }
 
+    // 自绘菜单栏（Windows/浏览器）的剪贴板动作，与右键菜单同一实现
+    const handleClipboardEvent = (id: 'cut' | 'copy' | 'paste' | 'select-all') => () => {
+      if (!isActive()) return
+      editorRef.current?.action((ctx) => {
+        applyWysiwygContextAction(ctx, id)
+        ctx.get(editorViewCtx).focus()
+      })
+    }
+    const handleCutEvent = handleClipboardEvent('cut')
+    const handleCopyEvent = handleClipboardEvent('copy')
+    const handlePasteEvent = handleClipboardEvent('paste')
+    const handleSelectAllEvent = handleClipboardEvent('select-all')
+
     window.addEventListener('editor-format', handleFormatEvent)
     window.addEventListener('editor-insert', handleInsertEvent)
     window.addEventListener('editor-undo', handleUndoEvent)
     window.addEventListener('editor-redo', handleRedoEvent)
     window.addEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
+    window.addEventListener('editor-cut', handleCutEvent)
+    window.addEventListener('editor-copy', handleCopyEvent)
+    window.addEventListener('editor-paste', handlePasteEvent)
+    window.addEventListener('editor-select-all', handleSelectAllEvent)
 
     return () => {
       window.removeEventListener('editor-format', handleFormatEvent)
@@ -454,6 +471,10 @@ function WysiwygEditorView({ editorRef: editorRefProp }: WysiwygEditorProps) {
       window.removeEventListener('editor-undo', handleUndoEvent)
       window.removeEventListener('editor-redo', handleRedoEvent)
       window.removeEventListener('editor-scroll-to-heading', handleScrollToHeadingEvent)
+      window.removeEventListener('editor-cut', handleCutEvent)
+      window.removeEventListener('editor-copy', handleCopyEvent)
+      window.removeEventListener('editor-paste', handlePasteEvent)
+      window.removeEventListener('editor-select-all', handleSelectAllEvent)
     }
   }, [])
 

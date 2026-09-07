@@ -6,9 +6,9 @@ import { createLogger } from '../../lib/logger'
 const logger = createLogger('WindowControls')
 
 /**
- * Linux 无边框窗口的自绘窗口控制按钮（最小化 / 最大化切换 / 关闭）。
- * 仅 Linux 桌面端由 Toolbar 挂载（窗口 decorations 已在 Rust 侧关闭）；
- * macOS 用系统红绿灯，Windows 保留原生标题栏。
+ * Linux/Windows 无边框窗口的自绘窗口控制按钮（最小化 / 最大化切换 / 关闭）。
+ * 仅无边框桌面端由 Toolbar 挂载（窗口 decorations 已在 Rust 侧关闭）；
+ * macOS 用系统红绿灯。
  * 关闭走 win.close() → 触发 CloseRequested → windowManager 的脏确认拦截，
  * 与系统标题栏关闭按钮同一条路径。
  */

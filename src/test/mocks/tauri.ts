@@ -11,11 +11,17 @@ export const mockSaveDialog = vi.fn()
 export const mockListen = vi.fn().mockResolvedValue(vi.fn())
 export const mockEmit = vi.fn().mockResolvedValue(undefined)
 
-// Mock Tauri window API（多窗口：焦点跟踪 / 关闭拦截 / 标题）
+// Mock Tauri window API（多窗口：焦点跟踪 / 关闭拦截 / 标题 / 窗口控制）
 export const mockIsFocused = vi.fn().mockResolvedValue(true)
 export const mockOnFocusChanged = vi.fn().mockResolvedValue(vi.fn())
 export const mockOnCloseRequested = vi.fn().mockResolvedValue(vi.fn())
 export const mockSetTitle = vi.fn().mockResolvedValue(undefined)
+export const mockMinimize = vi.fn().mockResolvedValue(undefined)
+export const mockToggleMaximize = vi.fn().mockResolvedValue(undefined)
+export const mockSetFullscreen = vi.fn().mockResolvedValue(undefined)
+export const mockIsFullscreen = vi.fn().mockResolvedValue(false)
+export const mockIsMaximized = vi.fn().mockResolvedValue(false)
+export const mockOnResized = vi.fn().mockResolvedValue(vi.fn())
 
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
@@ -24,6 +30,12 @@ vi.mock('@tauri-apps/api/window', () => ({
     onFocusChanged: mockOnFocusChanged,
     onCloseRequested: mockOnCloseRequested,
     setTitle: mockSetTitle,
+    minimize: mockMinimize,
+    toggleMaximize: mockToggleMaximize,
+    setFullscreen: mockSetFullscreen,
+    isFullscreen: mockIsFullscreen,
+    isMaximized: mockIsMaximized,
+    onResized: mockOnResized,
   }),
 }))
 

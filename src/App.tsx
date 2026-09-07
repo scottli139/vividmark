@@ -15,6 +15,7 @@ import { initFileWatcher } from './lib/fileWatcher'
 import { Dialog } from './components/Dialog'
 import { ImageLightbox } from './components/ImageLightbox'
 import { SettingsDialog } from './components/Settings/SettingsDialog'
+import { AboutDialog } from './components/AboutDialog'
 import { WindowResizeHandles } from './components/WindowResizeHandles'
 import { isMacOSDesktop } from './lib/platform'
 import './styles/globals.css'
@@ -112,8 +113,9 @@ function App() {
       <StatusBar />
       <Dialog />
       <SettingsDialog />
+      <AboutDialog />
       <ImageLightbox />
-      {/* Linux 无边框窗口的边缘缩放手柄（其他平台不渲染） */}
+      {/* Linux/Windows 无边框窗口的边缘缩放手柄（其他平台不渲染） */}
       <WindowResizeHandles />
     </div>
   )

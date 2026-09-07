@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { isLinuxDesktop } from '../lib/platform'
+import { isLinuxDesktop, isWindowsDesktop } from '../lib/platform'
 import { createLogger } from '../lib/logger'
 
 const logger = createLogger('WindowResizeHandles')
@@ -17,12 +17,18 @@ type ResizeDirection =
   | 'West'
 
 /**
- * Linux 无边框窗口的边缘缩放手柄：decorations 关闭后 WM 不再提供缩放边框，
- * 在窗口四边/四角铺透明热区，mousedown 后交给 WM 完成缩放（startResizeDragging
- * 内部走 gtk_window_begin_resize_drag，KWin 照常接管）。
+ * Linux/Windows 无边框窗口的边缘缩放手柄：decorations 关闭后系统不再提供缩放
+ * 边框，在窗口四边/四角铺透明热区，mousedown 后交给系统完成缩放
+ * （startResizeDragging 内部走 gtk_window_begin_resize_drag / Win32
+ * WM_NCLBUTTONDOWN，KWin/Windows 窗口管理器照常接管）。
  * 边条宽 4px、角 12px；最大化时隐藏（不可缩放，且避免遮挡滚动条/状态栏）。
- * 仅 Linux 桌面端渲染（macOS 有系统边框，Windows 保留原生标题栏）。
+ * 仅无边框桌面端渲染（macOS 有系统边框）。
  */
+
+/** 无边框桌面端（Linux/Windows）才需要自绘缩放手柄 */
+function isFramelessDesktop(): boolean {
+  return isLinuxDesktop() || isWindowsDesktop()
+}
 
 interface Handle {
   dir: ResizeDirection
@@ -44,7 +50,7 @@ export function WindowResizeHandles() {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
-    if (!isLinuxDesktop()) return
+    if (!isFramelessDesktop()) return
     const win = getCurrentWindow()
     const syncMaximized = () => {
       win
@@ -61,7 +67,7 @@ export function WindowResizeHandles() {
     return () => unlisten?.()
   }, [])
 
-  if (!isLinuxDesktop() || isMaximized) return null
+  if (!isFramelessDesktop() || isMaximized) return null
 
   const startResize = (dir: ResizeDirection) => (e: React.MouseEvent) => {
     if (e.button !== 0) return
