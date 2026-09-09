@@ -286,6 +286,7 @@ logger.error('Failed to sync:', error)
 - [x] **macOS Dock 右键菜单** ✅：objc2 运行时给 tao AppDelegate 追加 `applicationDockMenu:`（新建/打开/最近文件/清空），点击复用 native-menu-event 通道
 - [x] **文件关联（Open With）** ✅：`bundle.fileAssociations` 声明 md/markdown/mdown/mkd；`RunEvent::Opened` → 排队 + `file-open-request` 事件 → 前端打开（冷启动队列补偿）；仅打包安装后生效。**2026-09-07 补**：Windows/Linux argv 打开落地（setup `collect_argv_files()` → 同一路由），双击 .md 不再只显示欢迎页；连带修复启动「先闪欢迎页再显示文件」（App 门控 Editor 挂载到 `initOpenWith` 完成——resolve 时启动队列已取走并打开完毕，欢迎页不再首帧渲染）；单实例仍留二期
 - [x] **侧边栏精致化** ✅：实心「打开文件夹」按钮、最近文件行 hover 底色/圆角/大图标、过滤框内嵌搜索图标、空态居中插画、大纲行 hover 底色、文件树选中态改 accent 淡底圆角行
+- [x] **WYSIWYG `<br>` 换行渲染** ✅（2026-09-09）：表格单元格/段落内 `<br>`（GitHub 同款写法）从字面文本改为真实换行（htmlView $view + strictBrParser `br[data-type="html"]` 回读规则，序列化走 attrs.value 原文往返无损）；其余内联 html 维持字面显示
 
 #### P6 — 极简工具栏与 macOS 窗口修复 ✅ (已完成，2026-08-14)
 

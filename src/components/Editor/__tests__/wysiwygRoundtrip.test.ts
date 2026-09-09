@@ -367,4 +367,62 @@ describe('wysiwyg markdown round-trip', () => {
       expect(second).toBe(first)
     })
   })
+
+  describe('内联 html 节点（htmlView：`<br>` 渲染为真实换行）', () => {
+    it('表格单元格内 <br> 往返保留原文', async () => {
+      const ed = await createEditor('| A | B |\n| --- | --- |\n| x<br>y | 2 |')
+      const out = ed.action(getMarkdown())
+
+      expect(out).toContain('x<br>y')
+    })
+
+    it('<br> 在编辑器 DOM 渲染为 br[data-type="html"]，非字面文本', async () => {
+      const ed = await createEditor('| A |\n| --- |\n| 第一行<br>第二行 |')
+      const view = ed.action((ctx) => ctx.get(editorViewCtx))
+
+      const br = view.dom.querySelector('br[data-type="html"]')
+      expect(br).not.toBeNull()
+      expect(br?.getAttribute('data-value')).toBe('<br>')
+      expect(view.dom.textContent).not.toContain('<br>')
+    })
+
+    it('<br> 变体（<BR> / <br/> / <br />）均渲染为换行且原文保留', async () => {
+      const ed = await createEditor('a<BR>b\n\nc<br/>d\n\ne<br />f')
+      const view = ed.action((ctx) => ctx.get(editorViewCtx))
+
+      const brs = view.dom.querySelectorAll('br[data-type="html"]')
+      expect(brs.length).toBe(3)
+      expect([...brs].map((el) => el.getAttribute('data-value'))).toEqual([
+        '<BR>',
+        '<br/>',
+        '<br />',
+      ])
+
+      const out = ed.action(getMarkdown())
+      expect(out).toContain('a<BR>b')
+      expect(out).toContain('c<br/>d')
+      expect(out).toContain('e<br />f')
+    })
+
+    it('其余内联 html 维持字面显示且往返保留', async () => {
+      const ed = await createEditor('a <b>bold</b> c')
+      const view = ed.action((ctx) => ctx.get(editorViewCtx))
+
+      expect(view.dom.querySelector('br[data-type="html"]')).toBeNull()
+      const spans = view.dom.querySelectorAll('span[data-type="html"]')
+      expect([...spans].map((el) => el.textContent)).toEqual(['<b>', '</b>'])
+
+      const out = ed.action(getMarkdown())
+      expect(out).toContain('a <b>bold</b> c')
+    })
+
+    it('二次往返稳定（序列化不动点）', async () => {
+      const ed = await createEditor('| A |\n| --- |\n| x<br>y |\n\n<br />\n\na <b>b</b> c')
+      const first = ed.action(getMarkdown())
+      ed.action(replaceAll(first, true))
+      const second = ed.action(getMarkdown())
+
+      expect(second).toBe(first)
+    })
+  })
 })

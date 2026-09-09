@@ -12,6 +12,7 @@ import { footnoteDecorationPlugin } from './footnoteDecorations'
 import { githubAlertDecorationPlugin } from './githubAlertDecorations'
 import { hardbreakCleanupPlugin } from './hardbreakCleanupPlugin'
 import { hardbreakView } from './hardbreakView'
+import { htmlView } from './htmlView'
 import { strictBrParserPlugin } from './strictBrParserPlugin'
 import { imeEnterGuardPlugin } from './imeEnterGuardPlugin'
 import { imageView } from './imageView'
@@ -114,6 +115,8 @@ export const wysiwygPlugins: MilkdownPlugin[] = [
   strictBrParserPlugin,
   hardbreakCleanupPlugin,
   hardbreakView,
+  // html 节点视图：<br> 渲染为真实换行（其余内联 html 维持字面显示）
+  htmlView,
   imeEnterGuardPlugin,
   // GitHub Alerts：blockquote 首行 [!TYPE] 的纯装饰（零 schema 变更，位置无顺序约束）
   githubAlertDecorationPlugin,

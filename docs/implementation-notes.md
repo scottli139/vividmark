@@ -1334,6 +1334,14 @@ if (lang === 'typst') {
 - **既有垃圾文件**：清理机制只防新增；文件里已存在的 `\`/`<!-- -->` 残留需在源码模式手动删一次。
 - **同类已知残留**：PM kludge 吞的是「第一个 keydown」不区分键——上屏后 500ms 内的第一个 Backspace 也会被吞（按第二次即可），影响轻微未处理。
 
+### 内联 html `<br>` 换行渲染（htmlView.ts，2026-09-09）
+
+- **现象**：GFM 表格单元格常用 `<br>` 换行写法（GitHub/Typora 均渲染为换行），所见即所得下显示为字面字符。预览侧 markdown-it `html: true` 本就正常渲染。
+- **机制**：Milkdown commonmark 预设自带 html 内联 atom 节点（`htmlSchema`），默认 toDOM 把原文塞进 span 的 textContent——字面显示是预设行为，非解析缺失。
+- **修复**：`htmlView.ts` $view——attrs.value 匹配 `/^<br\s*\/?\s*>$/i`（`<br>`/`<br/>`/`<br />`/大小写）渲染为真实 `<br data-type="html" data-value=原文>`；其余内联 html（`<b>` 等）维持字面 span 不变。序列化恒走 attrs.value 原文（html 节点 toMarkdown 原样输出），往返无损；br/span 形态互变时 `update()` 返回 false 交 PM 重建。
+- **回读配套**：`strictBrParserPlugin` 新增 `br[data-type="html"]` → html 节点规则（priority 70，value 从 data-value 回读）——否则 DOM 重解析（readDOMChange/剪贴板）会命中裸 br 的 `ignore: true` 规则把节点丢掉。
+- 测试锁在 `wysiwygRoundtrip.test.ts`「内联 html 节点」组：表格单元格往返、三种 `<br>` 变体渲染与原文保真、其余内联 html 字面显示、二次不动点。
+
 ### Admonition 结束围栏融合（`<br />\n:::` 被 html 块吞掉）
 
 - **机制**：admonition 末块是空段落时，Milkdown 的 paragraph 序列化器把它编码为 html 节点 `<br />`，且紧贴结束围栏输出（`<br />\n:::`）；重解析时 micromark 把 `<br />` 当作 html 块起始，**html 块一直吞到空行才停**——结束围栏被吞进 html 节点（`value: "<br />\n:::"`），remarkPreserveEmptyLinePlugin 的精确匹配剥除也因此失效，admonition 整体降级为普通文本。同类风险：末块是 blockquote 时 `:::` 被懒惰延续吞掉。

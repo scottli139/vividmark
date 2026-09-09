@@ -16,6 +16,8 @@ import { $prose } from '@milkdown/kit/utils'
  * `someProp("domParser")` 命中），br 规则收紧为：
  * - `br[data-type="hardbreak"]`（PM 自己渲染的 hardbreak，必带此属性）→
  *   hardbreak 节点，编辑器内复制/粘贴与 DOM 回读无损；
+ * - `br[data-type="html"]`（htmlView 渲染的 `<br>` 内联 html 节点）→
+ *   html 节点，原文从 data-value 回读，序列化保真；
  * - 其余裸 `<br>` → `ignore: true` 整块跳过，不产出任何节点或文本。
  *
  * 注意与 v1 的区别：v1 用 getAttrs=false 让规则不匹配，裸 br 落入
@@ -47,6 +49,15 @@ function buildStrictBrParser(schema: Schema): DOMParser {
         priority: 70,
         getAttrs: (dom: HTMLElement) => ({
           isInline: dom.getAttribute('data-is-inline') === 'true',
+        }),
+      },
+      // htmlView 渲染的内联 `<br>` html 节点：原文从 data-value 回读
+      {
+        tag: 'br[data-type="html"]',
+        node: 'html',
+        priority: 70,
+        getAttrs: (dom: HTMLElement) => ({
+          value: dom.getAttribute('data-value') ?? '<br />',
         }),
       },
       // 裸 br（浏览器占位节点）整块忽略，不产生任何节点/文本
