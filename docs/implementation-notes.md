@@ -1499,6 +1499,9 @@ if (lang === 'typst') {
 - `tauri.conf.json` `bundle.fileAssociations`（md/markdown/mdown/mkd，role=Editor）→ 打包生成 macOS `CFBundleDocumentTypes`（Open With 列表出现，非默认 handler）、Windows 注册表项、Linux mime。**仅打包安装的 .app 生效**（LaunchServices 在安装/首次启动注册），`pnpm tauri:dev` 验证不了。
 - 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `route_open_paths` 窗口路由（聚焦/复用/新建；冷启动入 main 窗口的启动待打开队列）→ 前端 `src/lib/openWith.ts`；启动积压由 `take_startup_open_files` 命令按窗口 label 补取。Windows/Linux 是拉起新进程传 argv（无 Opened 事件）：setup 里 `collect_argv_files()` 解析 argv（跳过 `-` 开关与不存在的路径）→ 同样走 `route_open_paths`（冷启动必中「main 未就绪→入启动队列」分支，不会触发新建窗口——Windows 主线程建窗自死锁，见 window_router）。**未接单实例**：app 运行中再双击文件会拉起第二个进程（各自独立窗口注册表，功能可用但无跨进程「已打开→聚焦」），后续项。
 - **平台门控坑（v0.2.3 CI 实踩）**：`RunEvent::Opened` 变体本身是 `#[cfg(any(target_os = "macos", target_os = "ios"))]`，Windows/Linux 编译直接 E0599——macOS 本机打包发现不了。事件分支与 `handle_opened_urls` 都需 `#[cfg(target_os = "macos")]` 门控（闭包参数改 `_app/_event` 避免其他平台 unused 警告）。新增平台专属 API 时先在 registry 源码确认其 cfg 条件。
+- **冷启动 Opened 极早期到达（2026-09-15 修）**：macOS 冷启动「打开方式」时 `RunEvent::Opened` 可能**先于 log 插件注册、config 主窗口创建与前端上报**到达（marker 文件实证：handler 跑了但 log 全丢）。旧代码分支 2 要求 `get_webview_window("main").is_some()`，此时为 None → 直接掉进新建窗口分支 → 文件开进 doc-1，config main 随后照常创建 → 每次必现多一个欢迎页窗口。修复：新增 `APP_READY`（`RunEvent::Ready` 置位），**Ready 前即使 main 尚不存在也把路径入队 main 启动队列**（窗口马上会建，前端就绪按 label 取走）；Ready 后 main 不存在才是「已关闭」走新建。分支 3 复用候选同步加兜底：source → LAST_FOCUSED →（仅文件关联）main → 其余干净空窗口（Focused 事件到达前 LAST_FOCUSED 为空）。
+- **`take_startup_open_files` 必须传本窗口 label**：`label=None` 语义是「清空全部窗口队列」（仅 file-open-request 热路径的 HMR 清理用）。openWith.ts 曾不传 label——任何窗口启动都会抢走其他窗口排队中的文件（冷启动竞态下 main 抢走 doc-1 的队列，doc-1 只剩欢迎页）。
+- **tauri-plugin-log `Builder::default()` 自带 `Stdout + LogDir` 两个 target**：再显式 `.target(LogDir)` 会同一日志文件双写（每行重复、KeepOne 轮换跑两次）。要自定义只调 `.level()/.level_for()`，别再追加 target。
 
 ### 2026-08-07 追加修复（右键误触 resize / 视图菜单混淆项）
 

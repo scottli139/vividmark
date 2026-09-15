@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import { getCurrentWindow } from '@tauri-apps/api/window'
 import i18n from '../i18n'
 import { useEditorStore } from '../stores/editorStore'
 import { confirmDialog } from './dialog'
@@ -47,8 +48,11 @@ export async function initOpenWith(): Promise<() => void> {
     return () => {}
   }
 
-  // 冷启动/新窗口启动积压路径（按本窗口 label 取走）
-  const pending = await invoke<string[]>('take_startup_open_files').catch(() => [])
+  // 冷启动/新窗口启动积压路径（按本窗口 label 取走——不传 label 会清空所有
+  // 窗口的队列，抢走其他窗口的待打开文件）
+  const pending = await invoke<string[]>('take_startup_open_files', {
+    label: getCurrentWindow().label,
+  }).catch(() => [])
   if (pending.length > 0) {
     await openPaths(pending)
   }

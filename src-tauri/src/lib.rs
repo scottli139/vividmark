@@ -1099,22 +1099,13 @@ pub fn run() {
             _ => {}
         })
         .setup(|app| {
-            // Configure logging for both debug and release builds
+            // Configure logging for both debug and release builds.
+            // Builder::default() 自带 Stdout + LogDir 两个 target——再显式追加会同
+            // 一文件双写（日志行翻倍、KeepOne 轮换执行两次），切勿重复添加。
             let log_builder = tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Info)
                 .level_for("vividmark", log::LevelFilter::Debug)
                 .level_for("app_lib", log::LevelFilter::Debug);
-
-            // In debug mode, also log to console
-            #[cfg(debug_assertions)]
-            let log_builder = log_builder.target(tauri_plugin_log::Target::new(
-                tauri_plugin_log::TargetKind::Stdout,
-            ));
-
-            // Always log to file for diagnostics
-            let log_builder = log_builder.target(tauri_plugin_log::Target::new(
-                tauri_plugin_log::TargetKind::LogDir { file_name: None },
-            ));
 
             app.handle().plugin(log_builder.build())?;
 
@@ -1218,6 +1209,11 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|_app, _event| {
+            // Ready 置位：macOS 冷启动的 Opened 可能先于 config 建窗到达，
+            // 窗口路由以此区分「main 未创建」与「main 已关闭」
+            if let tauri::RunEvent::Ready = _event {
+                window_router::mark_app_ready();
+            }
             // macOS Finder「打开方式」/ 双击关联文件（Windows/Linux 走 argv，见 setup 的 collect_argv_files）
             // RunEvent::Opened 仅 macOS/iOS 存在，其他平台编译时整段剔除
             #[cfg(target_os = "macos")]

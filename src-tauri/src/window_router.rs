@@ -16,7 +16,7 @@
 //! 空文档 → 复用；否则新建窗口。
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Mutex, OnceLock};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
@@ -34,6 +34,9 @@ static WINDOW_STATES: OnceLock<Mutex<HashMap<String, WindowDocState>>> = OnceLoc
 static STARTUP_OPEN_FILES: OnceLock<Mutex<HashMap<String, Vec<String>>>> = OnceLock::new();
 static LAST_FOCUSED: Mutex<Option<String>> = Mutex::new(None);
 static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(1);
+/// 事件循环 Ready（RunEvent::Ready 置位）。macOS 冷启动时 Opened 可能先于
+/// config 建窗到达，靠它就绪前把文件关联路径入队 main 而非新建窗口
+static APP_READY: AtomicBool = AtomicBool::new(false);
 
 fn window_states() -> &'static Mutex<HashMap<String, WindowDocState>> {
     WINDOW_STATES.get_or_init(|| Mutex::new(HashMap::new()))
@@ -44,6 +47,14 @@ fn startup_open_files() -> &'static Mutex<HashMap<String, Vec<String>>> {
 }
 
 // ==================== 窗口事件维护 ====================
+
+pub fn mark_app_ready() {
+    APP_READY.store(true, Ordering::Relaxed);
+}
+
+fn app_ready() -> bool {
+    APP_READY.load(Ordering::Relaxed)
+}
 
 pub fn set_last_focused(label: &str) {
     // PDF 导出隐藏窗口不参与路由（visible(false) 正常不会获焦，防御性排除）
@@ -226,33 +237,59 @@ pub fn route_open_paths(app: &AppHandle, paths: &[String], source: Option<String
 
         // 2. 文件关联冷启动（无 source 且 main 前端未上报）：入队 main 启动队列 +
         //    定向 emit 兜底（前端未就绪时事件丢失，由启动队列补偿）。
-        //    main 已关闭时跳过本分支，走新建窗口。
+        //    Ready 前 Opened 可能先于 config 建窗/前端上报到达（实测冷启动甚至
+        //    早于 log 插件注册）——main 虽尚不存在但即将创建，同样入队，前端就绪
+        //    后按 label 取走；Ready 后 main 不存在 = 已被用户关闭，跳过本分支
+        //    走新建窗口。
+        log::debug!(
+            "[window-router] route {} : source={:?} states={:?} last_focused={:?}",
+            path,
+            source,
+            window_states().lock().unwrap(),
+            LAST_FOCUSED.lock().unwrap()
+        );
         let main_ready = window_states().lock().unwrap().contains_key("main");
-        if source.is_none() && !main_ready && app.get_webview_window("main").is_some() {
+        let main_window = app.get_webview_window("main");
+        if source.is_none() && !main_ready && (main_window.is_some() || !app_ready()) {
             startup_open_files()
                 .lock()
                 .unwrap()
                 .entry("main".to_string())
                 .or_default()
                 .push(path.clone());
-            if let Some(window) = app.get_webview_window("main") {
+            if let Some(window) = main_window {
                 let _ = window.emit("file-open-request", vec![path.clone()]);
             }
+            log::info!("[window-router] Queued {} for main startup", path);
             continue;
         }
 
-        // 3. 可复用窗口（source 优先，退 LAST_FOCUSED）：无路径且未脏
+        // 3. 可复用窗口（无路径且未脏）：source 优先 → 最近焦点 → （仅文件关联）
+        //    main → 其余干净空窗口。Opened 冷启动到达时 Focused 事件可能尚未
+        //    发生（LAST_FOCUSED 为空），没有后两级兜底会把文件开进新窗口、
+        //    留下多余的欢迎页窗口。
         let reusable = {
-            let candidate = source
-                .clone()
-                .or_else(|| LAST_FOCUSED.lock().unwrap().clone());
-            candidate.and_then(|label| {
-                let states = window_states().lock().unwrap();
-                match states.get(&label) {
-                    Some(s) if s.path.is_none() && !s.dirty => Some(label),
-                    _ => None,
+            let states = window_states().lock().unwrap();
+            let clean_empty =
+                |label: &str| matches!(states.get(label), Some(s) if s.path.is_none() && !s.dirty);
+            let mut candidates: Vec<String> = Vec::new();
+            if let Some(s) = source.clone() {
+                candidates.push(s);
+            }
+            if let Some(l) = LAST_FOCUSED.lock().unwrap().clone() {
+                candidates.push(l);
+            }
+            if source.is_none() {
+                // main 优先，其余按 label 排序保证确定性
+                let mut rest: Vec<String> = states.keys().cloned().collect();
+                rest.sort();
+                if let Some(i) = rest.iter().position(|l| l == "main") {
+                    let m = rest.remove(i);
+                    rest.insert(0, m);
                 }
-            })
+                candidates.extend(rest);
+            }
+            candidates.into_iter().find(|l| clean_empty(l))
         };
         if let Some(label) = reusable {
             if let Some(window) = app.get_webview_window(&label) {

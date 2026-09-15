@@ -28,7 +28,8 @@ describe('openWith 文件关联打开', () => {
     const cleanup = await initOpenWith()
 
     expect(mockListen).toHaveBeenCalledWith('file-open-request', expect.any(Function))
-    expect(mockInvoke).toHaveBeenCalledWith('take_startup_open_files')
+    // 必须按本窗口 label 取走——不传 label 会清空所有窗口的队列（抢窗口）
+    expect(mockInvoke).toHaveBeenCalledWith('take_startup_open_files', { label: 'main' })
     expect(openFileByPath).toHaveBeenCalledWith('/a/first.md')
     expect(openFileByPath).toHaveBeenCalledWith('/b/second.md')
     cleanup()
@@ -52,6 +53,7 @@ describe('openWith 文件关联打开', () => {
     expect(mockInvoke).not.toHaveBeenCalledWith('take_pending_open_files')
     const takeCalls = mockInvoke.mock.calls.filter((c) => c[0] === 'take_startup_open_files')
     expect(takeCalls).toHaveLength(2)
+    expect(takeCalls[0][1]).toEqual({ label: 'main' })
     expect(takeCalls[1][1]).toEqual({ label: null })
     cleanup()
   })
