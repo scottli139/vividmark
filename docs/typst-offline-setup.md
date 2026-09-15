@@ -1,5 +1,7 @@
 # Typst 离线支持配置指南
 
+> ⚠️ 0.5.x 时代原始草稿，已被 docs/typst-offline-plan.md（⏸️ 暂停中）取代，仅存档。
+
 ## 目录结构
 
 ```
@@ -26,28 +28,26 @@ let initialized = false
 
 export async function initTypstOffline() {
   if (initialized) return
-  
+
   // Tauri 环境下使用本地文件路径
   const isTauri = typeof window !== 'undefined' && !!(window as any).__TAURI__
-  
+
   if (isTauri) {
     // 开发环境：使用 public 目录
     // 生产环境：使用 appDataDir 或 resourceDir
-    const basePath = import.meta.env.DEV 
-      ? '/typst' 
-      : await getResourcePath()
-    
+    const basePath = import.meta.env.DEV ? '/typst' : await getResourcePath()
+
     $typst.setCompilerInitOptions({
       getModule: () => `${basePath}/typst_ts_web_compiler_bg.wasm`,
       // 字体路径配置
-      getFontAssets: () => [`${basePath}/fonts/`]
+      getFontAssets: () => [`${basePath}/fonts/`],
     })
-    
+
     $typst.setRendererInitOptions({
-      getModule: () => `${basePath}/typst_ts_renderer_bg.wasm`
+      getModule: () => `${basePath}/typst_ts_renderer_bg.wasm`,
     })
   }
-  
+
   initialized = true
 }
 
@@ -82,7 +82,7 @@ use tauri::Manager;
 #[tauri::command]
 async fn get_system_fonts() -> Result<Vec<String>, String> {
     let mut fonts = vec![];
-    
+
     // macOS 系统字体目录
     #[cfg(target_os = "macos")]
     let font_dirs = vec![
@@ -90,13 +90,13 @@ async fn get_system_fonts() -> Result<Vec<String>, String> {
         PathBuf::from("/Library/Fonts"),
         PathBuf::from("~/Library/Fonts"),
     ];
-    
+
     // Windows 系统字体目录
     #[cfg(target_os = "windows")]
     let font_dirs = vec![
         PathBuf::from("C:\\Windows\\Fonts"),
     ];
-    
+
     // Linux 系统字体目录
     #[cfg(target_os = "linux")]
     let font_dirs = vec![
@@ -104,7 +104,7 @@ async fn get_system_fonts() -> Result<Vec<String>, String> {
         PathBuf::from("/usr/local/share/fonts"),
         PathBuf::from("~/.fonts"),
     ];
-    
+
     for dir in font_dirs {
         if let Ok(entries) = std::fs::read_dir(dir) {
             for entry in entries.flatten() {
@@ -117,7 +117,7 @@ async fn get_system_fonts() -> Result<Vec<String>, String> {
             }
         }
     }
-    
+
     Ok(fonts)
 }
 ```
@@ -145,11 +145,11 @@ if (lang === 'typst') {
 
 ## 字体版权说明
 
-| 字体 | 许可证 | 用途 |
-|------|--------|------|
+| 字体                | 许可证  | 用途      |
+| ------------------- | ------- | --------- |
 | New Computer Modern | OFL 1.1 | ✅ 可嵌入 |
-| Libertinus | OFL 1.1 | ✅ 可嵌入 |
-| Noto Sans CJK | OFL 1.1 | ✅ 可嵌入 |
+| Libertinus          | OFL 1.1 | ✅ 可嵌入 |
+| Noto Sans CJK       | OFL 1.1 | ✅ 可嵌入 |
 
 ## 备选方案：系统字体优先
 
@@ -162,7 +162,7 @@ const systemFonts = await invoke<string[]>('get_system_fonts')
 // 传递给 typst.ts
 $typst.setCompilerInitOptions({
   getModule: () => '/typst/typst_ts_web_compiler_bg.wasm',
-  getFontAssets: () => systemFonts
+  getFontAssets: () => systemFonts,
 })
 ```
 

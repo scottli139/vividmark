@@ -8,9 +8,9 @@
 
 **已支持**：
 
-| 端 | 配置 |
-| --- | --- |
-| 预览/分栏/导出（markdown-it） | `html/linkify/typographer/breaks` 全开；表格、删除线 `~~`；自研：`:::` admonition、KaTeX 数学（`$` 系）、PlantUML（围栏 + 行内，离线渲染） |
+| 端                              | 配置                                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 预览/分栏/导出（markdown-it）   | `html/linkify/typographer/breaks` 全开；表格、删除线 `~~`；自研：`:::` admonition、KaTeX 数学（`$` 系）、PlantUML（围栏 + 行内，离线渲染）                                |
 | WYSIWYG（Milkdown/ProseMirror） | commonmark 预设（剔除 remark-preserve-empty-line）+ gfm 预设（表格/删除线/任务列表/自动链接）；自研：admonition / PlantUML / 数学 / 本地图片 nodeview，往返无损有测试锁定 |
 
 **成本模型（每条新语法的决策模式）**：
@@ -71,29 +71,29 @@ graph TD; A-->B
 ```
 ````
 
-- **生态**：GitHub 原生、docs 生态最广的图语法；已在 `PLAN.md` 待办（Known Issues 建议用它替代 ASCII 图）
+- **生态**：GitHub 原生、docs 生态最广的图语法；原在 `PLAN.md` 待办，已落地（批次 4）（Known Issues 建议用它替代 ASCII 图）
 - **方案**：复用 PlantUML 全套路基建——官方 `mermaid.js`（dynamic import 懒加载，首图出现才加载）；预览侧 fence → 占位符 + 渐进渲染（泛化 `renderPlantUmlPlaceholders` 为通用 diagram 渲染器）；WYSIWYG 双区 nodeview（源码编辑 + 防抖预览，对齐 PlantUML nodeview 模式）；导出侧（PDF/站点）内联 SVG；主题切换按 dark 参数重渲染
 - **坑**：mermaid 体积 ~1MB（gzipped ~300KB），必须懒加载；jsdom 跑不了，单测注入假引擎、真引擎冒烟走 e2e（同 PlantUML 测试模式）
 
 ## ✍️ 第二梯队：排版增强批（一次做掉）✅ 2026-08-18 落地
 
-| 语法 | 示例 | 落地要点 |
-| --- | --- | --- |
-| 高亮 | `==文字==` | `markdown-it-mark`；WYSIWYG 自写 pairedDelimiter micromark 扩展（flanking 对齐 GFM strikethrough）+ PM **mark**（非 node），键入闭合分隔符自动转换 |
-| 上标 / 下标 | `^sup^` / `~sub~` | `markdown-it-sup` / `markdown-it-sub`；WYSIWYG 同工厂。单 `~` 归下标：gfm 预设的 remarkGFMPlugin 以 `{ singleTilde: false }` 重注册、strikethroughInputRule 替换为 `~~` 限定版（`~~` 删除线不受影响） |
-| Emoji 短码 | `:smile:` | **预览侧 only**（`markdown-it-emoji` full 包，WYSIWYG 字面短码零建模，既定决策） |
-| 插入 / 缩写 / 定义列表 | `++ins++` / `*[HTML]:…` / `术语`+`: 定义` | **随批评估结论：不做**——使用频率低，且会扩大 WYSIWYG/预览渲染不一致面（WYSIWYG 只能显示字面文本）；有明确需求再单独立项 |
-| 图片尺寸 | `![a](x.png =100x50)` | 需先选定方言（pandoc `=WxH` 还是 Obsidian `![[img\|300]]`），涉及图片管线，未随批（FR-023.5） |
+| 语法                   | 示例                                      | 落地要点                                                                                                                                                                                              |
+| ---------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 高亮                   | `==文字==`                                | `markdown-it-mark`；WYSIWYG 自写 pairedDelimiter micromark 扩展（flanking 对齐 GFM strikethrough）+ PM **mark**（非 node），键入闭合分隔符自动转换                                                    |
+| 上标 / 下标            | `^sup^` / `~sub~`                         | `markdown-it-sup` / `markdown-it-sub`；WYSIWYG 同工厂。单 `~` 归下标：gfm 预设的 remarkGFMPlugin 以 `{ singleTilde: false }` 重注册、strikethroughInputRule 替换为 `~~` 限定版（`~~` 删除线不受影响） |
+| Emoji 短码             | `:smile:`                                 | **预览侧 only**（`markdown-it-emoji` full 包，WYSIWYG 字面短码零建模，既定决策）                                                                                                                      |
+| 插入 / 缩写 / 定义列表 | `++ins++` / `*[HTML]:…` / `术语`+`: 定义` | **随批评估结论：不做**——使用频率低，且会扩大 WYSIWYG/预览渲染不一致面（WYSIWYG 只能显示字面文本）；有明确需求再单独立项                                                                               |
+| 图片尺寸               | `![a](x.png =100x50)`                     | 需先选定方言（pandoc `=WxH` 还是 Obsidian `![[img\|300]]`），涉及图片管线，未随批（FR-023.5）                                                                                                         |
 
 ## 🏷️ 第三梯队：生态特定（记录触发条件，不展开方案）
 
-| 语法 | 生态 | 触发条件 |
-| --- | --- | --- |
-| `???` 折叠提示框 / `===` 内容标签页 / `///` details / `{#id .class}` attr_list / `--8<--` snippets | mkdocs-material / pymdownx | 站点导出配置感知（`docs/site-export-config-plan.md`）落地后按用户反馈 |
-| `[[wiki 链接]]` / `![[嵌入]]` / `^块id` | Obsidian / foam | 改变链接解析语义，是产品级决策（笔记工具定位）而非语法插件 |
-| `:::{note}` 通用指令 | MyST / JupyterBook（remark-directive 体系） | 与现有 `:::` 容器语法冲突评估后 |
-| `[@引用]` 文献引用 / grid tables（合并单元格） | pandoc 学术向 | 有明确用户需求时 |
-| `{{#include}}` | mdbook（Rust 生态） | 同上 |
+| 语法                                                                                               | 生态                                        | 触发条件                                                              |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------------------------------------------- |
+| `???` 折叠提示框 / `===` 内容标签页 / `///` details / `{#id .class}` attr_list / `--8<--` snippets | mkdocs-material / pymdownx                  | 站点导出配置感知（`docs/site-export-config-plan.md`）落地后按用户反馈 |
+| `[[wiki 链接]]` / `![[嵌入]]` / `^块id`                                                            | Obsidian / foam                             | 改变链接解析语义，是产品级决策（笔记工具定位）而非语法插件            |
+| `:::{note}` 通用指令                                                                               | MyST / JupyterBook（remark-directive 体系） | 与现有 `:::` 容器语法冲突评估后                                       |
+| `[@引用]` 文献引用 / grid tables（合并单元格）                                                     | pandoc 学术向                               | 有明确用户需求时                                                      |
+| `{{#include}}`                                                                                     | mdbook（Rust 生态）                         | 同上                                                                  |
 
 ## 🚫 明确不做
 
@@ -103,13 +103,13 @@ graph TD; A-->B
 
 ## 📅 推荐批次
 
-| 批次 | 内容 | 预估 |
-| --- | --- | --- |
-| 批次 1 | GitHub Alerts（预览装饰 + WYSIWYG CSS 装饰）✅ 2026-08-17 | 0.5 天 |
-| 批次 2 | 脚注（双端，含往返测试）✅ 2026-08-17 | 1 天 |
-| 批次 3 | frontmatter（预览剥离 + WYSIWYG 只读 atom 节点）✅ 2026-08-14 | 1 天 |
-| 批次 4 | Mermaid（复用 PlantUML 基建全链路）✅ 2026-08-17 | 1.5 天 |
-| 批次 5 | 排版增强批：`==` / `^` / `~` / emoji（预览侧先行，WYSIWYG 逐个评估）✅ 2026-08-18 | 1 天 |
+| 批次   | 内容                                                                              | 预估   |
+| ------ | --------------------------------------------------------------------------------- | ------ |
+| 批次 1 | GitHub Alerts（预览装饰 + WYSIWYG CSS 装饰）✅ 2026-08-17                         | 0.5 天 |
+| 批次 2 | 脚注（双端，含往返测试）✅ 2026-08-17                                             | 1 天   |
+| 批次 3 | frontmatter（预览剥离 + WYSIWYG 只读 atom 节点）✅ 2026-08-14                     | 1 天   |
+| 批次 4 | Mermaid（复用 PlantUML 基建全链路）✅ 2026-08-17                                  | 1.5 天 |
+| 批次 5 | 排版增强批：`==` / `^` / `~` / emoji（预览侧先行，WYSIWYG 逐个评估）✅ 2026-08-18 | 1 天   |
 
 批次间逻辑依赖少，但**物理上必须串行**（见下节依赖约束），可按反馈插单。
 

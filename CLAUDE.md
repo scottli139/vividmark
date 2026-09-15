@@ -14,6 +14,5 @@ VividMark is a Markdown editor built with Tauri (Rust backend) + React + TypeScr
 
 ## Git Commit Convention
 
-- **Co-Authored-By: GLM <noreply@zhipuai.cn>**
-- Always use `GLM` as the co-author name, NOT "Claude Opus 4.6" or any other name
 - Use conventional commit format: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`
+- AI-assisted commits: append a `Model: <模型名>` trailer at the end of the commit message (e.g. `Model: Kimi K3 max`), using the model actually used for that commit; purely human commits add no trailer (consistent with `AGENTS.md` Working Agreements)

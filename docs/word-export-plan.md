@@ -12,31 +12,31 @@
 
 ### 文档内容要素（本项目必须处理的）
 
-| 要素 | 来源 |
-| --- | --- |
-| 标题 / 段落 / 行内样式（粗斜体、删除线、行内代码、链接） | CommonMark + GFM |
-| 表格、任务列表 | GFM 扩展 |
-| 代码块（hljs 高亮） | markdown-it `highlight` 钩子 |
-| 数学公式（`$...$` / `$$` 多行围栏） | 自写 mathPlugin，对齐 micromark-extension-math 3.x |
-| Admonition（`:::note` 等） | markdown-it-container |
-| PlantUML 图（代码块 + `@startuml` 行内） | plantuml.com 远程渲染 SVG |
-| 本地 / 远程图片 | parser.ts `preprocessImages` |
+| 要素                                                     | 来源                                               |
+| -------------------------------------------------------- | -------------------------------------------------- |
+| 标题 / 段落 / 行内样式（粗斜体、删除线、行内代码、链接） | CommonMark + GFM                                   |
+| 表格、任务列表                                           | GFM 扩展                                           |
+| 代码块（hljs 高亮）                                      | markdown-it `highlight` 钩子                       |
+| 数学公式（`$...$` / `$$` 多行围栏）                      | 自写 mathPlugin，对齐 micromark-extension-math 3.x |
+| Admonition（`:::note` 等）                               | markdown-it-container                              |
+| PlantUML 图（代码块 + `@startuml` 行内）                 | 本地离线渲染 SVG（src/lib/plantuml.ts）            |
+| 本地 / 远程图片                                          | parser.ts `preprocessImages`                       |
 
 ## ✅ PoC 实测记录（2026-08-13，本机 pandoc 3.10.1 +lua）
 
 测试方法：构造含全部要素的 Markdown（标题、混排行内样式、行内/块级公式、表格、代码块、任务列表、引用、`:::note`、本地 PNG、本地 SVG），`pandoc -f markdown -t docx` 转换后**解包 docx 逐项检查**（PoC 目录 `/tmp/word-export-poc/`，可复跑）。
 
-| 要素 | 结果 | 证据 / 说明 |
-| --- | --- | --- |
-| 数学公式（行内 + 块级） | ✅ 转 Word 原生 **OMML 公式，Word 内可编辑** | `document.xml` 含 `<m:oMath>` |
-| 表格 | ✅ 真 Word 表格（`w:tbl`），非图片 | — |
-| 列表 | ✅ 真 Word 编号体系（`numbering.xml`，bullet/decimal） | — |
-| 标题 | ✅ 映射 Heading1–6 样式（Word 导航窗格可用） | `w:pStyle="Heading2"` |
-| 本地图片 | ✅ 自动嵌入 `word/media/` | — |
-| SVG 图片 | ⚠️ SVG 嵌入；PNG 兜底依赖外部 `rsvg-convert`，缺失时仅告警嵌 SVG（现代 Word/365 可显示，旧版/WPS 不稳） | 实测两种环境对比 |
-| 任务列表 | ⚠️ 退化为普通 bullet，**勾选状态丢失**（pandoc 3.10 docx writer 行为，markdown/gfm 输入均如此） | 无 ☐/☑ 字符 |
-| Admonition | ⚠️ pandoc `fenced_divs` 解析为 Div，docx 中**内容保留、样式全丢** | 无底纹无框 |
-| 远程图片 | pandoc 会联网抓取嵌入；离线则失败告警跳过 | 未实测（验证时断网），官方行为 |
+| 要素                    | 结果                                                                                                    | 证据 / 说明                    |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 数学公式（行内 + 块级） | ✅ 转 Word 原生 **OMML 公式，Word 内可编辑**                                                            | `document.xml` 含 `<m:oMath>`  |
+| 表格                    | ✅ 真 Word 表格（`w:tbl`），非图片                                                                      | —                              |
+| 列表                    | ✅ 真 Word 编号体系（`numbering.xml`，bullet/decimal）                                                  | —                              |
+| 标题                    | ✅ 映射 Heading1–6 样式（Word 导航窗格可用）                                                            | `w:pStyle="Heading2"`          |
+| 本地图片                | ✅ 自动嵌入 `word/media/`                                                                               | —                              |
+| SVG 图片                | ⚠️ SVG 嵌入；PNG 兜底依赖外部 `rsvg-convert`，缺失时仅告警嵌 SVG（现代 Word/365 可显示，旧版/WPS 不稳） | 实测两种环境对比               |
+| 任务列表                | ⚠️ 退化为普通 bullet，**勾选状态丢失**（pandoc 3.10 docx writer 行为，markdown/gfm 输入均如此）         | 无 ☐/☑ 字符                    |
+| Admonition              | ⚠️ pandoc `fenced_divs` 解析为 Div，docx 中**内容保留、样式全丢**                                       | 无底纹无框                     |
+| 远程图片                | pandoc 会联网抓取嵌入；离线则失败告警跳过                                                               | 未实测（验证时断网），官方行为 |
 
 ## 🔍 方案对比
 
@@ -81,46 +81,46 @@ Markdown token 流在前端，自定义语法（admonition/数学/PlantUML）Rus
 
 ### Phase 1：核心管线（约 1–1.5 天）
 
-| # | 任务 | 描述 | 预估 |
-| --- | --- | --- | --- |
-| 1.1 | `src/lib/wordPreprocess.ts`（新） | 纯函数预处理管线，Vitest 可测：① 任务列表 `- [ ]/- [x]` → `- ☐/- ☑`（复用 parser.ts 的 `TASK_LIST_REGEX`，补回 pandoc 丢失的勾选状态）；② PlantUML 处理见 1.2；③ 数学公式 Phase 1 原样透传（pandoc `tex_math_dollars` 兼容 `$...$` 与 `$$` 多行围栏，分歧见「已知边界」） | 3h |
-| 1.2 | PlantUML 预下载 | 复用 `getPlantUmlSvgUrl` 的编码，改调 **`/plantuml/png/` 端点**下载 PNG → 写临时目录 → Markdown 改写为本地绝对路径图片引用（```plantuml 代码块与 `@startuml` 行内两处都处理，对齐 parser.ts 的两处入口）。离线/下载失败 → 保留原代码块（pandoc 渲为代码块）并 warn 日志，不阻断导出。绕开 rsvg-convert 依赖，旧版 Word/WPS 也稳。**备注（2026-08-14）**：PlantUML 本地渲染已落地（`src/lib/plantuml.ts renderPlantUmlSvg` 离线出 SVG），届时可改为本地渲染 SVG → 转 PNG（canvas 栅格化），完全去掉预下载的网络依赖；SVG 栅格化有浏览器 canvas 兜底，仍无需 rsvg-convert | 3h |
-| 1.3 | `src-tauri/src/word.rs`（新） | `check_pandoc()` → 探测 pandoc（见「探测策略」）；`export_docx(markdown, outputPath, resource_dir)` → `std::env::temp_dir()` 建唯一子目录写 `.md` → `std::process::Command` 执行 `pandoc -f markdown -t docx --resource-path=<resource_dir> -o <output>` → 无论成败清理临时目录。30s 超时；stderr 回传前端。Rust 直调进程与文件 IO，**无需新增 capabilities 权限** | 4h |
-| 1.4 | `src/lib/exportWord.ts`（新） | 镜像 `exportPdf.ts`：pandoc 检测缓存 → 保存对话框（filters docx）→ 预处理 → `invoke('export_docx')` → 错误 `alertDialog`。浏览器 dev/E2E 环境（`!isTauri()`）提示仅桌面端可用 | 2h |
-| 1.5 | pandoc 缺失引导 | 检测失败时对话框说明「导出 Word 需要安装 Pandoc」+ 平台安装指引（macOS `brew install pandoc` / Windows `winget install pandoc` / Linux 包管理器），附 pandoc.org 链接（shell plugin 打开，已有 `shell:default`） | 1h |
-| 1.6 | 接线 | 见「接线点清单」 | 2h |
-| 1.7 | 单元测试 | 见「测试计划」 | 3h |
+| #   | 任务                              | 描述                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 预估 |
+| --- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| 1.1 | `src/lib/wordPreprocess.ts`（新） | 纯函数预处理管线，Vitest 可测：① 任务列表 `- [ ]/- [x]` → `- ☐/- ☑`（复用 parser.ts 的 `TASK_LIST_REGEX`，补回 pandoc 丢失的勾选状态）；② PlantUML 处理见 1.2；③ 数学公式 Phase 1 原样透传（pandoc `tex_math_dollars` 兼容 `$...$` 与 `$$` 多行围栏，分歧见「已知边界」）                                                                                                                                                                                                                                                                                               | 3h   |
+| 1.2 | PlantUML 预下载                   | 复用 `getPlantUmlSvgUrl` 的编码，改调 **`/plantuml/png/` 端点**下载 PNG → 写临时目录 → Markdown 改写为本地绝对路径图片引用（```plantuml 代码块与 `@startuml` 行内两处都处理，对齐 parser.ts 的两处入口）。离线/下载失败 → 保留原代码块（pandoc 渲为代码块）并 warn 日志，不阻断导出。绕开 rsvg-convert 依赖，旧版 Word/WPS 也稳。**备注（2026-08-14）**：PlantUML 本地渲染已落地（`src/lib/plantuml.ts renderPlantUmlSvg` 离线出 SVG），届时可改为本地渲染 SVG → 转 PNG（canvas 栅格化），完全去掉预下载的网络依赖；SVG 栅格化有浏览器 canvas 兜底，仍无需 rsvg-convert | 3h   |
+| 1.3 | `src-tauri/src/word.rs`（新）     | `check_pandoc()` → 探测 pandoc（见「探测策略」）；`export_docx(markdown, outputPath, resource_dir)` → `std::env::temp_dir()` 建唯一子目录写 `.md` → `std::process::Command` 执行 `pandoc -f markdown -t docx --resource-path=<resource_dir> -o <output>` → 无论成败清理临时目录。30s 超时；stderr 回传前端。Rust 直调进程与文件 IO，**无需新增 capabilities 权限**                                                                                                                                                                                                      | 4h   |
+| 1.4 | `src/lib/exportWord.ts`（新）     | 镜像 `exportPdf.ts`：pandoc 检测缓存 → 保存对话框（filters docx）→ 预处理 → `invoke('export_docx')` → 错误 `alertDialog`。浏览器 dev/E2E 环境（`!isTauri()`）提示仅桌面端可用                                                                                                                                                                                                                                                                                                                                                                                           | 2h   |
+| 1.5 | pandoc 缺失引导                   | 检测失败时对话框说明「导出 Word 需要安装 Pandoc」+ 平台安装指引（macOS `brew install pandoc` / Windows `winget install pandoc` / Linux 包管理器），附 pandoc.org 链接（shell plugin 打开，已有 `shell:default`）                                                                                                                                                                                                                                                                                                                                                        | 1h   |
+| 1.6 | 接线                              | 见「接线点清单」                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 2h   |
+| 1.7 | 单元测试                          | 见「测试计划」                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 3h   |
 
 **产出：** macOS/Windows/Linux 桌面端可用的 Word 导出，公式可编辑、图表为 PNG。
 
 ### Phase 2：保真增强（可选，各约 0.5 天）
 
-| # | 任务 | 描述 |
-| --- | --- | --- |
-| 2.1 | reference-doc 样式模板 | `--reference-doc` 提供品牌字体/字号/表格样式模板（pandoc 官方机制，模板需手工在 Word 里改样式后归档） |
-| 2.2 | Admonition Lua filter | pandoc `--lua-filter` 把 Div（`:::note` 等）渲染为单格底纹表格，恢复视觉保真。filter 文件随 `bundle.resources` 打包 |
-| 2.3 | 数学规范化 | 用 mathPlugin 同款规则扫描出数学段，统一改写为 pandoc 无歧义定界形式，消除「货币保护」分歧（见「已知边界」） |
-| 2.4 | 代码块高亮 | pandoc 默认对 docx 代码块做语法着色（`--highlight-style` 可选主题），与 hljs 配色对齐到接近即可 |
+| #   | 任务                   | 描述                                                                                                                |
+| --- | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| 2.1 | reference-doc 样式模板 | `--reference-doc` 提供品牌字体/字号/表格样式模板（pandoc 官方机制，模板需手工在 Word 里改样式后归档）               |
+| 2.2 | Admonition Lua filter  | pandoc `--lua-filter` 把 Div（`:::note` 等）渲染为单格底纹表格，恢复视觉保真。filter 文件随 `bundle.resources` 打包 |
+| 2.3 | 数学规范化             | 用 mathPlugin 同款规则扫描出数学段，统一改写为 pandoc 无歧义定界形式，消除「货币保护」分歧（见「已知边界」）        |
+| 2.4 | 代码块高亮             | pandoc 默认对 docx 代码块做语法着色（`--highlight-style` 可选主题），与 hljs 配色对齐到接近即可                     |
 
 ### Phase 3：分发增强（可选）
 
-| # | 任务 | 描述 |
-| --- | --- | --- |
+| #   | 任务                | 描述                                                                                                                         |
+| --- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | 3.1 | sidecar 打包 pandoc | CI 按平台下载官方二进制 → Tauri sidecar。每平台安装包 +30–40MB，与「轻量」定位冲突，仅在用户反馈安装门槛过高时做。许可见下节 |
 
 ## 🔌 接线点清单（锚点精确到现有代码）
 
-| 位置 | 改动 |
-| --- | --- |
-| `src-tauri/src/menu.rs` | `Labels`/`MenuLabels` 加 `export_word` 字段（zh「导出 Word…」/ en「Export Word…」，对照 40/103/161 行）；`file_submenu` 在 `export-pdf`（332 行）后插入 `export-word` 项，**不设 accelerator**（Cmd+P 已给 PDF） |
-| `src/lib/nativeMenu.ts` | `handleMenuAction` 加 `case 'export-word'`（对照 101 行），dispatch `editor-export-word` |
-| `src/components/Toolbar/MoreMenu.tsx` | 菜单数组在 `export-pdf`（56 行）后加 `export-word`；`handleClick` 加分支（对照 37 行） |
-| `src/lib/contextMenu.ts` | 365 行的 `export-pdf` 后加 `export-word`（是否进编辑器右键菜单见「待决策事项」） |
-| `src/components/Editor/Editor.tsx` | 与 241 行 `editor-export-pdf` 监听并列，注册 `editor-export-word` → `exportWord()` |
-| `src-tauri/src/lib.rs` | `mod word;` + `generate_handler!` 注册 `check_pandoc` / `export_docx` |
-| `src/i18n/locales/{en,zh-CN}.json` | 新增 `menu.exportWord`、`toolbar.tooltip.exportWord`、`contextMenu.exportWord`、`messages.exportWordFailed`、`messages.pandocNotFound`（含安装指引变量插值） |
-| `src/test/setup.ts` | mock 翻译表补上述 key（对照 60/148 行） |
-| `AGENTS.md` | Tauri Commands 表加 `check_pandoc`/`export_docx`；快捷键表无需动（无 accelerator） |
+| 位置                                  | 改动                                                                                                                                                                                                             |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src-tauri/src/menu.rs`               | `Labels`/`MenuLabels` 加 `export_word` 字段（zh「导出 Word…」/ en「Export Word…」，对照 40/103/161 行）；`file_submenu` 在 `export-pdf`（332 行）后插入 `export-word` 项，**不设 accelerator**（Cmd+P 已给 PDF） |
+| `src/lib/nativeMenu.ts`               | `handleMenuAction` 加 `case 'export-word'`（对照 101 行），dispatch `editor-export-word`                                                                                                                         |
+| `src/components/Toolbar/MoreMenu.tsx` | 菜单数组在 `export-pdf`（56 行）后加 `export-word`；`handleClick` 加分支（对照 37 行）                                                                                                                           |
+| `src/lib/contextMenu.ts`              | 365 行的 `export-pdf` 后加 `export-word`（是否进编辑器右键菜单见「待决策事项」）                                                                                                                                 |
+| `src/components/Editor/Editor.tsx`    | 与 241 行 `editor-export-pdf` 监听并列，注册 `editor-export-word` → `exportWord()`                                                                                                                               |
+| `src-tauri/src/lib.rs`                | `mod word;` + `generate_handler!` 注册 `check_pandoc` / `export_docx`                                                                                                                                            |
+| `src/i18n/locales/{en,zh-CN}.json`    | 新增 `menu.exportWord`、`toolbar.tooltip.exportWord`、`contextMenu.exportWord`、`messages.exportWordFailed`、`messages.pandocNotFound`（含安装指引变量插值）                                                     |
+| `src/test/setup.ts`                   | mock 翻译表补上述 key（对照 60/148 行）                                                                                                                                                                          |
+| `AGENTS.md`                           | Tauri Commands 表加 `check_pandoc`/`export_docx`；快捷键表无需动（无 accelerator）                                                                                                                               |
 
 ### pandoc 探测策略（关键坑）
 
@@ -139,15 +139,15 @@ macOS **GUI 应用 PATH 极简**（`/usr/bin:/bin:…`），用户经 brew 装�
 
 ## ⚠️ 已知边界与降级
 
-| 场景 | 行为 | 对策 |
-| --- | --- | --- |
+| 场景                 | 行为                                                                                                                                                                                        | 对策                                                          |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | 数学「货币保护」分歧 | 应用对齐 micromark-extension-math（无保护），pandoc `tex_math_dollars` 有保护（开 `$` 后须紧跟非空白、闭 `$` 前须非空白且后非数字）。「$5 和 $10」类文本应用渲染为公式、pandoc 视为字面文本 | Phase 1 接受（pandoc 偏保守，方向安全）；Phase 2.3 规范化消除 |
-| 任务列表 | 预处理后为 ☐/☑ 符号字符，Word 中不是可点击 checkbox 控件 | 可接受（Typora 相同）；真控件需 docx 内容控件，pandoc 不支持 |
-| Admonition | Phase 1 内容保留、无样式（标题行 + 正文段落） | Phase 2.2 Lua filter |
-| PlantUML 离线 | 下载失败保留源码代码块 | warn 日志 + 导出结果告知用户 |
-| PlantUML 远程图片 | 依赖 plantuml.com 可达（与应用预览行为一致，非新增约束） | — |
-| 其他远程图片 | pandoc 联网抓取；离线告警跳过该图 | 可接受 |
-| 大文档 | pandoc 处理 MB 级文档秒级完成，30s 超时充足 | — |
+| 任务列表             | 预处理后为 ☐/☑ 符号字符，Word 中不是可点击 checkbox 控件                                                                                                                                    | 可接受（Typora 相同）；真控件需 docx 内容控件，pandoc 不支持  |
+| Admonition           | Phase 1 内容保留、无样式（标题行 + 正文段落）                                                                                                                                               | Phase 2.2 Lua filter                                          |
+| PlantUML 离线        | 下载失败保留源码代码块                                                                                                                                                                      | warn 日志 + 导出结果告知用户                                  |
+| PlantUML 远程图片    | 本地渲染失败时回退在线 img（与应用预览行为一致，非新增约束）                                                                                                                                | —                                                             |
+| 其他远程图片         | pandoc 联网抓取；离线告警跳过该图                                                                                                                                                           | 可接受                                                        |
+| 大文档               | pandoc 处理 MB 级文档秒级完成，30s 超时充足                                                                                                                                                 | —                                                             |
 
 ## 🧪 测试计划
 

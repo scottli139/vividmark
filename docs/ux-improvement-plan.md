@@ -2,7 +2,7 @@
 
 > 2026-08-04 制定。任务看板见 `PLAN.md`「UX 改进」一节，本文档记录分析与方案细节。
 >
-> **进度**：P0 / P1 / P2 已完成（2026-08-04，WYSIWYG 经 Milkdown 落地并提为默认模式）；P3 原生菜单/右键菜单/融合标题栏/设置面板等已落地（2026-08-05/06）；P5 第二梯队（菜单补全段落/格式、Dock 菜单、文件关联、拖拽修复、工具栏二轮精简、侧栏精致化）已完成（2026-08-07）。
+> **进度**：P0 / P1 / P2 已完成（2026-08-04，WYSIWYG 经 Milkdown 落地并提为默认模式）；P3 原生菜单/右键菜单/融合标题栏/设置面板等已落地（2026-08-05/06）；P4 侧栏与工具栏 UI/UX 优化已完成（2026-08-05，见 docs/session-log.md）；P5 第二梯队（菜单补全段落/格式、Dock 菜单、文件关联、拖拽修复、工具栏二轮精简、侧栏精致化）已完成（2026-08-07；P5 定义见 PLAN.md，本文档正文无 P5 章节）。
 
 ## 一、现状诊断
 
@@ -14,14 +14,14 @@
 
 ### 2. 正确性 bug
 
-| Bug | 位置 | 后果 |
-| --- | --- | --- |
-| base64 回写 | `src/lib/fileOps.ts` `openFileByPath` | 打开文件时把图片预处理成 base64 后的内容写入 store，自动保存会把 base64 写回磁盘，污染/膨胀用户的 .md 文件 |
-| Chars/Words 标签对调 | `Sidebar.tsx` 底部统计 | "Words" 显示总字符数，"Chars" 显示词数，且词数算法对英文按字母计数 |
-| CSS 变量未定义 | `--text-primary` / `--text-secondary` / `--color-text` / `--color-text-secondary` 被十余处引用但 `:root` 未定义 | 颜色靠继承兜底，暗色模式下存在样式债 |
-| 窗口标题硬编码中文 | `Toolbar.tsx` | 英文界面标题栏出现"未命名" |
-| tooltip 虚标快捷键 | `Toolbar.tsx` / `FormatMenu.tsx` / `HeadingDropdown.tsx` | 宣称的 Cmd+B/I/K、Ctrl+1/2/3 无任何绑定 |
-| 大纲混入代码块注释 | `outlineUtils.ts` `extractOutline` | 代码块里的 `# 注释` 被当成标题 |
+| Bug                  | 位置                                                                                                            | 后果                                                                                                       |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| base64 回写          | `src/lib/fileOps.ts` `openFileByPath`                                                                           | 打开文件时把图片预处理成 base64 后的内容写入 store，自动保存会把 base64 写回磁盘，污染/膨胀用户的 .md 文件 |
+| Chars/Words 标签对调 | `Sidebar.tsx` 底部统计                                                                                          | "Words" 显示总字符数，"Chars" 显示词数，且词数算法对英文按字母计数                                         |
+| CSS 变量未定义       | `--text-primary` / `--text-secondary` / `--color-text` / `--color-text-secondary` 被十余处引用但 `:root` 未定义 | 颜色靠继承兜底，暗色模式下存在样式债                                                                       |
+| 窗口标题硬编码中文   | `Toolbar.tsx`                                                                                                   | 英文界面标题栏出现"未命名"                                                                                 |
+| tooltip 虚标快捷键   | `Toolbar.tsx` / `FormatMenu.tsx` / `HeadingDropdown.tsx`                                                        | 宣称的 Cmd+B/I/K、Ctrl+1/2/3 无任何绑定                                                                    |
+| 大纲混入代码块注释   | `outlineUtils.ts` `extractOutline`                                                                              | 代码块里的 `# 注释` 被当成标题                                                                             |
 
 ### 3. 编辑体验断层
 

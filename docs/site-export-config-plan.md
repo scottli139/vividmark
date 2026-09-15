@@ -10,12 +10,12 @@
 
 对带 mkdocs/vuepress 配置的文档仓库，存在四个错位：
 
-| 错位 | 说明 |
-| --- | --- |
-| 范围错 | mkdocs 典型布局 `mkdocs.yml` 在仓库根、文档在 `docs/`；导出会镜像整个仓库，配置文件 / CI 脚本全成「资产」 |
-| 导航错 | mkdocs `nav:` / vuepress `sidebar` 的手写标题、顺序、分组被忽略，退回目录推导 |
+| 错位   | 说明                                                                                                                                                                                              |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 范围错 | mkdocs 典型布局 `mkdocs.yml` 在仓库根、文档在 `docs/`；导出会镜像整个仓库，配置文件 / CI 脚本全成「资产」                                                                                         |
+| 导航错 | mkdocs `nav:` / vuepress `sidebar` 的手写标题、顺序、分组被忽略，退回目录推导                                                                                                                     |
 | 语法错 | mkdocs `!!! note` admonition 渲染不出（应用用 `::: note`，见 `parser.ts` markdown-it-container）；frontmatter 被渲染为 `---` 分隔线，且使 `pageTitleFromMarkdown()` 首行即返回 null、标题检测失效 |
-| 资产错 | vuepress `.vuepress/public/*` 约定映射站点根；`.vuepress` 是点开头隐藏目录，当前 Rust 侧读取目录时直接跳过，根引用类图片全断 |
+| 资产错 | vuepress `.vuepress/public/*` 约定映射站点根；`.vuepress` 是点开头隐藏目录，当前 Rust 侧读取目录时直接跳过，根引用类图片全断                                                                      |
 
 ## 🔍 案例仓库分析（设计依据）
 
@@ -157,32 +157,32 @@ function parseFrontmatter(content: string): { data: Record<string, unknown> | nu
 
 ### P1：mkdocs 配置感知核心（约 1.5 天）
 
-| # | 任务 | 描述 | 预估 |
-| --- | --- | --- | --- |
-| 1.1 | 依赖 + 解析纯函数 | `yaml` 依赖；`parseMkdocsConfig` / `parseFrontmatter`（`siteGenerator.ts` 或新 `siteConfig.ts`，纯函数可单测） | 3h |
-| 1.2 | 风味探测 | `detectSiteFlavor`（含向上一级、docs_dir 存在性回退） | 2h |
-| 1.3 | nav 模型扩展 | external 类型；`buildNavFromMkdocsNav`（标题/顺序原文、外链、缺文件跳过、**不追加**）；`renderNavHtml` 适配 | 3h |
-| 1.4 | 编排接入 | `exportSite.ts`：探测 → docsRoot 子树收敛 → 读配置 → nav/标题注入（nav > frontmatter > H1 > 文件名）→ frontmatter 剥离渲染 → 结果提示带风味 | 3h |
-| 1.5 | i18n + 单测 | 见测试计划 | 4h |
+| #   | 任务              | 描述                                                                                                                                        | 预估 |
+| --- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| 1.1 | 依赖 + 解析纯函数 | `yaml` 依赖；`parseMkdocsConfig` / `parseFrontmatter`（`siteGenerator.ts` 或新 `siteConfig.ts`，纯函数可单测）                              | 3h   |
+| 1.2 | 风味探测          | `detectSiteFlavor`（含向上一级、docs_dir 存在性回退）                                                                                       | 2h   |
+| 1.3 | nav 模型扩展      | external 类型；`buildNavFromMkdocsNav`（标题/顺序原文、外链、缺文件跳过、**不追加**）；`renderNavHtml` 适配                                 | 3h   |
+| 1.4 | 编排接入          | `exportSite.ts`：探测 → docsRoot 子树收敛 → 读配置 → nav/标题注入（nav > frontmatter > H1 > 文件名）→ frontmatter 剥离渲染 → 结果提示带风味 | 3h   |
+| 1.5 | i18n + 单测       | 见测试计划                                                                                                                                  | 4h   |
 
 **产出**：mkdocs 仓库导出 = 范围收敛 docs_dir + 导航忠实配置意图 + 全页面正文链接可达；无配置仓库行为不变 + frontmatter 支持。
 
 ### P2：mkdocs `!!!` 语法双端支持 + 排除（约 2 天）✅（2026-08-17 完成）
 
-| # | 任务 | 描述 | 预估 |
-| --- | --- | --- | --- |
-| 2.1 | `!!!` 预览/分栏支持 ✅ | markdown-it 自写块级 rule（缩进定界，**不复用** markdown-it-container），产出复用现有 admonition HTML/CSS | 4h |
-| 2.2 | `!!!` WYSIWYG 支持 ✅ | 文本预处理器（`!!!` 缩进块 → 内部 `:::!` 形式 + bang 来源编码）+ PM 节点 `syntax` attr + 序列化分支 + 往返测试 | 8h |
-| 2.3 | `exclude_docs` glob 过滤 ✅ | 页面与资产同滤（相对 docs_dir 路径匹配；.gitignore 语义：`!` 取反 / `/` 锚定 / `**` 跨段） | 2h |
+| #   | 任务                        | 描述                                                                                                           | 预估 |
+| --- | --------------------------- | -------------------------------------------------------------------------------------------------------------- | ---- |
+| 2.1 | `!!!` 预览/分栏支持 ✅      | markdown-it 自写块级 rule（缩进定界，**不复用** markdown-it-container），产出复用现有 admonition HTML/CSS      | 4h   |
+| 2.2 | `!!!` WYSIWYG 支持 ✅       | 文本预处理器（`!!!` 缩进块 → 内部 `:::!` 形式 + bang 来源编码）+ PM 节点 `syntax` attr + 序列化分支 + 往返测试 | 8h   |
+| 2.3 | `exclude_docs` glob 过滤 ✅ | 页面与资产同滤（相对 docs_dir 路径匹配；.gitignore 语义：`!` 取反 / `/` 锚定 / `**` 跨段）                     | 2h   |
 
 **产出**：mkdocs 文档在预览/分栏直接渲染 `!!!` 提示框；WYSIWYG 可编辑且保存后源码围栏原样保持（`!!!` 不被改写为 `:::`）；站点导出经共享 `parseMarkdown` 自动获得同样渲染。
 
 ### P3：vuepress best-effort（约 0.5 天）✅（2026-08-17 完成）
 
-| # | 任务 | 描述 |
-| --- | --- | --- |
+| #   | 任务                           | 描述                                                                                                                         |
+| --- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
 | 3.1 | `.vuepress/public` → 站点根 ✅ | 含隐藏目录读取检查点验证（结论：`read_directory` 跳过只作用于列出子项，直读 public 可行；public 覆盖同名资产、撞页面名丢弃） |
-| 3.2 | config title 正则提取 ✅ | 站点名尽力而为（剥注释后取首个 `title:` 引号匹配；config.ts/js/mjs 命中即停） |
+| 3.2 | config title 正则提取 ✅       | 站点名尽力而为（剥注释后取首个 `title:` 引号匹配；config.ts/js/mjs 命中即停）                                                |
 
 ## 🔗 依赖与顺序约束（2026-08-14 补充）
 
@@ -210,16 +210,16 @@ function parseFrontmatter(content: string): { data: Record<string, unknown> | nu
 
 ## ⚠️ 已知边界与降级
 
-| 场景 | 行为 |
-| --- | --- |
-| vuepress sidebar/nav | 不解析（可执行 JS），退回目录推导 + frontmatter title |
-| pymdownx 系（snippets/tabs/inlinehilite 等） | 渲染为可读原文，不报错 |
-| mkdocs `???` 折叠提示框 | 不在 P2 范围（独立语法构造，details/summary 语义），渲染为原文；如需要单列后续项 |
-| `use_directory_urls` | 不追；导出保持 `.html` 镜像结构（内部自洽，`.md` 互链已重写） |
-| mkdocs `extra_css` / 主题（material palette/tabs 等） | 不复刻；css 文件作为资产镜像但不注入页面 |
-| mkdocs plugins（search/glightbox/revision-date） | 不追；搜索是站点级 JS 能力，超出生成器范围 |
-| mermaid（vuepress 侧常见） | 渲染为代码块（应用本身未支持 mermaid） |
-| PlantUML | 现有能力直接覆盖（本地离线渲染，优于案例仓库配置的远程 server） |
+| 场景                                                  | 行为                                                                                     |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| vuepress sidebar/nav                                  | 不解析（可执行 JS），退回目录推导 + frontmatter title                                    |
+| pymdownx 系（snippets/tabs/inlinehilite 等）          | 渲染为可读原文，不报错                                                                   |
+| mkdocs `???` 折叠提示框                               | 不在 P2 范围（独立语法构造，details/summary 语义），渲染为原文；如需要单列后续项         |
+| `use_directory_urls`                                  | 不追；导出保持 `.html` 镜像结构（内部自洽，`.md` 互链已重写）                            |
+| mkdocs `extra_css` / 主题（material palette/tabs 等） | 不复刻；css 文件作为资产镜像但不注入页面                                                 |
+| mkdocs plugins（search/glightbox/revision-date）      | 不追；搜索是站点级 JS 能力，超出生成器范围                                               |
+| mermaid（vuepress 侧常见）                            | 应用已离线渲染 Mermaid；站点导出经 `parseMarkdownAsync { inlineMermaid: true }` 内联 SVG |
+| PlantUML                                              | 现有能力直接覆盖（本地离线渲染，优于案例仓库配置的远程 server）                          |
 
 ## ❓ 待决策事项
 

@@ -4,10 +4,10 @@
 
 **MkDocs 完美适配**: 完整支持 MkDocs 特殊语法，包括提示框（Admonitions）、PlantUML 图表、KaTeX 数学公式和高级表格 —— 是编写和预览 MkDocs 文档的理想编辑器。
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)](https://tauri.app)
-[![React](https://img.shields.io/badge/React-19-blue.svg)](https://react.dev)
-[![AI-Built](https://img.shields.io/badge/100%25%20AI-Built-purple.svg)]()
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Tauri](https://img.shields.io/badge/Tauri-2.0-blue.svg)
+![React](https://img.shields.io/badge/React-19-blue.svg)
+![AI-Built](https://img.shields.io/badge/100%25%20AI-Built-purple.svg)
 
 **[English](README.md) | 简体中文**
 
@@ -67,6 +67,7 @@
 
 - **行内格式** - 粗体、斜体、删除线、行内代码、链接（Cmd/Ctrl + B / I / K）
 - **块级格式** - 标题（H1-H6）、引用、列表、代码块
+- **任务列表** - `- [ ]` / `- [x]` 复选框列表项（格式菜单或 Cmd/Ctrl + Alt + X 插入）；预览中点击复选框可切换状态并写回源码
 - **图片插入** - 菜单、粘贴或拖拽插入，自动资产管理
 - **表格编辑** - 可视化表格创建，可自定义行列数
 - **提示框插入** - 从段落菜单插入提示框（提示、警告、说明等），支持自定义标题
@@ -133,6 +134,7 @@
 
 - **PlantUML 图表** - 内置本地引擎（@plantuml/core）直接在文档中渲染 UML 图表 —— 完全离线、暗色自适应，PDF/站点导出内联 SVG（仅本地渲染失败时回退在线服务）
 - **Mermaid 图表** - 内置 mermaid.js 渲染流程图、时序图、甘特图等 —— 首个图表按需懒加载、完全离线、暗色自适应，PDF/站点导出内联 SVG（语法错误显示内联错误态，无在线回退）
+
   ```markdown
   @startuml
   Alice -> Bob: 你好
@@ -191,7 +193,7 @@
 
 ### 环境要求
 
-- Node.js 18+
+- Node.js 20+
 - pnpm（推荐）或 npm
 - Rust（用于 Tauri）
 
@@ -218,45 +220,49 @@ pnpm tauri build
 
 ## 键盘快捷键
 
-| 快捷键                 | 功能                   |
-| ---------------------- | ---------------------- |
-| `Cmd/Ctrl + O`         | 打开文件               |
-| `Cmd/Ctrl + S`         | 保存文件               |
-| `Cmd/Ctrl + Shift + S` | 另存为                 |
-| `Cmd/Ctrl + N`         | 新建文件               |
-| `Cmd/Ctrl + B`         | 粗体                   |
-| `Cmd/Ctrl + I`         | 斜体                   |
-| `Cmd/Ctrl + K`         | 插入链接               |
-| `Cmd/Ctrl + 1 / 2 / 3` | 标题 1 / 2 / 3         |
-| `Cmd/Ctrl + F`         | 查找替换               |
-| `Cmd/Ctrl + Z`         | 撤销                   |
-| `Cmd/Ctrl + Shift + Z` | 重做                   |
-| `Cmd/Ctrl + /`         | 所见即所得 / 源码切换  |
-| `Cmd/Ctrl + = / - / 0` | 放大 / 缩小 / 重置缩放 |
-| `Escape`               | 退出编辑模式           |
+| 快捷键                         | 功能                      |
+| ------------------------------ | ------------------------- |
+| `Cmd/Ctrl + O`                 | 打开文件                  |
+| `Cmd/Ctrl + S`                 | 保存文件                  |
+| `Cmd/Ctrl + Shift + S`         | 另存为                    |
+| `Cmd/Ctrl + N`                 | 新建文件                  |
+| `Cmd/Ctrl + B`                 | 粗体                      |
+| `Cmd/Ctrl + I`                 | 斜体                      |
+| `Cmd/Ctrl + K`                 | 插入链接                  |
+| `Cmd/Ctrl + 1 / 2 / 3`         | 标题 1 / 2 / 3            |
+| `Cmd/Ctrl + F`                 | 查找替换                  |
+| `Cmd/Ctrl + Z`                 | 撤销                      |
+| `Cmd/Ctrl + Shift + Z`         | 重做                      |
+| `Cmd/Ctrl + /`                 | 所见即所得 / 源码切换     |
+| `Cmd/Ctrl + = / - / Shift + 0` | 放大 / 缩小 / 重置缩放    |
+| `Escape`                       | 关闭对话框 / 退出内联编辑 |
 
 ## 项目结构
 
 ```
 vividmark/
-├── src/                    # React 前端
-│   ├── components/
-│   │   ├── Editor/         # 核心编辑器组件
-│   │   ├── Sidebar/        # 带大纲的侧边栏
-│   │   └── Toolbar/        # 工具栏
-│   ├── hooks/              # 自定义 React hooks
-│   ├── stores/             # Zustand 状态管理
-│   ├── lib/
-│   │   ├── markdown/       # Markdown 解析
-│   │   └── fileOps.ts      # 文件操作
-│   └── styles/             # 全局样式
-├── src-tauri/              # Rust 后端
-│   ├── src/
-│   │   ├── lib.rs          # 主要逻辑 + 命令
-│   │   └── main.rs         # 入口点
-│   ├── Cargo.toml
+├── src/                      # React 前端
+│   ├── components/           # Editor/ Sidebar/ Toolbar/ FileTree/ StatusBar/
+│   │                         # Menu/（Dropdown/ContextMenu 菜单原语）Settings/
+│   ├── hooks/                # useAutoSave, useFileDragDrop, useKeyboardShortcuts,
+│   │                         # useResizable, useDebouncedValue, useContextMenu
+│   ├── stores/editorStore.ts # Zustand 主 store
+│   ├── lib/                  # markdown/ markdownEditing textStats plantuml mermaid imageSrc
+│   │                         # fileOps logger imageUtils theme（主题解析）platform（平台检测）
+│   │                         # editorActions（菜单/工具栏共享动作）openWith（文件关联）...
+│   ├── i18n/                 # i18next 配置 + locales/{en,zh-CN}.json
+│   ├── styles/globals.css    # Tailwind + 主题 CSS 变量
+│   ├── test/                 # Vitest setup + Tauri mocks
+│   └── App.tsx / main.tsx
+├── src-tauri/                # Rust 后端
+│   ├── src/lib.rs            # Tauri 命令 + 插件 + RunEvent::Opened
+│   ├── src/menu.rs           # 系统菜单栏构建（段落/格式/视图等）
+│   ├── src/dock_menu.rs      # macOS Dock 右键菜单（objc2，仅 macOS 编译）
+│   ├── capabilities/         # 权限声明
 │   └── tauri.conf.json
-└── package.json
+├── e2e/                      # Playwright 用例（sourceMode.ts 预置源码模式）
+├── scripts/                  # 工具脚本（take-screenshots.mjs 生成 README 截图，需 dev server）
+└── docs/                     # 计划、需求文档与 GitHub Pages 站点
 ```
 
 ## 开发状态
@@ -269,6 +275,7 @@ vividmark/
 - [x] 第二阶段: 核心编辑器
 - [x] 第三阶段: 文件操作
 - [x] 第四阶段: 编辑增强（视图模式、图片插入、撤销/重做、MkDocs 扩展、表格编辑、数学公式（KaTeX）、多语言支持、大纲导航）
+- [x] 第五阶段: 文件管理（文件树、多窗口（Typora 式 SDI）、文件变更监控）
 - [x] 第八阶段: 代码规范（ESLint、Prettier、TypeScript 严格模式）
 - [x] 第九阶段: 测试基础设施（Vitest、Playwright、CI/CD）
 - [x] 第十阶段: 品牌设计（Logo、图标）
@@ -276,9 +283,10 @@ vividmark/
 
 ### 进行中 / 计划中
 
-- [x] 第五阶段: 文件管理（文件树 ✅、多窗口（Typora 式 SDI）✅、文件变更监控 ✅）
 - [ ] 第六阶段: 高级功能（PDF 导出 ✅、搜索替换 ✅、CSS 主题、HTML/Word 导出）
 - [ ] 第七阶段: 完善与优化（性能、偏好设置 ✅）
+- [x] 第十二阶段: 测试增强（部分完成）
+- [ ] 第十三阶段: UX 改进（Typora 对标，P0-P6，进行中）
 
 ## 贡献
 

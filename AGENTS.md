@@ -21,22 +21,23 @@ Key features:
 
 ## Documentation Map
 
-| File                                                               | Content                                                                          |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| `PLAN.md`                                                          | 开发计划与任务进度（唯一的任务看板，不在本文件重复）                             |
-| `docs/implementation-notes.md`                                     | 实现细节知识库：已知问题、架构要点、Tauri 命令/快捷键一览表、发布流程、Git 规范  |
-| `docs/session-log.md`                                              | 历史开发日志（Session 记录，自 PLAN.md 归档）                                    |
-| `docs/REQUIREMENTS.md`                                             | 需求文档                                                                         |
-| `docs/ux-improvement-plan.md`                                      | Typora 对标体验差距分析与 P0–P3 改进方案                                         |
-| `docs/wysiwyg-research.md` + `docs/wysiwyg-implementation-plan.md` | WYSIWYG 模式调研与实现计划（自研路线，已被 P2 取代）                             |
-| `docs/typst-offline-plan.md`                                       | Typst 离线支持计划（⏸️ 暂停中，2026-08-12 评估转向独立产品）                     |
-| `docs/typst-standalone-editor-plan.md`                             | 独立 Typst 编辑器预研（📋 未立项；与 VividMark 分离的产品方向）                  |
-| `docs/word-export-plan.md`                                         | Word（docx）导出可行性与实现方案（📋 方案待评审，pandoc 路线）                   |
-| `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（✅ 全部落地：mkdocs nav/docs_dir/exclude_docs/`!!!`；vuepress public/title best-effort）         |
-| `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（✅ 批次 1–5 全部落地：Alerts/脚注/frontmatter/Mermaid/排版批） |
-| `docs/tauri-evaluation.md`                                         | Tauri 框架选型评估报告（基于本项目实战的优势/成本/生态分析，供外部读者选型参考）            |
-| `CONTRIBUTING.md`（+ `.zh-CN`）                                    | 贡献指南：环境搭建、提交前检查链、PR 流程、AI 辅助贡献政策                       |
-| `linglong/README.md`                                               | 玲珑（Linglong）打包方案与踩坑记录（UOS 20 等老系统；构建入口 `linglong.yaml` + `linglong/build.sh`） |
+| File                                                               | Content                                                                                                                              |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `PLAN.md`                                                          | 开发计划与任务进度（唯一的任务看板，不在本文件重复）                                                                                 |
+| `docs/implementation-notes.md`                                     | 实现细节知识库：已知问题、架构要点、Tauri 命令/快捷键一览表、发布流程、Git 规范                                                      |
+| `docs/session-log.md`                                              | 历史开发日志（Session 记录，自 PLAN.md 归档）                                                                                        |
+| `docs/REQUIREMENTS.md`                                             | 需求文档                                                                                                                             |
+| `docs/ux-improvement-plan.md`                                      | Typora 对标体验差距分析与 P0–P4 改进方案                                                                                             |
+| `docs/wysiwyg-research.md` + `docs/wysiwyg-implementation-plan.md` | WYSIWYG 模式调研与实现计划（自研路线，已被 P2 取代）                                                                                 |
+| `docs/typst-offline-plan.md`                                       | Typst 离线支持计划（⏸️ 暂停中，2026-08-12 评估转向独立产品）                                                                         |
+| `docs/typst-standalone-editor-plan.md`                             | 独立 Typst 编辑器预研（📋 未立项；与 VividMark 分离的产品方向）                                                                      |
+| `docs/word-export-plan.md`                                         | Word（docx）导出可行性与实现方案（📋 方案待评审，pandoc 路线）                                                                       |
+| `docs/site-export-config-plan.md`                                  | 「导出为网站」mkdocs/vuepress 配置感知方案（✅ 全部落地：mkdocs nav/docs_dir/exclude_docs/`!!!`；vuepress public/title best-effort） |
+| `docs/syntax-extensions-plan.md`                                   | Markdown 扩展语法盘点与方案（✅ 批次 1–5 全部落地：Alerts/脚注/frontmatter/Mermaid/排版批）                                          |
+| `docs/tauri-evaluation.md`                                         | Tauri 框架选型评估报告（基于本项目实战的优势/成本/生态分析，供外部读者选型参考）                                                     |
+| `docs/drag-drop-testing.md`                                        | 拖放功能的测试策略与手动验收清单                                                                                                     |
+| `CONTRIBUTING.md`（+ `.zh-CN`）                                    | 贡献指南：环境搭建、提交前检查链、PR 流程、AI 辅助贡献政策                                                                           |
+| `linglong/README.md`                                               | 玲珑（Linglong）打包方案与踩坑记录（UOS 20 等老系统；构建入口 `linglong.yaml` + `linglong/build.sh`）                                |
 
 ## Technology Stack
 
@@ -167,14 +168,14 @@ Read these before touching editor code — 每条只保留核心约束，展开�
 - **文件变更监控**: Rust `file_watch.rs` 按窗口监听**父目录**过滤目标文件（notify，300ms 防抖，窗口 Destroyed 释放）；前端 `src/lib/fileWatcher.ts` 分流——干净静默重载 / 脏冲突弹窗（未决期 `useAutoSave` 暂停）/ 删除提示一次（保存重建后复位）；自身保存回声靠 `lastKnownContent` 读盘比对抑制（fileOps open/save 埋点 `markFileContentKnown`）
 - **Scroll container refs**: preview/outline scroll code requires the ref on the _scrollable container_ (`overflow-auto` div), not on `.markdown-body`
 - **Split scroll sync**: percentage-based, guarded by an `isSyncingScroll` flag + 50ms timeout to prevent infinite loops；编辑器侧滚动容器是 CM 的 `view.scrollDOM`
-- **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（菜单/工具栏 → 编辑器），`editor-scroll-to-heading` (outline nav), `editor-export-pdf` (PDF export), `editor-find` (原生菜单 Find), `app-open-dialog` (原生菜单 → Toolbar 对话框), `app-open-image-viewer` (图表/图片全屏查看器，detail `{ html }`), `file-open-request` (文件关联打开)
+- **Cross-component events**: `CustomEvent` bus on `window` — `editor-format` / `editor-insert` / `editor-undo` / `editor-redo`（菜单/工具栏 → 编辑器），`editor-cut` / `editor-copy` / `editor-paste` / `editor-select-all`（菜单剪贴板动作，`nativeMenu.ts` dispatch、三个编辑器 listen），`editor-scroll-to-heading` (outline nav), `editor-export-pdf` (PDF export), `editor-find` (原生菜单 Find), `app-open-dialog` (原生菜单 → Toolbar 对话框), `app-open-image-viewer` (图表/图片全屏查看器，detail `{ html }`)；`file-open-request`（文件关联打开）不是 CustomEvent——是 Tauri 事件（Rust `window.emit` → `openWith.ts` listen，同 `prefs-sync` 一路）
 - **WYSIWYG Enter 模型**: 普通段落 Enter = 行内软换行，Enter×2 = 新段落；列表/标题/代码块行为不变（`wysiwygEnterCommand`）。CM 的 defaultKeymap 已移除 `Mod-/`（toggleComment 与模式切换冲突）；中文 IME（WKWebView）幻影节点/回车吞键有专门插件链（notes「中文 IME 组合输入系列问题」）
 - **多窗口（Typora 式 SDI）**: 每文档独立窗口（独立 webview/JS 上下文）。核心 `src-tauri/src/window_router.rs`：注册表 `WINDOW_STATES`（前端 `report_window_state` 上报）+ `LAST_FOCUSED` + 启动待打开队列；打开路由 = 已打开→聚焦 / 干净空窗口→复用 / 否则新建（pending 去重）。**Windows 建窗命令必须 `#[tauri::command(async)]`**（同步命令在主线程执行，主线程 build() 在事件循环运转后自死锁——0.9.0「新建窗口假死」hotfix；macOS/Linux 保持主线程建窗，worker 上经 `run_on_main_thread` 派发，setup 记录主线程 id 分流）。**跨窗口偏好同步走 `prefs-sync` tauri 事件广播——不能用 localStorage storage 事件**（macOS WKWebView 多窗口 localStorage 各自独立）；菜单/Dock 事件经 `emit_to_focused` 定向；capabilities 需 `windows: ["*"]`；PDF 隐藏窗口 label 排除在路由外
 - **原生菜单事件流（仅 macOS/Linux；Windows 无原生菜单）**: `menu.rs` 构建 → `on_menu_event` 经 `emit_to_focused` emit `native-menu-event` → `nativeMenu.ts handleMenuAction` 分发（macOS/Linux 桌面端快捷键全走此路，见上「Keyboard Shortcuts」）。id 约定与右键菜单同源（`format:<FormatType>` / `insert:*`）；查子菜单项必须走 lib.rs `find_menu_item` 递归（`Menu::get` 只查顶层）；CheckMenuItem 点击会原生自动翻转勾选，最终态以同步为准；**菜单重建后 check/enabled 回到构建默认值，必须重同步一轮**；**聚焦时必须补 rebuildMenu**（启动时 isFocused 可能为 false 导致初始重建跳过，菜单标签停留在构建默认语言）；rebuildMenu 失败要重置去重 key 允许重试。Edit 的 Undo/Redo 用自定义项（系统级 undo 会绕过编辑器 history）。**muda GTK 预定义项白名单**：Linux 后端仅放行 `Separator`/剪贴板四件/`About`，`Minimize`/`Maximize`/`Quit`/`CloseWindow`/`Fullscreen` 静默丢弃——Linux 下这些一律用自定义项（`window:minimize`/`window:maximize`/`view:fullscreen`/`file:exit`→`quit_app` 命令逐窗口 close 走脏确认）。**菜单栏文字右偏**：muda 给每项打包 16px 空 GtkImage 占位把文字右推 22px，`strip_menubar_icon_placeholders()`（lib.rs）摘除空图，setup / rebuild_menu / 建新窗口三处调用
 - **macOS Dock 右键菜单**: `dock_menu.rs`（仅 macOS）用 objc2 给 tao AppDelegate `class_addMethod(applicationDockMenu:)`；动作复用 `native-menu-event` 通道（file-new/file-open/open-recent:\*/clear-recent）；**tao 升级需回归验证**
 - **文件关联（Open With）**: `tauri.conf.json` `bundle.fileAssociations`（仅打包安装后生效，LaunchServices 注册）；macOS `RunEvent::Opened` → `route_open_paths` 窗口路由 → `src/lib/openWith.ts`（启动积压由 `take_startup_open_files` 补取——**必须传本窗口 label**，None 会清空全部窗口队列）；**冷启动 Opened 可早于 config 建窗/前端上报到达——`RunEvent::Ready` 前一律入队 main 启动队列而非新建窗口**（APP_READY 标志，否则必现多余的欢迎页窗口）；Windows/Linux 由 setup 的 `collect_argv_files()` 解析启动 argv 走同一路由（冷启动入 main 启动队列）；单实例未接（运行中再双击会起第二进程，后续项）
 - **Task list checkboxes**: with `dangerouslySetInnerHTML`, never read `checkbox.checked` — use the `data-task-status` attribute and re-sync DOM state in a `useEffect` after each render
-- **Windows paths**: normalize `\` → `/` before any path math (`imageUtils.getRelativePath`, `parser.resolveRelativePath`, Editor `baseDir`)
+- **Windows paths**: normalize `\` → `/` before any path math (`imageUtils.getRelativePath`, `imageSrc.resolveRelativePath`, Editor `baseDir`)
 - **External links**: intercept clicks in preview, `e.preventDefault()`, open via `@tauri-apps/plugin-shell` (requires `shell:default` capability)
 - **Window title**: Typora 式 `文件名 ●`（● = unsaved）。**前端禁止直接调 setTitle**——必须走 `set_window_title` 命令（titlebar.rs，设题后重排红绿灯）；窗口类权限（`core:window:allow-set-title` / `allow-start-dragging` / `allow-destroy`）tauri 2.10+ 非默认，capabilities 必须显式授予，否则标题失效 / 无法拖拽 / **窗口无法关闭**
 - **主题约定**: globals.css 顶部 `@custom-variant dark (&:where(.dark, .dark *))` — `dark:` 变体跟随应用内 `.dark` class（挂 documentElement），不再是系统媒体查询；颜色一律走 CSS 变量（`--hover-bg`/`--active-bg`/`--color-text-muted` 等，:root 与 .dark 双定义），新组件禁止 Tailwind 灰色硬编码

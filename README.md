@@ -67,6 +67,7 @@ Turn any opened folder into a deployable documentation site with one click — n
 
 - **Inline formatting** - Bold, Italic, Strikethrough, Inline code, Links (Cmd/Ctrl + B / I / K)
 - **Block formatting** - Headings (H1-H6), Quote, List, Code block
+- **Task lists** - `- [ ]` / `- [x]` checkbox items (Format menu or Cmd/Ctrl + Alt + X); clicking a checkbox in Preview toggles its state and writes it back to the source
 - **Image insertion** - Menu, paste, or drag & drop with automatic asset management
 - **Table editing** - Visual table creation with customizable rows and columns
 - **Admonition insertion** - Insert callout boxes (tip, warning, note, etc.) from the Paragraph menu with an optional custom title
@@ -133,6 +134,7 @@ Turn any opened folder into a deployable documentation site with one click — n
 
 - **PlantUML Diagrams** - Render UML diagrams directly in your document with the built-in local engine (@plantuml/core) — fully offline, dark-mode aware, and inlined as SVG in PDF/site exports (falls back to the online service only if local rendering fails)
 - **Mermaid Diagrams** - Render flowcharts, sequence diagrams, Gantt charts and more with the bundled mermaid.js — lazily loaded on first diagram, fully offline, dark-mode aware, inlined as SVG in PDF/site exports (syntax errors show an inline error state, no online fallback)
+
   ```markdown
   @startuml
   Alice -> Bob: Hello
@@ -191,7 +193,7 @@ This project was **entirely built with AI coding assistants**:
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - pnpm (recommended) or npm
 - Rust (for Tauri)
 
@@ -218,45 +220,48 @@ pnpm tauri build
 
 ## Keyboard Shortcuts
 
-| Shortcut               | Action                  |
-| ---------------------- | ----------------------- |
-| `Cmd/Ctrl + O`         | Open file               |
-| `Cmd/Ctrl + S`         | Save file               |
-| `Cmd/Ctrl + Shift + S` | Save as                 |
-| `Cmd/Ctrl + N`         | New file                |
-| `Cmd/Ctrl + B`         | Bold                    |
-| `Cmd/Ctrl + I`         | Italic                  |
-| `Cmd/Ctrl + K`         | Insert link             |
-| `Cmd/Ctrl + 1 / 2 / 3` | Heading 1 / 2 / 3       |
-| `Cmd/Ctrl + F`         | Find & replace          |
-| `Cmd/Ctrl + Z`         | Undo                    |
-| `Cmd/Ctrl + Shift + Z` | Redo                    |
-| `Cmd/Ctrl + /`         | Toggle WYSIWYG / Source |
-| `Cmd/Ctrl + = / - / 0` | Zoom in / out / reset   |
-| `Escape`               | Exit edit mode          |
+| Shortcut                       | Action                              |
+| ------------------------------ | ----------------------------------- |
+| `Cmd/Ctrl + O`                 | Open file                           |
+| `Cmd/Ctrl + S`                 | Save file                           |
+| `Cmd/Ctrl + Shift + S`         | Save as                             |
+| `Cmd/Ctrl + N`                 | New file                            |
+| `Cmd/Ctrl + B`                 | Bold                                |
+| `Cmd/Ctrl + I`                 | Italic                              |
+| `Cmd/Ctrl + K`                 | Insert link                         |
+| `Cmd/Ctrl + 1 / 2 / 3`         | Heading 1 / 2 / 3                   |
+| `Cmd/Ctrl + F`                 | Find & replace                      |
+| `Cmd/Ctrl + Z`                 | Undo                                |
+| `Cmd/Ctrl + Shift + Z`         | Redo                                |
+| `Cmd/Ctrl + /`                 | Toggle WYSIWYG / Source             |
+| `Cmd/Ctrl + = / - / Shift + 0` | Zoom in / out / reset               |
+| `Escape`                       | Close dialogs / exit inline editing |
 
 ## Project Structure
 
 ```
 vividmark/
-├── src/                    # React frontend
-│   ├── components/
-│   │   ├── Editor/         # Core editor component
-│   │   ├── Sidebar/        # Sidebar with outline
-│   │   └── Toolbar/        # Toolbar with actions
-│   ├── hooks/              # Custom React hooks
-│   ├── stores/             # Zustand state management
-│   ├── lib/
-│   │   ├── markdown/       # Markdown parsing
-│   │   └── fileOps.ts      # File operations
-│   └── styles/             # Global styles
-├── src-tauri/              # Rust backend
-│   ├── src/
-│   │   ├── lib.rs          # Main logic + commands
-│   │   └── main.rs         # Entry point
-│   ├── Cargo.toml
+├── src/                      # React frontend
+│   ├── components/           # Editor/ Sidebar/ Toolbar/ FileTree/ StatusBar/
+│   │                         # Menu/ (Dropdown/ContextMenu primitives) Settings/
+│   ├── hooks/                # useAutoSave, useFileDragDrop, useKeyboardShortcuts,
+│   │                         # useResizable, useDebouncedValue, useContextMenu
+│   ├── stores/editorStore.ts # Zustand main store
+│   ├── lib/                  # markdown/ markdownEditing textStats plantuml mermaid imageSrc
+│   │                         # fileOps logger imageUtils theme platform editorActions openWith ...
+│   ├── i18n/                 # i18next config + locales/{en,zh-CN}.json
+│   ├── styles/globals.css    # Tailwind + theme CSS variables
+│   ├── test/                 # Vitest setup + Tauri mocks
+│   └── App.tsx / main.tsx
+├── src-tauri/                # Rust backend
+│   ├── src/lib.rs            # Tauri commands + plugins + RunEvent::Opened
+│   ├── src/menu.rs           # Native menu bar (Paragraph/Format/View etc.)
+│   ├── src/dock_menu.rs      # macOS Dock context menu (objc2, macOS only)
+│   ├── capabilities/         # Permissions
 │   └── tauri.conf.json
-└── package.json
+├── e2e/                      # Playwright specs (sourceMode.ts presets source mode)
+├── scripts/                  # Utility scripts (take-screenshots.mjs, needs dev server)
+└── docs/                     # Plans, requirements, GitHub Pages site
 ```
 
 ## Development Status
@@ -269,6 +274,7 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 - [x] Phase 2: Core editor
 - [x] Phase 3: File operations
 - [x] Phase 4: Editing enhancements (View modes, Image insertion, Undo/Redo, MkDocs extensions, Table editing, Math formulas (KaTeX), Multi-language support, Outline navigation)
+- [x] Phase 5: File management (File tree, Multi-window (Typora-style SDI), File change watching)
 - [x] Phase 8: Code standards (ESLint, Prettier, TypeScript strict mode)
 - [x] Phase 9: Testing infrastructure (Vitest, Playwright, CI/CD)
 - [x] Phase 10: Branding (Logo, icons)
@@ -276,9 +282,10 @@ See [PLAN.md](./PLAN.md) for detailed development progress.
 
 ### In Progress / Planned
 
-- [x] Phase 5: File management (File tree ✅, Multi-window (Typora-style SDI) ✅, File change watching ✅)
 - [ ] Phase 6: Advanced features (PDF export ✅, Search & replace ✅, CSS themes, HTML/Word export)
 - [ ] Phase 7: Polish & optimization (Performance, Preferences ✅)
+- [x] Phase 12: Testing enhancements (partially completed)
+- [ ] Phase 13: UX improvements (Typora parity, P0-P6, in progress)
 
 ## Contributing
 

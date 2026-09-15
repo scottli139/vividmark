@@ -4,7 +4,9 @@
 >
 > **2026-08-12 评估结论：维持暂停，Typst 方向整体转向独立产品。** 三轮评估：① 在 VividMark 内做 typst 代码块性价比低——数学公式用 KaTeX（半天 vs 3–4 天）、离线图表用 Mermaid/本地 PlantUML、MVP 中文策略（缺字提示）对主力中文用户半残、机会成本高（WYSIWYG 查找替换/多标签页更高频）；重启触发条件 = 出现真实使用场景，或独立产品验证后回哺基建。② 在 VividMark 内支持 .typ 文档不推荐——无需求证据；Typst 用户已有严格更优的免费工具（VSCode+Tinymist 本地 LSP / typst.app 协作）；「在线平台不方便/不安全」前提不成立（编译器开源，本地工具链成熟）；架构全面冲突 + 产品定位漂移。③ 若做 Typst 能力，以独立编辑器形态做，可行性与工作量分析见 `docs/typst-standalone-editor-plan.md`。
 >
-> **启动前决策**：如果真实诉求只是数学公式，优先做 KaTeX（PLAN.md Phase 4 待办），成本远低于本计划。Typst 值得做的前提是想要「完整文档排版」能力（图表、排版、数学一体化）。
+> **启动前决策**：如果真实诉求只是数学公式，优先做 KaTeX（已落地，见 `src/lib/markdown/mathPlugin.ts`），成本远低于本计划。Typst 值得做的前提是想要「完整文档排版」能力（图表、排版、数学一体化）。
+>
+> **存档互链**：0.5.x 时代的原始配置草稿已移至 `docs/typst-offline-setup.md`（仅存档，勿按其实施）。
 
 ## 📋 需求概述
 
@@ -115,7 +117,7 @@
 | 2   | WASM 加载时机   | A. 启动时 / B. 首次使用时                                                       | B（懒加载）——已定，无需再议                                                                 |
 | 3   | 字体回退        | A. 严格 / B. 宽松                                                               | B（用户体验优先）                                                                           |
 | 4   | 缓存策略        | A. 内存 / B. IndexedDB / C. 两者                                                | 从 A 开始（后续扩展再做 B）                                                                 |
-| 5   | 与 KaTeX 的关系 | A. typst 内含数学，跳过 KaTeX / B. 两者都做                                     | 若本计划启动则 A；否则先做 KaTeX（PLAN.md Phase 4）                                         |
+| 5   | 与 KaTeX 的关系 | A. typst 内含数学，跳过 KaTeX / B. 两者都做                                     | 若本计划启动则 A；否则先做 KaTeX（已落地，见 `src/lib/markdown/mathPlugin.ts`）             |
 
 ---
 

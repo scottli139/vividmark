@@ -267,11 +267,10 @@ Two syntax entries, both produce placeholders (async local rendering):
    }, [renderedHtml])
    ```
 
-7. **工具栏按钮**
-   - 在 Toolbar 添加任务列表按钮（位于无序列表按钮旁边）
-   - 使用 `FormatButton` 组件，format 类型为 `'tasklist'`
-   - 在 `useTextFormat.ts` 中添加配置：`tasklist: { prefix: '- [ ] ', suffix: '' }`
-   - 点击后在当前光标位置插入 `- [ ] `（未勾选的任务列表项）
+7. **插入入口**
+   - 工具栏按钮已随工具栏精简重构移除（`FormatButton` 组件与 `useTextFormat.ts` 均已删除）
+   - 现经 `format:tasklist` 动作触发：原生菜单「格式」/ Windows MenuBar / 编辑器右键菜单「格式 ▸ 任务列表」/ 快捷键 `Cmd/Ctrl+Alt+X`
+   - 动作统一 dispatch `editor-format`（format 类型 `'tasklist'`），Source 模式由 `markdownEditing.ts` 的配置 `tasklist: '- [ ] '` 在当前光标位置插入 `- [ ] `（未勾选的任务列表项）
 
 **注意事项:**
 
@@ -457,11 +456,11 @@ viewMode: 'wysiwyg' // 从 'source' 改为 'wysiwyg'
 
 2. **Navigation in Different View Modes**
 
-   | Mode    | Navigation Method         | Implementation                             |
-   | ------- | ------------------------- | ------------------------------------------ |
-   | Source  | Scroll textarea + cursor  | `scrollToPosition(textarea, charIndex)`    |
-   | Split   | Scroll textarea + cursor  | `scrollToPosition(textarea, charIndex)`    |
-   | Preview | Scroll to heading element | `scrollPreviewToHeading(container, index)` |
+   | Mode    | Navigation Method            | Implementation                             |
+   | ------- | ---------------------------- | ------------------------------------------ |
+   | Source  | CM 移动选区 + 滚动 scrollDOM | `scrollToCharIndex(view, charIndex)`       |
+   | Split   | CM 移动选区 + 滚动 scrollDOM | `scrollToCharIndex(view, charIndex)`       |
+   | Preview | Scroll to heading element    | `scrollPreviewToHeading(container, index)` |
 
 3. **Component Communication via CustomEvent**
 
@@ -548,12 +547,10 @@ zoomOut: () => void  // -10%，下限 50%
 zoomReset: () => void // 重置为 100%
 ```
 
-**应用缩放** (`Editor.tsx`)，Source / Split / Preview 模式都支持:
+**应用缩放**，Source / Split / Preview / WYSIWYG 模式都支持:
 
-```typescript
-<textarea style={{ zoom: `${zoomLevel}%` }} />
-<div style={{ zoom: `${zoomLevel}%` }} />
-```
+- 编辑器（CodeMirror / WYSIWYG）：字号缩放——`fontSize = 14px × zoomLevel / 100`（CM 经 compartment 重配置，WYSIWYG 内联 style），内边距不随缩放变化
+- 预览区：CSS `zoom`（Editor.tsx `.markdown-body` 容器 `style={{ zoom: `${zoomLevel}%` }}`）
 
 **快捷键处理**:
 
@@ -762,7 +759,7 @@ Windows 系统使用 `\` 作为路径分隔符，而 Unix/macOS 使用 `/`。处
 **涉及场景:**
 
 1. **图片插入** - 计算相对路径时（`src/lib/imageUtils.ts`）
-2. **Markdown 渲染** - 解析相对路径为绝对路径时（`src/lib/markdown/parser.ts`）
+2. **Markdown 渲染** - 解析相对路径为绝对路径时（`src/lib/imageSrc.ts`，由 parser.ts 调用）
 3. **baseDir 计算** - 从文件路径提取目录时（`src/components/Editor/Editor.tsx`）
 
 **解决方案:**
@@ -781,7 +778,7 @@ const separatorIndex = Math.max(lastSlash, lastBackslash)
 **关键函数:**
 
 - `getRelativePath()` - 计算相对路径（imageUtils.ts）
-- `resolveRelativePath()` - 解析相对路径为绝对路径（parser.ts）
+- `resolveRelativePath()` - 解析相对路径为绝对路径（imageSrc.ts）
 - Editor.tsx 中的 baseDir 计算
 
 **注意事项:**
@@ -948,31 +945,34 @@ The Rust backend uses `tauri-plugin-log` for structured logging with comprehensi
 
 Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`，站点导出在 `src-tauri/src/site_export.rs`，多窗口路由在 `src-tauri/src/window_router.rs`，窗口标题在 `src-tauri/src/titlebar.rs`）:
 
-| Command                   | Parameters                | Returns            | Description                                       |
-| ------------------------- | ------------------------- | ------------------ | ------------------------------------------------- |
-| `read_file`               | `path`                    | `FileInfo`         | Read file content                                 |
-| `save_file`               | `path, content`           | `SaveResult`       | Write file content                                |
-| `file_exists`             | `path`                    | `bool`             | Check existence                                   |
-| `read_directory`          | `ReadDirectoryParams`     | `FileTreeItem[]`   | File tree data                                    |
-| `create_file`             | `path`                    | `null`             | Create empty file                                 |
-| `create_folder`           | `path`                    | `null`             | Create directory                                  |
-| `rename_path`             | `oldPath, newPath`        | `null`             | Rename/move file or folder                        |
-| `delete_path`             | `path`                    | `null`             | Delete (folder: recursive)                        |
-| `copy_path`               | `oldPath, newPath`        | `null`             | Copy (folder: recursive)                          |
-| `reveal_in_folder`        | `path`                    | `null`             | Reveal in system file manager                     |
-| `pdf_export_supported`    | —                         | `bool`             | 平台是否支持 PDF 直存（macOS/Windows 支持）       |
-| `export_pdf_file`         | `html, outputPath, title` | `ExportPdfResult`  | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件       |
-| `print_pdf`               | `fileName`                | `ExportPdfResult`  | 打印对话框（PDF 直存不支持时的回退路径）          |
-| `export_site`             | `params(outputDir,files)` | `ExportSiteResult` | 「导出为网站」批量写盘（文本写入 + 资产镜像复制） |
-| `rebuild_menu`            | `lang, recentFiles`       | `null`             | Rebuild native menu (i18n / recent files)         |
-| `set_menu_item_enabled`   | `id, enabled`             | `null`             | Native menu item enabled state                    |
-| `set_menu_item_checked`   | `id, checked`             | `null`             | Native menu check item state                      |
-| `update_dock_menu`        | `lang, recentFiles`       | `null`             | Rebuild macOS Dock menu（其他平台 no-op）         |
-| `report_window_state`     | `path, dirty`             | `null`             | 前端上报本窗口文档状态（窗口注册表）              |
-| `open_in_new_window`      | `path?`                   | `String`(label)    | 新建文档窗口（file-new / 路由新建）               |
-| `route_open`              | `paths`                   | `null`             | 打开路径智能路由（聚焦/复用/新建）                |
-| `take_startup_open_files` | —（按窗口 label）         | `String[]`         | 取走本窗口启动待打开队列                          |
-| `set_window_title`        | `title`                   | `null`             | 设窗口标题并重排红绿灯                            |
+| Command                   | Parameters                    | Returns            | Description                                                                                                                              |
+| ------------------------- | ----------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `read_file`               | `path`                        | `FileInfo`         | Read file content                                                                                                                        |
+| `save_file`               | `path, content`               | `SaveResult`       | Write file content                                                                                                                       |
+| `file_exists`             | `path`                        | `bool`             | Check existence                                                                                                                          |
+| `read_directory`          | `ReadDirectoryParams`         | `FileTreeItem[]`   | File tree data                                                                                                                           |
+| `create_file`             | `path`                        | `null`             | Create empty file                                                                                                                        |
+| `create_folder`           | `path`                        | `null`             | Create directory                                                                                                                         |
+| `rename_path`             | `oldPath, newPath`            | `null`             | Rename/move file or folder                                                                                                               |
+| `delete_path`             | `path`                        | `null`             | Delete (folder: recursive)                                                                                                               |
+| `copy_path`               | `oldPath, newPath`            | `null`             | Copy (folder: recursive)                                                                                                                 |
+| `reveal_in_folder`        | `path`                        | `null`             | Reveal in system file manager                                                                                                            |
+| `pdf_export_supported`    | —                             | `bool`             | 平台是否支持 PDF 直存（macOS/Windows 支持）                                                                                              |
+| `export_pdf_file`         | `params(ExportPdfFileParams)` | `ExportPdfResult`  | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件；params 字段 `{ html, outputPath, title?, outline? }`（携带 outline 时 macOS 重建 PDF 书签） |
+| `print_pdf`               | `fileName`                    | `ExportPdfResult`  | 打印对话框（PDF 直存不支持时的回退路径）                                                                                                 |
+| `export_site`             | `params(outputDir,files)`     | `ExportSiteResult` | 「导出为网站」批量写盘（文本写入 + 资产镜像复制）                                                                                        |
+| `rebuild_menu`            | `lang, recentFiles`           | `null`             | Rebuild native menu (i18n / recent files)                                                                                                |
+| `set_menu_item_enabled`   | `id, enabled`                 | `null`             | Native menu item enabled state                                                                                                           |
+| `set_menu_item_checked`   | `id, checked`                 | `null`             | Native menu check item state                                                                                                             |
+| `update_dock_menu`        | `lang, recentFiles`           | `null`             | Rebuild macOS Dock menu（其他平台 no-op）                                                                                                |
+| `report_window_state`     | `path, dirty`                 | `null`             | 前端上报本窗口文档状态（窗口注册表）                                                                                                     |
+| `open_in_new_window`      | `path?`                       | `String`(label)    | 新建文档窗口（file-new / 路由新建）                                                                                                      |
+| `route_open`              | `paths`                       | `null`             | 打开路径智能路由（聚焦/复用/新建）                                                                                                       |
+| `take_startup_open_files` | `label?`                      | `String[]`         | 取走本窗口启动待打开队列（传 None 会清空全部窗口队列——已知坑）                                                                           |
+| `set_window_title`        | `title`                       | `null`             | 设窗口标题并重排红绿灯                                                                                                                   |
+| `quit_app`                | —                             | `null`             | 逐窗口 close 走脏确认的退出（`file:exit`，lib.rs）                                                                                       |
+| `watch_file`              | `path`                        | `null`             | 按窗口监听父目录过滤目标文件（file_watch.rs，300ms 防抖）                                                                                |
+| `unwatch_file`            | —                             | `null`             | 停止本窗口的文件监听（file_watch.rs）                                                                                                    |
 
 新增命令：实现 `#[tauri::command]` → 注册进 `generate_handler![]` → 前端经 `@tauri-apps/api/core` invoke。结构体字段跨桥为 camelCase（`#[serde(rename = "isDirectory")]`）。
 
@@ -980,28 +980,29 @@ Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`�
 
 macOS/Linux 桌面端带 accelerator 的键被 OS 拦截（webview 收不到 keydown）——快捷键由原生菜单事件驱动；**Windows 桌面端（无原生菜单）与浏览器 dev/E2E 由 `useKeyboardShortcuts.ts` 全量接管**（编辑器 keymap 已处理的键经 `e.defaultPrevented` 守卫跳过）。
 
-| Shortcut                           | Action                                 | Implementation                                                                                                              |
-| ---------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `Cmd/Ctrl + O / S / Shift+S`       | Open / Save / Save As                  | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                        |
-| `Cmd/Ctrl + N`                     | 新建**窗口**（多窗口 SDI）             | 原生菜单（macOS/Linux）→ open_in_new_window；Windows 桌面端 hook 同路；浏览器端原地新建                                     |
-| `Cmd/Ctrl + Shift+O`               | 打开文件夹                             | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                        |
-| `Cmd/Ctrl + /`                     | WYSIWYG ⇄ Source 切换                  | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview）   |
-| `Cmd/Ctrl + B / I / K`             | Bold / Italic / Link                   | 原生菜单（macOS/Linux）→ editor-format；Windows/浏览器 hook → editor-format（Milkdown Mod-B/I 等自家 keymap 优先）          |
-| `Cmd/Ctrl + 0`                     | 正文（剥掉块级前缀）                   | 原生菜单（macOS/Linux）/ hook → editor-format                                                                               |
-| `Cmd/Ctrl + 1 ~ 6`                 | Heading 1 ~ 6                          | 原生菜单（macOS/Linux）/ hook → editor-format；浏览器另有 CM keymap / `wysiwygShortcutPlugin`（仅 1~3）                     |
-| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（macOS/Linux）/ hook → editor-format                                                                               |
-| `Cmd/Ctrl + Shift+V`               | 粘贴为纯文本                           | 原生菜单（macOS/Linux）/ hook → clipboard 读文本 → editor-insert                                                            |
-| `Cmd/Ctrl + Z / Shift+Z`           | Undo / Redo                            | 原生菜单（macOS/Linux）/ hook → editor-undo/redo；编辑器内 CM / Milkdown history keymap 优先（defaultPrevented 守卫）       |
-| `Cmd/Ctrl + F`                     | Find & replace                         | 原生菜单（macOS/Linux）/ hook → editor-find → `@codemirror/search`（CM 自家 Mod-F 优先）                                    |
-| `Cmd/Ctrl + =/+ / -`               | Zoom in / out                          | 原生菜单（macOS/Linux）/ hook（Editor.tsx 旧窗口级 zoom 监听已并入，不再重复）                                              |
-| `Cmd/Ctrl + Shift+0`               | Zoom reset（⌘0 已让位「正文」）        | 原生菜单（macOS/Linux）/ hook                                                                                               |
-| `Cmd/Ctrl + ,`                     | Settings                               | 原生菜单（macOS/Linux）/ hook                                                                                               |
-| `Cmd/Ctrl + Shift+B`               | Toggle Sidebar                         | 原生菜单（macOS/Linux）/ hook                                                                                               |
-| `Ctrl+Cmd + 1 / 2`（仅 macOS）     | 侧栏 文件 / 大纲 tab                   | 原生菜单（View 菜单 check 项）                                                                                              |
-| `Cmd/Ctrl + Alt+1~4`               | WYSIWYG / Source / Split / Preview     | 原生菜单（macOS/Linux）/ hook                                                                                               |
-| `Cmd/Ctrl + P`                     | Export PDF                             | 原生菜单（macOS/Linux）/ hook → editor-export-pdf / `MoreMenu`                                                              |
-| `F11`                              | 全屏切换                               | macOS 预定义 Fullscreen；Linux 自定义 `view:fullscreen`；Windows hook + 自绘菜单（View ▸ 全屏）                             |
-| `Escape`                           | Exit edit mode                         | `Editor.tsx`                                                                                                                |
+| Shortcut                           | Action                                 | Implementation                                                                                                                         |
+| ---------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `Cmd/Ctrl + O / S / Shift+S`       | Open / Save / Save As                  | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                                   |
+| `Cmd/Ctrl + N`                     | 新建**窗口**（多窗口 SDI）             | 原生菜单（macOS/Linux）→ open_in_new_window；Windows 桌面端 hook 同路；浏览器端原地新建                                                |
+| `Cmd/Ctrl + Shift+O`               | 打开文件夹                             | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                                   |
+| `Cmd/Ctrl + /`                     | WYSIWYG ⇄ Source 切换                  | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview）              |
+| `Cmd/Ctrl + B / I / K`             | Bold / Italic / Link                   | 原生菜单（macOS/Linux）→ editor-format；Windows/浏览器 hook → editor-format（Milkdown Mod-B/I 等自家 keymap 优先）                     |
+| `Cmd/Ctrl + 0`                     | 正文（剥掉块级前缀）                   | 原生菜单（macOS/Linux）/ hook → editor-format                                                                                          |
+| `Cmd/Ctrl + 1 ~ 6`                 | Heading 1 ~ 6                          | 原生菜单（macOS/Linux）/ hook → editor-format；浏览器另有 CM keymap / `wysiwygShortcutPlugin`（仅 1~3）                                |
+| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（macOS/Linux）/ hook → editor-format                                                                                          |
+| `Cmd/Ctrl + Shift+V`               | 粘贴为纯文本                           | 原生菜单（macOS/Linux）/ hook → clipboard 读文本 → editor-insert                                                                       |
+| `Cmd/Ctrl + Z / Shift+Z`           | Undo / Redo                            | 原生菜单（macOS/Linux）/ hook → editor-undo/redo；编辑器内 CM / Milkdown history keymap 优先（defaultPrevented 守卫）                  |
+| `Cmd/Ctrl + F`                     | Find & replace                         | 原生菜单（macOS/Linux）/ hook → editor-find → `@codemirror/search`（CM 自家 Mod-F 优先）                                               |
+| `Cmd/Ctrl + = / -`                 | Zoom in / out                          | 原生菜单（macOS/Linux）/ hook（Editor.tsx 旧窗口级 zoom 监听已并入，不再重复）                                                         |
+| `Cmd/Ctrl + Shift+0`               | Zoom reset（⌘0 已让位「正文」）        | 原生菜单（macOS/Linux）/ hook                                                                                                          |
+| `Cmd/Ctrl + ,`                     | Settings                               | 原生菜单（macOS/Linux）/ hook                                                                                                          |
+| `Cmd/Ctrl + Shift+B`               | Toggle Sidebar                         | 原生菜单（macOS/Linux）/ hook                                                                                                          |
+| `Ctrl+Cmd + 1 / 2`（仅 macOS）     | 侧栏 文件 / 大纲 tab                   | 原生菜单（View 菜单 check 项）                                                                                                         |
+| `Cmd/Ctrl + Alt+1~4`               | WYSIWYG / Source / Split / Preview     | 原生菜单（macOS/Linux）/ hook                                                                                                          |
+| `Cmd/Ctrl + P`                     | Export PDF                             | 原生菜单（macOS/Linux）/ hook → editor-export-pdf / `MoreMenu`                                                                         |
+| `Cmd/Ctrl + Q` / `Cmd+W`           | 退出应用 / 关闭窗口                    | Q：Linux 自定义 `file:exit` → `quit_app`（逐窗口 close 走脏确认），macOS 系统预定义 Quit；W：macOS 预定义 Close Window                 |
+| `F11`                              | 全屏切换                               | macOS 预定义 Fullscreen；Linux 自定义 `view:fullscreen`；Windows hook + 自绘菜单（View ▸ 全屏）                                        |
+| `Escape`                           | 关闭对话框/菜单/图片查看器             | 各组件自理（Dialog/MenuPanel/ImageLightbox）；编辑器内退出公式与代码块语言内联编辑（无全局「退出编辑模式」绑定——块编辑器时代遗留已删） |
 
 ---
 
@@ -1019,8 +1020,9 @@ macOS/Linux 桌面端带 accelerator 的键被 OS 拦截（webview 收不到 key
 **功能:**
 
 - 推送 `v*` 标签时自动触发构建，支持手动触发
-- 多平台并行构建：macOS (Universal)、Windows (x64)、Linux (x64, deb + AppImage)
-- 自动上传到 GitHub Releases
+- 多平台并行构建：macOS (Apple Silicon)、Windows (x64)、Linux (x64, deb + AppImage)
+- 玲珑（Linglong）arm64 构建：`build-linglong` job（`ubuntu-24.04-arm` runner）随 tag 构建 `.layer`/`.uab` 并挂到 Release（手动 dispatch 只传 artifact，见 `linglong/README.md`）
+- 自动上传到 GitHub Releases（tauri-action 创建 **draft** Release）
 
 **触发方式:**
 
@@ -1048,6 +1050,8 @@ git push origin v0.1.1
 **可选 Secrets (用于代码签名):**
 `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_SIGNING_IDENTITY` / `APPLE_ID` / `APPLE_PASSWORD`
 
+> 当前 release.yml 的 env 只映射了 `GITHUB_TOKEN`——配置这些 Secrets 后**需同时在 release.yml 补 env 映射才会生效**。
+
 **注意事项:**
 
 - Windows 未签名应用会显示 SmartScreen 警告
@@ -1061,7 +1065,7 @@ git push origin v0.1.1
 - `src-tauri/tauri.conf.json` - Tauri 应用版本号
 - `src-tauri/Cargo.toml` - Rust crate 版本号
 
-**构建并发布 Release:**
+**发布主流程（推 tag → CI 建 draft → 核对产物 → 人工 publish）:**
 
 ```bash
 # 1. 确保版本号已更新
@@ -1073,10 +1077,20 @@ git tag vX.Y.Z
 git push origin main
 git push origin vX.Y.Z
 
-# 3. 构建 release（macOS 示例）
+# 3. CI（release.yml）自动构建全平台产物并创建 draft Release（含玲珑 arm64 .layer/.uab）
+
+# 4. 在 GitHub Releases 页面核对 draft 产物齐全、填写发布说明后，人工 publish
+```
+
+**备用路径（CI 不可用时的本地构建 + 手动建 Release）:**
+
+> ⚠️ 同一 tag 若 CI 已建 draft，`gh release create` 会因 tag 已占用而冲突——先在 Releases 页面删掉 CI 的 draft 再执行。
+
+```bash
+# 1. 构建 release（macOS 示例）
 pnpm tauri build
 
-# 4. 创建 GitHub Release 并上传构建产物
+# 2. 创建 GitHub Release 并上传构建产物
 gh release create vX.Y.Z \
   --title "VividMark vX.Y.Z" \
   --notes "Release notes here" \
@@ -1130,7 +1144,7 @@ docs/
 ### GitHub Pages Deployment
 
 - 静态文件放在 `docs/` 目录，工作流为 `.github/workflows/pages.yml`
-- 使用 `actions/configure-pages@v5` + `actions/upload-pages-artifact@v3` (path: `./docs`) + `actions/deploy-pages@v4`
+- 使用 `actions/configure-pages@v5` + `actions/upload-pages-artifact@v5` (path: `./docs`) + `actions/deploy-pages@v5`
 - 仓库 Settings → Pages → Source 必须设为 **GitHub Actions**（不是 "Deploy from branch"），否则 Setup Pages 步骤失败
 - 部署完成后 404 可能是 CDN 传播延迟，等待 1-2 分钟
 
@@ -1223,7 +1237,7 @@ if (lang === 'typst') {
 - **编辑内核**：Source/Split 的 textarea 已全部替换为 CodeMirror 6，封装在 `src/components/Editor/CodeMirrorEditor.tsx`。WYSIWYG 占位页未动（Editor.tsx wysiwyg 分支）。
 - **格式化逻辑是纯函数**：`src/lib/markdownEditing.ts`（`formatTransaction` / `insertTextAtCursor`），接收 EditorState 返回 TransactionSpec；工具栏 `editor-format` 事件与快捷键（Mod-B/I/K/1/2/3，`Prec.highest` keymap）共用，可脱离 DOM 单测。
 - **store ↔ CM 同步防回环**：updateListener 写 store 前比较 `value !== store.content`；store → CM 全量替换前同样比较。以 `filePath` 为 key 重建视图，打开新文件自然重置 CM history。
-- **撤销**：CM history（按操作分组、恢复选区）取代原 500ms 全文快照 HistoryManager（`useHistory`/`useTextFormat`/`historyManager` 已删除）。`undoDepth`/`redoDepth` 写入 store 驱动工具栏 disabled 态。
+- **撤销**：CM history（按操作分组、恢复选区）取代原 500ms 全文快照 HistoryManager（`useHistory`/`useTextFormat`/`historyManager` 已删除）。`canUndo`/`canRedo` 写入 store 驱动工具栏 disabled 态。
 - **智能输入**：`markdownKeymap`（回车延续列表/任务/引用、空项退出）、`indentWithTab`、`closeBrackets`。
 - **查找替换**：`@codemirror/search`（`search({ top: true })`），面板亮/暗样式补在 globals.css 末尾。
 - **图片粘贴/拖拽**：`domEventHandlers` paste/drop → `imageUtils.createImageMarkdownFromFile`（已保存文件复制到 `assets/` 用相对路径，未保存回退 base64）；drop 用 `posAtCoords` 定位插入点。
@@ -1338,7 +1352,7 @@ if (lang === 'typst') {
 
 - **现象**：GFM 表格单元格常用 `<br>` 换行写法（GitHub/Typora 均渲染为换行），所见即所得下显示为字面字符。预览侧 markdown-it `html: true` 本就正常渲染。
 - **机制**：Milkdown commonmark 预设自带 html 内联 atom 节点（`htmlSchema`），默认 toDOM 把原文塞进 span 的 textContent——字面显示是预设行为，非解析缺失。
-- **修复**：`htmlView.ts` $view——attrs.value 匹配 `/^<br\s*\/?\s*>$/i`（`<br>`/`<br/>`/`<br />`/大小写）渲染为真实 `<br data-type="html" data-value=原文>`；其余内联 html（`<b>` 等）维持字面 span 不变。序列化恒走 attrs.value 原文（html 节点 toMarkdown 原样输出），往返无损；br/span 形态互变时 `update()` 返回 false 交 PM 重建。
+- **修复**：`htmlView.ts` $view——attrs.value 匹配 `/^<br\s*\/?\s*>$/i`（`<br>`/`<br/>`/`<br />`/大小写）渲染为真实 `<br data-type="html" data-value=原文>`；其余内联 html（`<b>`等）维持字面 span 不变。序列化恒走 attrs.value 原文（html 节点 toMarkdown 原样输出），往返无损；br/span 形态互变时`update()` 返回 false 交 PM 重建。
 - **回读配套**：`strictBrParserPlugin` 新增 `br[data-type="html"]` → html 节点规则（priority 70，value 从 data-value 回读）——否则 DOM 重解析（readDOMChange/剪贴板）会命中裸 br 的 `ignore: true` 规则把节点丢掉。
 - 测试锁在 `wysiwygRoundtrip.test.ts`「内联 html 节点」组：表格单元格往返、三种 `<br>` 变体渲染与原文保真、其余内联 html 字面显示、二次不动点。
 
@@ -1389,7 +1403,7 @@ if (lang === 'typst') {
 
 - `Dropdown`：trigger + 面板，外部点击/Escape 关闭，`align: left|right`；`ContextMenu`：受控组件，fixed 坐标 + 边界翻转，props `{x, y, items, onSelect, onClose}`；`MenuPanel`：统一渲染 item（`{id,label,icon?,shortcut?,checked?,disabled?} | {divider:true}`）；`menuPosition.ts` 的 `resolveContextMenuPosition` 是纯函数可单测。
 - **坑**：ContextMenu 的 `onClose` 必须 `useCallback` 稳定化，否则父组件重渲染会导致菜单意外关闭。
-- FormatMenu / HeadingDropdown / InsertMenu / MoreMenu 已重构复用 Dropdown；**禁止再复制 outside-click 模式自绘菜单**。
+- MoreMenu 已重构复用 Dropdown；**禁止再复制 outside-click 模式自绘菜单**。（FormatMenu / HeadingDropdown / InsertMenu 已随工具栏精简删除，功能并入 MenuBar / MoreMenu——Toolbar 下现仅剩 MoreMenu.tsx。）
 
 ### macOS 融合标题栏注意点
 
@@ -1678,7 +1692,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 方案 `docs/site-export-config-plan.md` P3。两件小事，站点导出管线至此定型（Mermaid 导出侧内联解锁）：
 
 - **`.vuepress/public/*` → 站点根**：vuepress 风味下 exportSite 额外直读 `<docsRoot>/.vuepress/public`。**检查点结论：Rust `read_directory` 的隐藏文件/目录跳过只作用于列出的子项，直接读隐藏目录本身可行**——零新增 Rust 命令；`export_site` 写盘也不过滤点开头路径。`collectPublicAssets`（siteGenerator.ts）把 public 树全量文件（含 .md，public 约定就是原样镜像）映射为站点根资产。撞名规则：public 覆盖同 relPath 普通资产（warn 日志）；与页面 htmlPath 撞名的 public 条目丢弃（页面优先）。导航仍退回目录推导（sidebar 是可执行 JS 不解析，方案决策 2）。
-- **config title 正则提取**：`vuepressSiteTitle`（siteConfig.ts）先剥块注释与整行 `//` 注释（案例仓库实测有注释掉的配置项），再取首个 `title: '...'/"..."/\`...\`` 匹配（`.` 不跨行；themeConfig 内的 title 因排在顶层后自然不赢）；转义引号还原、空白裁剪。探测侧 `readVuepressSiteName` 按 config.ts → config.js → config.mjs 命中即停，读取失败仅 warning 降级（best-effort 不阻断导出）。站点名链变为：mkdocs `site_name` → vuepress config title → 目录名。
+- **config title 正则提取**：`vuepressSiteTitle`（siteConfig.ts）先剥块注释与整行 `//` 注释（案例仓库实测有注释掉的配置项），再取首个 `title: '...'/"..."/\`...\`` 匹配（`.`不跨行；themeConfig 内的 title 因排在顶层后自然不赢）；转义引号还原、空白裁剪。探测侧`readVuepressSiteName`按 config.ts → config.js → config.mjs 命中即停，读取失败仅 warning 降级（best-effort 不阻断导出）。站点名链变为：mkdocs`site_name` → vuepress config title → 目录名。
 
 **devdocs 实仓验收**（一次性集成探针：invoke 用 node:fs 复刻 Rust 语义跑真实 `exportSite()`，38 页 40 资产全绿；探针用完即删）：范围收敛 docs/、nav 原文 + 外链、rn/ 与旧版 API 隐藏页导出但不进导航、frontmatter 剥离、24 处 `!!!` 渲染、PlantUML 内联接线、`.md` 互链重写、图片资产镜像、`.vuepress`/`.DS_Store` 零泄漏。实仓验证顺带暴露两个单测盲区（均已修复）：
 
@@ -1710,6 +1724,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 **架构**：全局单例 `src/components/ImageLightbox.tsx` 挂 App.tsx，走既有 CustomEvent 总线打开——`app-open-image-viewer`，`detail: { html }`（被查看 svg/img 的 outerHTML）。纯逻辑全部在 `src/lib/diagramZoom.ts`（fitScale/clampScale/zoomAtPoint 锚点数学/resolveViewerTarget 命中判定/naturalSizeOf 尺寸读取），可单测。
 
 **三个入口**：
+
 - 预览点击：`Editor.tsx handlePreviewClick` 在链接分支**之后**加图表/图片分支（链接先行 return，mermaid 图内 `<a>`、链接包裹的 img 自然优先，不会误开查看器）。命中规则（`resolveViewerTarget`）：图表容器（`.mermaid-diagram`/`.plantuml-diagram`）取内联 svg，无 svg 取未破图 img（PlantUML 在线回退态），loading/error/破图态 null；否则取 `.markdown-body` 内普通 img。
 - WYSIWYG 图表块：`plantUmlCodeBlockView.ts` 在块容器（contentDOM 外）加 hover 放大按钮，点击时预览区有可查看内容才 dispatch；`stopEvent` 覆盖按钮（PM 不拦截点击）。
 - WYSIWYG 图片：`imageView.ts` 同款按钮（`viewerZoomButton.ts` 共享创建器）；**不劫持图片点击**（保留 PM 选中节点行为），破图占位态不打开。
@@ -1732,6 +1747,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 **架构**：Rust 定制模块 `src-tauri/src/file_watch.rs`（`notify = "6.1"`，不引 tauri-plugin-fs-watch——需要按窗口定向 emit 与受控防抖，插件是全局广播且无防抖控制）。每窗口一个 watcher（SDI 单文档），label → WatchEntry 注册表；命令 `watch_file` / `unwatch_file`；窗口 `Destroyed` 钩子（lib.rs on_window_event）释放。
 
 **关键决策**：
+
 - **监听父目录（NonRecursive）再按目标路径过滤**，不直接监听文件——FSEvents 本就目录级，且原子保存（write tmp + rename swap inode）场景直盯文件会丢监视。事件路径与传入路径形态可能不同（symlink），canonicalize 前后两份都比对。
 - **防抖在 Rust**：事件进 mpsc，专属线程 300ms 静默期后按 `fs::metadata` 重新分类 changed/removed——不依赖 notify 事件类型，rename-away 等边界自然归 removed。watcher drop → 发送端断开 → 线程自行退出，无需显式停止信号。
 - **回声抑制在前端**（`src/lib/fileWatcher.ts`）：`lastKnownContent` = 我最后读过或写过的磁盘内容，open/save 成功/reload/冲突选保留 四个时机更新（fileOps.ts 埋点 `markFileContentKnown`）。监听事件先 `read_file` 读盘比对，相等即自身写入回声，忽略。Rust 侧零配合。

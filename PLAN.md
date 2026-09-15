@@ -82,11 +82,11 @@
 
 - [ ] 主题系统 (CSS 主题切换) - 亮/暗/跟随系统三态已完成（Phase 13 P3），CSS 主题包未做
 - [ ] 自定义主题编辑
-- [x] **导出 PDF** ✅ - 支持将 Markdown 导出为 PDF（通过浏览器打印为 PDF）
+- [x] **导出 PDF** ✅ - 支持将 Markdown 导出为 PDF（隐藏窗口渲染 + 原生静默写盘（macOS/Windows），Linux 回退系统打印对话框）
 - [ ] 导出 HTML
 - [ ] 导出 Word（方案见 `docs/word-export-plan.md`，pandoc 路线已 PoC 验证）
 - [x] 站点导出配置感知 ✅（P1 mkdocs 核心 ✅ 2026-08-14：风味探测 / docs_dir 收敛 / nav 白名单 / frontmatter；P2 ✅ 2026-08-17：`!!!` 双端语法保持往返 + exclude_docs；P3 ✅ 2026-08-17：vuepress best-effort——`.vuepress/public` 镜像站点根 + config title 提取；方案见 `docs/site-export-config-plan.md`）
-- [x] 搜索与替换 ✅（Source/Split 模式，Cmd+F；WYSIWYG 未接，见 Phase 13 P3）
+- [x] 搜索与替换 ✅（Source/Split 模式，Cmd+F；WYSIWYG 未接，见「下一步行动」）
 
 ### Phase 7: 打磨优化 (进行中)
 
@@ -94,7 +94,7 @@
 - [x] 原生菜单集成 ✅（2026-08-07 补全段落/格式菜单，见 Phase 13 P5）
 - [ ] 系统托盘
 - [ ] 快捷键自定义
-- [x] 偏好设置面板 ✅（最小可用：主题/语言/侧栏显隐，见 Phase 13 P4）
+- [x] 偏好设置面板 ✅（最小可用：主题/语言/侧栏显隐，见 Phase 13 P3）
 - [x] 多语言支持 ✅（见 Phase 4）
 
 ### Phase 8: 代码规范配置 ✅ (已完成)
@@ -241,7 +241,7 @@ logger.error('Failed to sync:', error)
 - [x] 右键菜单 ✅（自绘 ContextMenu；文件树 + 编辑器三区域 Source/WYSIWYG/Preview 已接入，WYSIWYG 上下文感知：表格行列增删/链接/图片/代码块；不依赖原生菜单）
 - [x] 原生菜单 ✅（macOS App/File/Edit/View/Window 菜单栏，Windows/Linux 适配布局；2026-08-05）
 - [x] Windows 无边框 + 自绘菜单栏 ✅（2026-09-04：去系统标题栏+原生菜单栏，MenuBar 嵌 Toolbar 单行；快捷键由 useKeyboardShortcuts 全量接管；附带修复原生菜单语言停在英文的焦点门控 bug，惠及 macOS/Linux；**0.9.1 hotfix（2026-09-07）**：建窗命令转 `#[tauri::command(async)]`，修复同步命令在主线程创建 WebView2 窗口的自死锁——此前 Ctrl+N/最近文件触发新窗口后留下透明僵尸窗口致 app 假死）
-- [x] 多窗口 + 会话恢复（Typora 式 SDI；2026-08-13 方向调整替代原多标签页方案，多窗口当日落地 ✅；会话恢复留二期）
+- [x] 多窗口（Typora 式 SDI；2026-08-13 方向调整替代原多标签页方案，多窗口当日落地 ✅；会话恢复留二期）
 - [x] 主题系统（部分）✅ - 亮/暗/跟随系统三态 + 控件颜色收编 CSS 变量（CSS 主题包/自定义主题未做）
 - [ ] 专注模式 / 打字机模式
 - [x] 统一自绘对话框（替换原生 confirm/alert，修复 WKWebView 下 Cancel 失效吞内容）
