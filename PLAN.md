@@ -306,14 +306,23 @@ logger.error('Failed to sync:', error)
 
 - **Word 导出**（Phase 6 / FR-040.4；pandoc 路线 PoC 已验证——方案 `docs/word-export-plan.md`；`wordPreprocess` 语法映射需覆盖已落地的全部语法批次）
 - **WYSIWYG 补全** - 查找替换接入、slash menu / 悬浮格式条（插入入口需覆盖新语法）、`@startuml` 裸行内形态支持（当前显示为源码文本，渲染仅 Source/Preview/Split）
-- **多窗口会话恢复** - 重启后重开窗口组（多窗口二期项，含 Windows/Linux 单实例——运行中双击文件应转发给已运行进程而非另起进程；argv 文件关联已落地）
+- **多窗口会话恢复** - 重启后重开窗口组（多窗口二期项，含 Windows/Linux 单实例——运行中双击文件应转发给已运行进程而非另起进程；argv 文件关联已落地；单实例要点：macOS 天然单进程无需插件，dev/release 按 bundle identifier 分实例互不影响）
 - **主题系统** - CSS 主题包 / 自定义主题编辑（Phase 6 / 13 P3；语法面已定型，可梳理覆盖面）
-- **专注模式 / 打字机模式**（Phase 13 P3）
+- **专注模式 / 打字机模式**（Phase 13 P3；方案要点：专注模式只给当前块加高亮 class、CSS `:not()` 反选压暗其余块（装饰重建 O(1) 而非 O(N)）；打字机模式活动行稳定在视口约 40% 高度、按位移阈值（约 30px）而非时间防抖、启动跳过前几次定位防加载跳动、IME 组合输入中不滚动）
 - **导出 HTML**（Phase 6 / FR-040.2/.3；已发 good first issue #5）
+- **文档历史快照** - 每次保存（手动/自动）留快照，侧栏按天分组浏览与回滚；自动快照设合并窗口防刷爆，回滚前先为当前内容存一份快照防丢；存储按文件路径 hash 分目录（appDataDir/history/），条数/天数/单文件大小三重护栏；快照失败不阻塞保存本身
+- **Markdown lint（候选）** - 文档质量检查：未定义/未使用引用、表格列数不齐、heading 跳级、空链接、锚点失效、未闭合围栏等；手动触发 + 行内/块级诊断呈现，MkDocs 写作场景价值高
+- **命令面板（候选）** - 随功能面扩大再评估；命令注册表（id/标题/分类/`when` 上下文过滤）与菜单动作同源，面板过滤与执行门禁共用同一上下文快照
 
 ### 体验与优化
 
-- **性能优化** - 大文件处理（Phase 7）
+- **性能优化** - 大文件处理（Phase 7；分级策略：阈值分档——打开进度提示 / 大文件自动落 Source 模式（状态栏保留升级 WYSIWYG 入口）/ 打开前确认 / 超限拒绝；WYSIWYG 内二级降级：大文档关拼写检查、输入期间暂停 content-visibility、首次解析让帧先渲染外壳）
+- **崩溃恢复** - auto-save 与文件监听之外的第三层防线：定期（约 10s）把未保存内容原子写（tmp+rename）到恢复目录，异常退出后下次启动恢复为脏文档；保存/关闭即清快照，按内容去重，过期自动清理
+- **阅读位置记忆** - 按文档记住各视图模式的滚动位置/光标，切换模式、外部重载、重启后复位；恢复时用 rAF 持续校正目标位置直到稳定（图表/图片异步撑高期间一次性写 scrollTop 会被钳到错误值），用户滚动/输入即刻让位
+- **跨模式撤销衔接** - 视图模式切换时存内容+光标 checkpoint；当前编辑器原生历史耗尽后继续 undo 恢复 checkpoint 内容但不切回模式；redo 前校验文档未偏离分支点
+- **CJK 词边界** - 双击选词/按词移动光标改用 Intl.Segmenter（word granularity），中文不再整段成词
+- **窗口事件就绪协议** - 菜单/Dock 等定向事件在目标窗口前端就绪前按窗口排队、就绪后冲刷，根除冷启动/新建窗口途中 emit_to_focused 丢事件
+- **PDF 书签/页码跨平台统一** - 导出后处理改走 lopdf（纯 Rust）注入大纲书签与页码，三平台统一（替代 macOS-only 的 PDFKit 路线），失败降级为警告不阻断导出
 - **Split 模式同步滚动精准化** - 当前基于百分比，内容长度差异大时不精准；可考虑基于 heading/段落位置或 caret 位置的智能同步、灵敏度调节
 - **Admonitions 增强** - `??? note` 可折叠语法（已发 good first issue #4）；嵌套支持
 - **菜单键盘导航** - 菜单原语（MenuPanel/MenuBar/Dropdown/ContextMenu）统一补方向键导航与 Alt 助记符（2026-09-04 自绘菜单栏落地后显性化）
@@ -324,6 +333,9 @@ logger.error('Failed to sync:', error)
 - **E2E 测试增强** - 完整用户流程（打开→编辑→保存、拖拽打开、快捷键；已发 good first issue #3）
 - **Editor 组件 / fileOps 测试补全**（Phase 12 剩余项；已发 good first issue #6）
 - **贡献者基建** ✅（2026-08-14：CONTRIBUTING 双语版、bug/feature issue 表单模板、PR 模板、CODE_OF_CONDUCT、README 贡献区）；pre-commit hooks (husky + lint-staged) - 可选
+- **提交信息泄密扫描** - git hook 对 commit message 做形状检测（环境变量堆叠/常见 token 模式），fail-closed；公开仓库 + AI 协作场景的防线
+- **pre-push tag 校验** - 推 v\* tag 前校验对应 SHA 的 CI 必需检查全绿（gh api check-runs），API 不可达 fail-closed，防带病发布（release 由 tag 触发）
+- **覆盖率本地阈值** - vitest coverage 阈值设为实测值减少量缓冲并随改进上浮，本地早于 Codecov 发现回退
 - 日志查看面板 / 日志导出 - 可选
 - 启动画面 / 官网横幅图 - 可选
 
