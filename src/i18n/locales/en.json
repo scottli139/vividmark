@@ -94,7 +94,7 @@
   "about": {
     "title": "About VividMark",
     "version": "Version {{version}}",
-    "copyright": "Copyright © 2025 Scott Li",
+    "copyright": "Copyright © 2025–2026 Scott Li and VividMark contributors",
     "license": "MIT License",
     "website": "GitHub"
   },

@@ -20,7 +20,9 @@ describe('AboutDialog', () => {
     expect(screen.getByText('VividMark')).toBeInTheDocument()
     // jsdom 无 Tauri，版本回退 dev
     expect(screen.getByText('Version dev')).toBeInTheDocument()
-    expect(screen.getByText('Copyright © 2025 Scott Li')).toBeInTheDocument()
+    expect(
+      screen.getByText('Copyright © 2025–2026 Scott Li and VividMark contributors')
+    ).toBeInTheDocument()
     expect(screen.getByText('MIT License')).toBeInTheDocument()
     expect(screen.getByText('GitHub')).toBeInTheDocument()
   })

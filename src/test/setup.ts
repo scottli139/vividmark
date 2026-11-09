@@ -213,7 +213,7 @@ vi.mock('react-i18next', () => ({
         'menu.about': 'About VividMark',
         'about.title': 'About VividMark',
         'about.version': `Version ${options?.version ?? ''}`,
-        'about.copyright': 'Copyright © 2025 Scott Li',
+        'about.copyright': 'Copyright © 2025–2026 Scott Li and VividMark contributors',
         'about.license': 'MIT License',
         'about.website': 'GitHub',
       }
