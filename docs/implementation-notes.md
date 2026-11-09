@@ -1039,7 +1039,8 @@ git push origin v0.1.1
 - Rust toolchain 使用 `dtolnay/rust-toolchain@stable`（注意：不是 `rust-action`）
 - Ubuntu 需要安装: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`
 - `pnpm install --frozen-lockfile`
-- 构建使用 `tauri-apps/tauri-action@v0`，Secrets 只需自动生成的 `GITHUB_TOKEN`
+- 构建使用 `tauri-apps/tauri-action@v0`，自动创建 draft Release
+- macOS 使用 Developer ID Application 签名并启用 Hardened Runtime；Tauri 完成 App 公证后，工作流再单独公证 DMG、staple/validate，并用 `gh release upload --clobber` 替换草稿中的未 stapled DMG
 
 **常见问题及解决:**
 
@@ -1047,13 +1048,13 @@ git push origin v0.1.1
    - CI 环境使用严格模式，未使用变量需要加下划线前缀 `_match`
 
 2. **macOS "应用已损坏" 提示**
-   - 原因：没有代码签名，被 Gatekeeper 拦截
-   - 解决：`xattr -rd com.apple.quarantine /Applications/VividMark.app`，或在 系统设置 → 隐私与安全性 → 仍要打开
+   - 正式 Release 已完成 Developer ID 签名和 Apple 公证，正常不应出现此提示
+   - 自行构建的未签名版本可用 `xattr -rd com.apple.quarantine /Applications/VividMark.app` 临时绕过 Gatekeeper
 
-**可选 Secrets (用于代码签名):**
-`APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_SIGNING_IDENTITY` / `APPLE_ID` / `APPLE_PASSWORD`
+**macOS 签名/公证 Secrets:**
+`APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` / `APPLE_API_KEY_CONTENT`
 
-> 当前 release.yml 的 env 只映射了 `GITHUB_TOKEN`——配置这些 Secrets 后**需同时在 release.yml 补 env 映射才会生效**。
+> `APPLE_CERTIFICATE` 是 `.p12` 的 Base64；`APPLE_API_KEY_CONTENT` 是 App Store Connect API `.p8` 内容。工作流仅在 macOS runner 还原临时密钥文件，构建后校验签名、Hardened Runtime、Gatekeeper 评估及 DMG 公证票据。
 
 **注意事项:**
 

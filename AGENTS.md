@@ -200,7 +200,7 @@ Read these before touching editor code — 每条只保留核心约束，展开�
 - `.github/workflows/release.yml`: push `v*` tag → multi-platform build (macOS/Windows/Linux) → GitHub Release；`build-linglong` job（`ubuntu-24.04-arm` runner）随 tag 构建玲珑 arm64 `.layer` 直挂 Release（手动 dispatch 只传 artifact，见 `linglong/README.md`）
 - `.github/workflows/pages.yml`: `docs/` → GitHub Pages
 - Version numbers must stay in sync: `package.json`, `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`（`linglong.yaml` 由 CI 按 tag 自动改写，本地构建前需手动对齐）
-- Unsigned app notes: macOS Gatekeeper (`xattr -rd com.apple.quarantine`), Windows SmartScreen warning
+- macOS Release uses Developer ID Application signing + Apple notarization + DMG stapling; unsigned Windows builds still show a SmartScreen warning
 
 ## Working Agreements
 
