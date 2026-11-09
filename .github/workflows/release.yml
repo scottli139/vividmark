@@ -43,10 +43,27 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare Apple notarization key (macOS only)
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY_CONTENT }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/appstoreconnect/private_keys/AuthKey_${APPLE_API_KEY}.p8"
+          mkdir -p "$(dirname "$KEY_PATH")"
+          printf '%s\n' "$APPLE_API_KEY_CONTENT" > "$KEY_PATH"
+          chmod 600 "$KEY_PATH"
+          echo "APPLE_API_KEY_PATH=$KEY_PATH" >> "$GITHUB_ENV"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_CERTIFICATE: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_API_ISSUER: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_ISSUER || '' }}
+          APPLE_API_KEY: ${{ matrix.platform == 'macos-latest' && secrets.APPLE_API_KEY || '' }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'VividMark ${{ github.ref_name }}'
@@ -62,6 +79,22 @@ jobs:
             | UOS 20 / deepin (玲珑, arm64) | `com.vividmark.app_*_arm64_binary.layer`（老设备 `ll-cli install`）/ `com.vividmark.app_*.uab`（新系统双击安装） |
           releaseDraft: true
           prerelease: false
+
+      - name: Verify macOS signature and notarization
+        if: matrix.platform == 'macos-latest'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          APP_PATH="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name 'VividMark.app' -print -quit)"
+          DMG_PATH="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$APP_PATH"
+          test -n "$DMG_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          codesign --display --verbose=4 "$APP_PATH" 2>&1 | tee "$RUNNER_TEMP/vividmark-codesign.txt"
+          grep -F "Authority=$APPLE_SIGNING_IDENTITY" "$RUNNER_TEMP/vividmark-codesign.txt"
+          grep -E 'flags=.*\(runtime\)' "$RUNNER_TEMP/vividmark-codesign.txt"
+          spctl -a -vv -t exec "$APP_PATH"
+          xcrun stapler validate "$DMG_PATH"
 
   # 玲珑（Linglong）打包：面向 UOS 20 等老系统的 arm64 交付路径，见 linglong/README.md。
   # 构建全程在玲珑容器（Deepin 23 base）内进行，不依赖 runner 上的 Node/Rust。
