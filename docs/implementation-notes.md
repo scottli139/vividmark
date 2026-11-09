@@ -1493,7 +1493,7 @@ if (lang === 'typst') {
 
 ### 菜单事件流与状态同步要点
 
-- 完整链路：`src-tauri/src/menu.rs` 构建系统菜单（macOS App/文件/编辑/段落/格式/视图/窗口；Windows/Linux 适配）→ `on_menu_event` 经 `emit_to_focused` 定向 emit `native-menu-event` → 前端 `src/lib/nativeMenu.ts` 的 `handleMenuAction` 分发
+- 完整链路：`src-tauri/src/menu.rs` 构建系统菜单（macOS App/文件/编辑/段落/格式/视图/窗口；Windows/Linux 适配）→ `on_menu_event` 经 `emit_to_focused` 定向 emit `native-menu-event` → 前端 `src/lib/nativeMenu.ts` 以 `getCurrentWindow().listen` 只监听本窗口，再由 `handleMenuAction` 分发。**不能用全局 `listen`**：它会接收定向到其他窗口的菜单事件，导致多窗口同时保存/导出 PDF
 - `Menu::get` 只查顶层项；子菜单内的项必须走 lib.rs 的 `find_menu_item` 递归查找
 - muda 的 CheckMenuItem 点击会原生自动翻转勾选，最终态以前端同步（`set_menu_item_checked`/`set_menu_item_enabled`）为准
 - 菜单重建后所有 check/enabled 回到构建默认值，必须重新同步一轮

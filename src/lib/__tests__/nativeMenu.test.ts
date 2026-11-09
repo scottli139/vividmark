@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   mockInvoke,
   mockListen,
+  mockWindowListen,
   mockIsFocused,
   mockOnFocusChanged,
   mockMinimize,
@@ -306,7 +307,8 @@ describe('initNativeMenu 状态同步', () => {
 
   it('初始化：注册监听 + 全量同步 + 初始重建', async () => {
     const cleanup = await initNativeMenu()
-    expect(mockListen).toHaveBeenCalledWith('native-menu-event', expect.any(Function))
+    expect(mockWindowListen).toHaveBeenCalledWith('native-menu-event', expect.any(Function))
+    expect(mockListen).not.toHaveBeenCalledWith('native-menu-event', expect.any(Function))
     // 初始 check 同步：source✓ / dark✓
     expect(mockInvoke).toHaveBeenCalledWith('set_menu_item_checked', {
       id: 'view-mode-source',
@@ -440,6 +442,7 @@ describe('initNativeMenu 平台门控与焦点补齐', () => {
     Object.defineProperty(navigator, 'platform', { value: 'Win32', writable: true })
     const cleanup = await initNativeMenu()
     expect(mockListen).not.toHaveBeenCalled()
+    expect(mockWindowListen).not.toHaveBeenCalled()
     expect(mockInvoke).not.toHaveBeenCalledWith('rebuild_menu', expect.anything())
     cleanup()
   })

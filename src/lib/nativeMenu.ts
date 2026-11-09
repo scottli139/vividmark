@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
-import { listen, type UnlistenFn } from '@tauri-apps/api/event'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { useEditorStore, type EditorState } from '../stores/editorStore'
 import type { ThemeMode } from './theme'
@@ -292,9 +292,10 @@ export function syncAllMenuState(): void {
 export async function initNativeMenu(): Promise<() => void> {
   if (!isTauri() || isWindowsDesktop()) return () => {}
 
+  const win = getCurrentWindow()
   let unlisten: UnlistenFn | undefined
   try {
-    unlisten = await listen<string>('native-menu-event', (event) => {
+    unlisten = await win.listen<string>('native-menu-event', (event) => {
       handleMenuAction(event.payload).catch((e) =>
         logger.error(`Menu action failed: ${safeMenuId(event.payload)}`, e)
       )
@@ -308,7 +309,6 @@ export async function initNativeMenu(): Promise<() => void> {
   // 聚焦时也要补一次 rebuildMenu：启动时若 isFocused() 尚未为 true（Windows 时序），
   // 下方初始重建会被跳过，不补则菜单标签永远停留在 Rust setup 的英文默认值；
   // 有 lastRebuildKey 去重，已重建时是廉价 no-op。
-  const win = getCurrentWindow()
   windowFocused = await win.isFocused().catch(() => true)
   const unlistenFocus = await win
     .onFocusChanged(({ payload: focused }) => {

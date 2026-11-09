@@ -9,6 +9,7 @@ export const mockSaveDialog = vi.fn()
 
 // Mock Tauri event plugin（原生菜单 listen / 跨窗口广播 emit）
 export const mockListen = vi.fn().mockResolvedValue(vi.fn())
+export const mockWindowListen = vi.fn().mockResolvedValue(vi.fn())
 export const mockEmit = vi.fn().mockResolvedValue(undefined)
 
 // Mock Tauri window API（多窗口：焦点跟踪 / 关闭拦截 / 标题 / 窗口控制）
@@ -26,6 +27,7 @@ export const mockOnResized = vi.fn().mockResolvedValue(vi.fn())
 vi.mock('@tauri-apps/api/window', () => ({
   getCurrentWindow: () => ({
     label: 'main',
+    listen: mockWindowListen,
     isFocused: mockIsFocused,
     onFocusChanged: mockOnFocusChanged,
     onCloseRequested: mockOnCloseRequested,
