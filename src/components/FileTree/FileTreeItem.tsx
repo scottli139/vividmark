@@ -3,6 +3,7 @@ import type { FileTreeItem as FileTreeItemType } from '../../lib/fileTreeUtils'
 import { getFileIconType } from '../../lib/fileTreeUtils'
 import { FileIcon } from './FileIcon'
 import { InlineNameInput } from './InlineNameInput'
+import { TextField } from '../ui'
 
 /** 新建操作的行内输入状态（parentPath = 目标文件夹） */
 export interface CreatingState {
@@ -74,8 +75,9 @@ function RenameInput({ item, onSubmit, onCancel }: RenameInputProps) {
   }
 
   return (
-    <input
+    <TextField
       ref={inputRef}
+      inputSize="sm"
       type="text"
       defaultValue={item.name}
       onClick={(e) => e.stopPropagation()}
@@ -89,8 +91,7 @@ function RenameInput({ item, onSubmit, onCancel }: RenameInputProps) {
         }
       }}
       onBlur={cancel}
-      className="flex-1 min-w-0 px-1 text-[13px] bg-[var(--editor-bg)]
-        text-[var(--color-text)] border border-[var(--accent-color)] rounded outline-none"
+      className="min-w-0 flex-1 border-accent px-1"
     />
   )
 }

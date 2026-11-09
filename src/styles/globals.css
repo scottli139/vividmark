@@ -1,13 +1,10 @@
-@import 'tailwindcss';
-
-/* dark: 变体跟随应用内 .dark class（挂在 documentElement 上），而非 OS 的 prefers-color-scheme */
-@custom-variant dark (&:where(.dark, .dark *));
+@import './tokens.css';
 
 /* Highlight.js 代码高亮样式 - 基于 GitHub 主题 */
 .hljs {
   background: #f6f8fa;
   color: #24292e;
-  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
+  font-family: var(--font-code);
   font-size: 0.9em;
   line-height: 1.5;
   white-space: pre;
@@ -79,8 +76,7 @@ pre,
 pre.hljs,
 .markdown-body pre,
 .markdown-body pre.hljs {
-  font-family:
-    'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace !important;
+  font-family: var(--font-code) !important;
   font-variant-ligatures: none;
   font-feature-settings: 'liga' 0;
   letter-spacing: 0;
@@ -93,8 +89,7 @@ pre code.hljs,
 .markdown-body pre.hljs code,
 .hljs code,
 code.hljs {
-  font-family:
-    'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace !important;
+  font-family: var(--font-code) !important;
   white-space: pre !important;
   word-wrap: normal !important;
   word-break: normal !important;
@@ -197,48 +192,6 @@ code {
   background: #283d2a;
 }
 
-:root {
-  --editor-bg: #ffffff;
-  --editor-text: #1a1a1a;
-  --editor-border: #e5e5e5;
-  --sidebar-bg: #f8f8f8;
-  --toolbar-bg: #fafafa;
-  --accent-color: #0066cc;
-  /* 语义化别名（组件中引用的变量） */
-  --text-primary: var(--editor-text);
-  --text-secondary: #6b7280;
-  --color-text: var(--editor-text);
-  --color-text-secondary: #6b7280;
-  /* 弱化文本与交互态背景 */
-  --color-text-muted: #9ca3af;
-  --hover-bg: #e5e7eb;
-  --active-bg: #ffffff;
-  /* ==高亮==（<mark>） */
-  --mark-bg: #fff3a3;
-  --mark-text: #1a1a1a;
-}
-
-.dark {
-  --editor-bg: #1a1a1a;
-  --editor-text: #e5e5e5;
-  --editor-border: #333333;
-  --sidebar-bg: #141414;
-  --toolbar-bg: #1f1f1f;
-  --accent-color: #4da6ff;
-  /* 语义化别名（组件中引用的变量） */
-  --text-primary: var(--editor-text);
-  --text-secondary: #9ca3af;
-  --color-text: var(--editor-text);
-  --color-text-secondary: #9ca3af;
-  /* 弱化文本与交互态背景 */
-  --color-text-muted: #6b7280;
-  --hover-bg: #2c3846;
-  --active-bg: #374151;
-  /* ==高亮==（<mark>） */
-  --mark-bg: #7c6408;
-  --mark-text: #f5f5f5;
-}
-
 * {
   box-sizing: border-box;
 }
@@ -252,11 +205,8 @@ body,
 }
 
 body {
-  /* Linux 上 -apple-system 等非字面 family 会被 WebKitGTK 2.46(deepin beige 玲珑包内置)
-     解析成零度量字体（文字顶部对齐），必须在通用名前放 Linux 实体字体名兜底 */
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
-    'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans', 'DejaVu Sans', sans-serif;
+  /* Linux 字体兜底顺序由 --font-ui 统一维护 */
+  font-family: var(--font-ui);
   background-color: var(--editor-bg);
   color: var(--editor-text);
   line-height: 1.6;
@@ -308,7 +258,7 @@ body {
   background-color: rgba(0, 0, 0, 0.05);
   padding: 0.2em 0.4em;
   border-radius: 4px;
-  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
+  font-family: var(--font-code);
   font-size: 0.9em;
 }
 
@@ -322,7 +272,7 @@ body {
   border-radius: 6px;
   overflow-x: auto;
   margin-bottom: 1em;
-  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
+  font-family: var(--font-code);
   font-size: 0.9em;
   line-height: 1.5;
   white-space: pre;
@@ -1007,7 +957,7 @@ details.admonition > summary.admonition-title {
   border-radius: 4px;
   background: var(--editor-bg);
   color: var(--editor-text);
-  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
+  font-family: var(--font-code);
   font-size: 0.9em;
   line-height: 1.5;
   resize: vertical;
@@ -1046,7 +996,7 @@ details.admonition > summary.admonition-title {
   margin: 0;
   padding: 8px 12px;
   color: var(--text-secondary);
-  font-family: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
+  font-family: var(--font-code);
   font-size: 0.85em;
   line-height: 1.5;
   white-space: pre;

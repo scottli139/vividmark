@@ -1,21 +1,16 @@
 import { useTranslation } from 'react-i18next'
 import { openFolderDialog } from '../lib/openFolderDialog'
+import { Button } from './ui'
 
-/**
- * 「打开文件夹」入口按钮（幽灵样式）：中性边框 + 弱化文字，避免实心 accent 按钮在
- * 侧边栏中过于突兀。Sidebar 最近文件视图与 FileTree 空态共用，保证两处观感一致。
- */
+/** Sidebar 最近文件视图与 FileTree 空态共用的次要操作按钮。 */
 export function OpenFolderButton() {
   const { t } = useTranslation()
 
   return (
-    <button
+    <Button
+      variant="secondary"
       onClick={() => void openFolderDialog()}
-      className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5
-        text-[13px] text-[var(--color-text-secondary)]
-        border border-[var(--editor-border)] rounded-md
-        hover:bg-[var(--hover-bg)] hover:text-[var(--color-text)]
-        transition-colors duration-150"
+      className="w-full text-secondary hover:text-foreground"
     >
       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
@@ -26,6 +21,6 @@ export function OpenFolderButton() {
         />
       </svg>
       {t('fileTree.openFolder')}
-    </button>
+    </Button>
   )
 }

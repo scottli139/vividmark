@@ -1,0 +1,104 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--editor-bg);
+  --color-surface: var(--sidebar-bg);
+  --color-toolbar: var(--toolbar-bg);
+  --color-border: var(--editor-border);
+  --color-foreground: var(--text-primary);
+  --color-secondary: var(--color-text-secondary);
+  --color-muted: var(--color-text-muted);
+  --color-accent: var(--accent-color);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-hover: var(--hover-bg);
+  --color-active: var(--active-bg);
+  --color-danger: var(--danger-color);
+  --color-danger-hover: var(--danger-hover);
+  --color-overlay: var(--overlay-color);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+  --radius-xs: var(--radius-2);
+  --radius-sm: var(--radius-4);
+  --radius-md: var(--radius-6);
+  --radius-lg: var(--radius-8);
+  --radius-xl: var(--radius-10);
+  --shadow-overlay: var(--shadow-modal);
+}
+
+:root {
+  --editor-bg: #ffffff;
+  --editor-text: #1a1a1a;
+  --editor-border: #e5e5e5;
+  --sidebar-bg: #f8f8f8;
+  --toolbar-bg: #fafafa;
+  --accent-color: #0066cc;
+  --accent-hover: #0057b3;
+  --on-accent: #ffffff;
+  --danger-color: #e81123;
+  --danger-hover: #c90e1e;
+  --overlay-color: rgb(0 0 0 / 50%);
+  --text-primary: var(--editor-text);
+  --text-secondary: #6b7280;
+  --color-text: var(--editor-text);
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+  --hover-bg: #e5e7eb;
+  --active-bg: #ffffff;
+  --mark-bg: #fff3a3;
+  --mark-text: #1a1a1a;
+
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+    'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans', 'DejaVu Sans', sans-serif;
+  --font-code: 'Courier New', 'Courier', 'Noto Sans Mono CJK SC', 'DejaVu Sans Mono', monospace;
+  --font-size-10: 10px;
+  --font-size-12: 12px;
+  --font-size-13: 13px;
+  --font-size-14: 14px;
+  --font-size-16: 16px;
+  --font-size-18: 18px;
+  --font-size-20: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-2: 2px;
+  --radius-4: 4px;
+  --radius-6: 6px;
+  --radius-8: 8px;
+  --radius-10: 10px;
+  --control-height-sm: 28px;
+  --control-height-md: 32px;
+  --control-height-lg: 36px;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --shadow-modal: 0 20px 25px -5px rgb(0 0 0 / 10%), 0 8px 10px -6px rgb(0 0 0 / 10%);
+}
+
+.dark {
+  --editor-bg: #1a1a1a;
+  --editor-text: #e5e5e5;
+  --editor-border: #333333;
+  --sidebar-bg: #141414;
+  --toolbar-bg: #1f1f1f;
+  --accent-color: #4da6ff;
+  --accent-hover: #66b5ff;
+  --danger-hover: #f03444;
+  --text-primary: var(--editor-text);
+  --text-secondary: #9ca3af;
+  --color-text: var(--editor-text);
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --hover-bg: #2c3846;
+  --active-bg: #374151;
+  --mark-bg: #7c6408;
+  --mark-text: #f5f5f5;
+  --shadow-modal: 0 20px 25px -5px rgb(0 0 0 / 40%), 0 8px 10px -6px rgb(0 0 0 / 40%);
+}

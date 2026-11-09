@@ -23,6 +23,7 @@ import {
 import { useMemo, useCallback, useEffect, useRef, useState } from 'react'
 import { FileTree } from '../FileTree'
 import { OpenFolderButton } from '../OpenFolderButton'
+import { TextField } from '../ui'
 import { OutlineTree } from './OutlineTree'
 import { useResizable } from '../../hooks/useResizable'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
@@ -278,14 +279,12 @@ export function Sidebar() {
                     d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 105.1 5.1a7.5 7.5 0 0011.55 11.55z"
                   />
                 </svg>
-                <input
+                <TextField
                   type="text"
                   value={recentFilter}
                   onChange={(e) => setRecentFilter(e.target.value)}
                   placeholder={t('sidebar.filterRecent')}
-                  className="w-full pl-7 pr-2 py-1.5 text-[13px] bg-[var(--editor-bg)]
-                    text-[var(--color-text)] border border-[var(--editor-border)] rounded-md
-                    outline-none focus:border-[var(--accent-color)]"
+                  className="pl-7 pr-2 text-[13px]"
                 />
               </div>
             )}

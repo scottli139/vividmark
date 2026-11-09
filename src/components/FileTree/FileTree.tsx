@@ -28,6 +28,7 @@ import { openFolderDialog } from '../../lib/openFolderDialog'
 import { writeClipboardText } from '../../lib/clipboard'
 import { isMacOS } from '../../lib/platform'
 import { confirmDialog, alertDialog } from '../../lib/dialog'
+import { TextField } from '../ui'
 import { useEditorStore } from '../../stores/editorStore'
 import { ContextMenu, type MenuItem } from '../Menu'
 import { OpenFolderButton } from '../OpenFolderButton'
@@ -404,14 +405,12 @@ export function FileTree({ showMarkdownOnly = true }: FileTreeProps) {
 
       {/* 过滤输入框 */}
       <div className="px-2 py-1.5 border-b border-[var(--editor-border)]">
-        <input
+        <TextField
+          inputSize="sm"
           type="text"
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder={t('fileTree.filterPlaceholder')}
-          className="w-full px-2 py-1 text-[13px] bg-[var(--editor-bg)]
-            text-[var(--color-text)] border border-[var(--editor-border)] rounded-md
-            outline-none focus:border-[var(--accent-color)]"
         />
       </div>
 

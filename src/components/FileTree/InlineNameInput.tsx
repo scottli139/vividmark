@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileIcon } from './FileIcon'
+import { TextField } from '../ui'
 
 interface InlineNameInputProps {
   level: number
@@ -45,8 +46,9 @@ export function InlineNameInput({ level, isDirectory, onSubmit, onCancel }: Inli
       <span className="flex-shrink-0 text-[var(--color-text-secondary)]">
         <FileIcon type={isDirectory ? 'folder' : 'file'} isSelected={false} />
       </span>
-      <input
+      <TextField
         ref={inputRef}
+        inputSize="sm"
         type="text"
         value={value}
         placeholder={t(isDirectory ? 'fileTree.newFolder' : 'fileTree.newFile')}
@@ -61,8 +63,7 @@ export function InlineNameInput({ level, isDirectory, onSubmit, onCancel }: Inli
           }
         }}
         onBlur={cancel}
-        className="flex-1 min-w-0 px-1 text-[13px] bg-[var(--editor-bg)]
-          text-[var(--color-text)] border border-[var(--accent-color)] rounded outline-none"
+        className="min-w-0 flex-1 border-accent px-1"
       />
     </div>
   )

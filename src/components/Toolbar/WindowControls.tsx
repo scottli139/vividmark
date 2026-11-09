@@ -77,7 +77,7 @@ export function WindowControls() {
         onClick={run('close')}
         title={t('toolbar.tooltip.close')}
         aria-label={t('toolbar.tooltip.close')}
-        className={`${buttonClass} hover:bg-[#e81123] hover:text-white`}
+        className={`${buttonClass} hover:bg-danger hover:text-on-accent`}
       >
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor">
           <path d="M1.5 1.5l9 9M10.5 1.5l-9 9" strokeWidth="1.2" />

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDialogStore } from '../stores/dialogStore'
+import { Button, Modal } from './ui'
 
 /**
  * 自绘确认/提示弹窗（替代原生 confirm/alert）
@@ -23,44 +24,28 @@ export function Dialog() {
   const isConfirm = current.kind === 'confirm'
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
-      answer(false)
-    } else if (e.key === 'Enter') {
-      answer(true)
-    }
+    if (e.key === 'Enter') answer(true)
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          answer(false)
-        }
-      }}
+    <Modal
+      onClose={() => answer(false)}
       onKeyDown={handleKeyDown}
+      className="w-80"
+      aria-label={current.message}
     >
-      <div className="bg-[var(--editor-bg)] border border-[var(--editor-border)] rounded-lg shadow-xl p-6 w-80">
-        <p className="text-sm text-[var(--text-primary)]">{current.message}</p>
+      <p className="text-sm text-foreground">{current.message}</p>
 
-        <div className="flex justify-end gap-2 mt-6">
-          {isConfirm && (
-            <button
-              onClick={() => answer(false)}
-              className="px-4 py-2 rounded text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--editor-border)]/50 transition-colors"
-            >
-              {current.cancelLabel ?? t('dialog.cancel')}
-            </button>
-          )}
-          <button
-            ref={primaryButtonRef}
-            onClick={() => answer(true)}
-            className="px-4 py-2 rounded text-sm font-medium bg-[var(--accent-color)] text-white hover:opacity-90 transition-opacity"
-          >
-            {current.confirmLabel ?? (isConfirm ? t('dialog.confirm') : t('dialog.close'))}
-          </button>
-        </div>
+      <div className="mt-6 flex justify-end gap-2">
+        {isConfirm && (
+          <Button variant="ghost" onClick={() => answer(false)}>
+            {current.cancelLabel ?? t('dialog.cancel')}
+          </Button>
+        )}
+        <Button ref={primaryButtonRef} onClick={() => answer(true)}>
+          {current.confirmLabel ?? (isConfirm ? t('dialog.confirm') : t('dialog.close'))}
+        </Button>
       </div>
-    </div>
+    </Modal>
   )
 }

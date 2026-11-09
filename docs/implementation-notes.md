@@ -1,134 +1,135 @@
-# VividMark 实现细节知识库
+# VividMark Implementation Notes
 
-> 本文档收录从 `AGENTS.md` 迁出的详细实现笔记、踩坑记录与发布运维流程。
-> 任务进度请看 [`PLAN.md`](../PLAN.md)；agent 精简指南请看 [`AGENTS.md`](../AGENTS.md)。
+**English | [简体中文](implementation-notes.zh-CN.md)**
 
-## 目录
+> This document collects detailed implementation notes, pitfalls, and release/operations procedures moved out of `AGENTS.md`.
+> For task progress, see [`PLAN.md`](../PLAN.md); for the concise agent guide, see [`AGENTS.md`](../AGENTS.md).
 
-- [已知问题](#已知问题)
-- [Markdown 扩展实现](#markdown-扩展实现)
-- [编辑器架构](#编辑器架构)
-- [侧边栏文件树](#侧边栏文件树实现)
-- [工具栏布局](#工具栏布局-2026-03-06)
-- [Windows 路径处理](#windows-路径处理)
-- [Export PDF 详解](#export-pdf-详解)
+## Contents
+
+- [Known Issues](#known-issues)
+- [Markdown Extension Implementation](#markdown-extension-implementation)
+- [Editor Architecture](#editor-architecture)
+- [Sidebar File Tree](#sidebar-file-tree-implementation)
+- [Toolbar Layout](#toolbar-layout-2026-03-06)
+- [Windows Path Handling](#windows-path-handling)
+- [PDF Export in Detail](#pdf-export-in-detail)
 - [Logging](#logging)
-- [Tauri Commands 一览](#tauri-commands-一览)
-- [键盘快捷键一览](#键盘快捷键一览)
-- [CI/CD 与发布](#cicd-与发布)
-- [Git 仓库管理](#git-仓库管理)
-- [Typst 离线支持](#typst-离线支持)
+- [Tauri Commands](#tauri-commands)
+- [Keyboard Shortcuts](#keyboard-shortcuts)
+- [CI/CD and Release](#cicd-and-release)
+- [Git Repository Management](#git-repository-management)
+- [Typst Offline Support](#typst-offline-support)
 
 ---
 
-## 已知问题
+## Known Issues
 
-### 代码块等宽字体（中文对齐）
+### Monospace Fonts in Code Blocks (CJK Alignment)
 
-> 当前状态：中英文混排的 ASCII 艺术图无法对齐
+> Current status: ASCII art mixing CJK and Latin text cannot be aligned reliably.
 
-**问题描述：**
-在 Markdown 代码块中，如果混用中英文（如 ASCII 流程图），中文字符和 ASCII 字符无法正确对齐。
+**Description:**
+When Markdown code blocks mix CJK and Latin text (for example, in ASCII flowcharts), CJK and ASCII characters do not align correctly.
 
-**原因分析：**
+**Cause:**
 
-- 中文字符（全角）宽度应为 ASCII 字符（半角）的 2 倍
-- 但在 WebView 中渲染时，实际宽度比例无法严格保持 2:1
-- 尝试多种等宽字体（Menlo、Monaco、Courier New 等）均无法解决
-- 这是 WebKit/WebView 的底层渲染限制
+- A full-width CJK character should be twice as wide as a half-width ASCII character.
+- WebView rendering cannot consistently preserve that 2:1 ratio.
+- Multiple monospace fonts (Menlo, Monaco, Courier New, and others) have not solved it.
+- This is a low-level WebKit/WebView rendering limitation.
 
-**尝试过的解决方案：**
+**Approaches tried:**
 
-1. ✅ 设置多种系统等宽字体
-2. ✅ 使用 `font-variant-ligatures: none` 禁用连字
-3. ✅ 强制所有子元素继承等宽字体
-4. ✅ 添加 `-webkit-font-feature-settings` 前缀
-5. ❌ 均无效
+1. ✅ Several system monospace fonts
+2. ✅ `font-variant-ligatures: none` to disable ligatures
+3. ✅ Forced monospace inheritance on all children
+4. ✅ The `-webkit-font-feature-settings` prefix
+5. ❌ None worked
 
-**建议替代方案：**
+**Recommended alternatives:**
 
-- 使用 **Mermaid** 语法绘制图表（VividMark 已支持）
-- 使用 **PlantUML** 绘制专业图表
-- 避免在 ASCII 图中混用中英文，使用纯 ASCII 字符
+- Use **Mermaid** for diagrams (supported by VividMark).
+- Use **PlantUML** for professional diagrams.
+- Avoid mixing CJK and Latin text in ASCII diagrams; use ASCII-only content.
 
-### PDF 导出默认文件名
+### Default PDF Export Filename
 
-> ✅ 已解决（Typora 式直存）：导出改为「保存对话框 → 静默生成 PDF 文件」，文件名即用户所选，不再经过打印对话框。见下文「Export PDF 详解」。
+> ✅ Resolved (Typora-style direct save): export now uses “save dialog → silently generate PDF”; the filename is the user's choice, with no print dialog. See “PDF Export in Detail” below.
 
-### Linux 玲珑包文字「顶部对齐」（按钮/表格/输入框垂直居中失效）
+### Linglong Linux Package Text Appears Top-Aligned (Vertical Centering Fails in Buttons/Tables/Inputs)
 
-> ✅ 已解决（2026-09-03）：font-family 栈补 Linux 实体字体名兜底，见下。
+> ✅ Resolved (2026-09-03): Linux-specific concrete font names were added to font-family fallbacks, as described below.
 
-**现象**：玲珑包（内置 deepin beige 的 webkit2gtk-4.1 **2.46.3**）里，按钮文字、表格单元格文字、输入框占位文本等一切垂直居中全部顶偏；宿主机 WebKitGTK 2.38（UOS 1070 自带 2.38.6-deepin1）与 macOS 均正常。
+**Symptom**: In the Linglong package (which bundles deepin beige webkit2gtk-4.1 **2.46.3**), all vertical centering—including button text, table cells, and input placeholders—appears shifted to the top. Host WebKitGTK 2.38 (2.38.6-deepin1 supplied by UOS 1070) and macOS are normal.
 
-**根因**：该引擎对**非字面安装的 family 名**（`-apple-system`、`BlinkMacSystemFont`、通用名 `sans-serif`/`system-ui` 等——fontconfig 别名/模糊匹配到的结果）返回**零度量字体**（ascent/descent=0）：布局本身正确（盒高、居中计算都对），但文字墨迹从坍缩的零高内联盒向上绘制，视觉上整体顶偏。字面安装的实体 family（如 `Source Han Sans SC`、`Noto Sans CJK SC`、`DejaVu Sans`）完全正常。旧栈在 Linux 上全是非字面名，整页中招。
+**Root cause**: The engine returns **zero-metrics fonts** (ascent/descent=0) for **family names that are not literal installed names** (`-apple-system`, `BlinkMacSystemFont`, generic `sans-serif`/`system-ui`, including fontconfig aliases/fuzzy matches). Layout itself is correct (box height and centering calculations), but glyph ink is drawn upward from a collapsed zero-height inline box, making everything appear top-shifted. Literal installed families such as `Source Han Sans SC`, `Noto Sans CJK SC`, and `DejaVu Sans` work correctly. The old Linux stack contained only non-literal names, so the entire page was affected.
 
-**修复**：所有 font-family 栈在通用名之前补 Linux 实体字体名——正文栈加 `'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans', 'DejaVu Sans'`（globals.css body），等宽栈加 `'Noto Sans Mono CJK SC', 'DejaVu Sans Mono'`（globals.css 各 code 规则 + CodeMirrorEditor cm-scroller）。WebKit 会跳过非字面名命中第一个实体名；macOS/Windows 原有命中（-apple-system/Segoe UI/Courier New）不变，零回归。
+**Fix**: Add concrete Linux family names before generic names in every font-family stack—body text gains `'Noto Sans CJK SC', 'Source Han Sans SC', 'Noto Sans', 'DejaVu Sans'` (globals.css body), and monospace stacks gain `'Noto Sans Mono CJK SC', 'DejaVu Sans Mono'` (code rules in globals.css + CodeMirrorEditor cm-scroller). WebKit skips non-literal names and selects the first concrete family; existing macOS/Windows matches (-apple-system/Segoe UI/Courier New) remain unchanged with no regression.
 
-**验证方法**（可复用的引擎级探针）：`/tmp/wktest/probe41.c`（宿主机 gcc 链接玲珑包内 .so + base glibc，经 `ll-cli run … -- /run/host/rootfs/…` 在容器内跑真实 2.46.3），页内 JS 用 Range rect 量化文字垂直位置（零度量时 Range 高度塌为 0，居中时等于 em 盒高）。正常引擎（2.38/macOS）上两种方式都居中。
+**Verification** (reusable engine-level probe): `/tmp/wktest/probe41.c` (host gcc links the Linglong package's .so + base glibc and runs the real 2.46.3 inside the container through `ll-cli run … -- /run/host/rootfs/…`). In-page JS uses Range rects to quantify vertical text position (Range height collapses to 0 with zero metrics and equals the em box height when centered). Both approaches center correctly on healthy engines (2.38/macOS).
 
-### Linux 玲珑包桌面/菜单快捷方式无法启动、图标齿轮
+### Linglong Linux Desktop/Menu Shortcuts Fail to Launch and Show Gear Icons
 
-> ✅ 已解决（2026-09-03）：Exec 去掉 `%F` 占位符，见下。细节见 `linglong/README.md` 踩坑 11/13/14。
+> ✅ Resolved (2026-09-03): removed the `%F` placeholder from Exec, as below. See pitfalls 11/13/14 in `linglong/README.md`.
 
-**现象**：开始菜单图标与「发送到桌面」的快捷方式双击均无法启动；桌面快捷方式图标显示为两个齿轮的回退图标。
+**Symptom**: Neither the Start-menu icon nor a “Send to Desktop” shortcut launches the app when double-clicked; desktop shortcuts show two fallback gear icons.
 
-**根因（两个独立问题）**：
+**Root causes (two independent issues)**:
 
-1. **无法启动 = ll-cli 1.5.6 的 desktop 重写 bug**：构建期 ll-builder 会把包内 desktop 的 `Exec` 改写为 `ll-cli run` 形式。原 Exec 含 `%F` 时被改写成 `ll-cli run <id> --file %F -- -- <bin> %%F`——无文件双击时 `%F` 展开为空，`--file` 缺参数报用法错误退出；有文件时内层多出的 `--` 被当成命令执行（`--: command not found`），两种路径全废。去掉 `%F` 后重写结果为干净的 `ll-cli run <id> -- <bin>`（探针包 + 真机 `GDesktopAppInfo.launch` 验证）。1.5.6 的 `--file` 也不会把路径代入容器命令行（`%F` 不替换、argv 不追加），文件关联打开路径本来也传不进来。
-2. **图标齿轮 = dde-desktop 进程级图标缓存过期**：Qt 与 GTK 对新装玲珑应用的图标均可正常解析（entries 已在 XDG_DATA_DIRS），但 dde-desktop 若早于图标安装启动就持续显示回退图标，`killall dde-desktop`（自动拉起）或重新登录后恢复。
+1. **Launch failure = ll-cli 1.5.6 desktop-rewrite bug**: during build, ll-builder rewrites the packaged desktop file's `Exec` into `ll-cli run` form. If the original Exec contains `%F`, it becomes `ll-cli run <id> --file %F -- -- <bin> %%F`. With no file, `%F` expands empty and `--file` exits with a usage error; with a file, the extra inner `--` is executed as a command (`--: command not found`). Both paths fail. Removing `%F` produces clean `ll-cli run <id> -- <bin>` (verified with a probe package and real `GDesktopAppInfo.launch`). In 1.5.6, `--file` also does not pass the path into the container command line (`%F` is not replaced and argv is not appended), so file-association paths could not arrive anyway.
+2. **Gear icons = stale process-level dde-desktop icon cache**: Qt and GTK resolve icons for newly installed Linglong apps correctly (entries are already in XDG_DATA_DIRS), but dde-desktop keeps showing fallback gears if it started before installation. `killall dde-desktop` (it restarts automatically) or logging in again resolves it.
 
-**运维陷阱**：ll-cli 1.5.6 `install` 新版本**不刷新 entries 导出**（符号链接钉在首装版本的 commit 目录），换包验证前须逐版本 `ll-cli uninstall <id>/<version>` 全量卸载再装。
+**Operations pitfall**: ll-cli 1.5.6 `install` of a new version **does not refresh entries exports** (symlinks remain pinned to the initially installed version's commit directory). Before testing another package, fully uninstall each version with `ll-cli uninstall <id>/<version>`, then reinstall.
 
-### Linux 顶部三条栏过厚 → 无边框自绘标题栏（frameless）
+### Three Thick Bars at the Top on Linux → Borderless Custom Titlebar (Frameless)
 
-> ✅ 已解决（2026-09-04）：Linux 关闭窗口装饰，工具栏兼作自绘标题栏，见下。
-> （2026-09-03 曾用注入 GTK CSS 给 menubar 补顶边线修复「标题栏与菜单栏间无分割线」，
-> 已被本方案取代——无边框后系统标题栏不复存在，分割线问题随之消失，CSS 注入已移除。）
+> ✅ Resolved (2026-09-04): window decorations are disabled on Linux and Toolbar doubles as a custom titlebar, as below.
+> (A 2026-09-03 GTK CSS injection added a top border to the menubar to address the missing titlebar/menubar divider. This solution supersedes it—the system titlebar no longer exists in frameless mode, so the divider issue disappears; the CSS injection has been removed.)
 
-**现象**：deepin/UOS 上窗口顶部叠了三条栏——KWin SSD 标题栏（~35px）+ 原生 GTK 菜单栏（~30px）+ 应用工具栏（48px），合计 ~113px，显得臃肿。macOS 上三者合一（红绿灯 + 文档名 + ⋮ 同处一条 48px 工具栏），没有该问题。另：SSD 模式下 deepin GTK 主题画在 CSD `.titlebar` 上的标题栏/菜单栏分割线也不生效（主题不参与 SSD 标题栏绘制，宿主机原生 GTK3 探针同样没线，属 X11 固有表现）。
+**Symptom**: On deepin/UOS, three bars stack at the top—KWin SSD titlebar (~35px) + native GTK menubar (~30px) + application toolbar (48px), totaling ~113px. macOS combines all three (traffic lights + document name + ⋮ in one 48px toolbar). Also, the deepin GTK theme's CSD `.titlebar` divider does not apply in SSD mode (the theme does not draw the SSD titlebar; a native host GTK3 probe also has no divider, so this is inherent X11 behavior).
 
-**方案**（对标 VSCode 等 Linux 桌面应用的 custom titlebar 惯例）：
+**Solution** (following custom-titlebar conventions in Linux desktop apps such as VS Code):
 
-- **Rust**：主窗口（lib.rs setup）与新文档窗口（window_router `create_document_window`）在 Linux 下 `set_decorations(false)` / `.decorations(false)`，去掉系统标题栏。**GTK 原生菜单栏保留**——桌面端快捷键全部由原生菜单 accelerator 驱动（webview 收不到带 accelerator 的键），菜单栏不能动。顶部从 3 条变 2 条（菜单栏 + 工具栏 ≈ 78px）。
-- **前端 Toolbar 兼作标题栏**（`isLinuxDesktop()` 门控，`src/lib/platform.ts` UA 探测 + isTauri）：自绘居中文档名（左右容器 `flex-1 basis-0` 等宽保证真居中，<760px 隐藏，同 macOS 惯例）；右侧 `WindowControls.tsx` 自绘最小化/最大化切换/关闭按钮（最大化状态经 `isMaximized()` + `onResized` 跟踪）。**关闭走 `win.close()`** → 触发 `CloseRequested` → windowManager 的脏确认拦截，与系统标题栏关闭同路径。
-- **拖拽/双击最大化零新增代码**：Toolbar 根及左/右分组容器本就有 `data-tauri-drag-region`；tauri 内建 drag.js 在 Windows/Linux 上 mousedown → `start_dragging`、双击 → `internal_toggle_maximize`。
-- **边缘缩放**：decorations 关闭后 WM 不再提供缩放边框，`WindowResizeHandles.tsx` 在窗口四边（4px）/四角（12px）铺透明热区，mousedown → `startResizeDragging(dir)`（内部走 `gtk_window_begin_resize_drag`，KWin 照常接管）；最大化时隐藏手柄（避免遮挡右侧滚动条/状态栏）。
-- **capabilities**：新增 `core:window:allow-minimize` / `allow-close` / `allow-toggle-maximize` / `allow-internal-toggle-maximize`（drag.js 双击用）/ `allow-is-maximized` / `allow-start-resize-dragging`。
+- **Rust**: The main window (lib.rs setup) and new document windows (window_router `create_document_window`) use `set_decorations(false)` / `.decorations(false)` on Linux to remove the system titlebar. **The native GTK menubar remains**—all desktop shortcuts are driven by native-menu accelerators (the webview cannot receive accelerator keys), so the menubar cannot be removed. The top changes from three bars to two (menubar + toolbar ≈ 78px).
+- **Frontend Toolbar doubles as titlebar** (gated by `isLinuxDesktop()`, UA detection + isTauri in `src/lib/platform.ts`): custom centered document name (left/right containers use equal-width `flex-1 basis-0` for true centering; hidden below 760px, matching macOS); right-side `WindowControls.tsx` implements minimize/maximize toggle/close (maximize state tracked through `isMaximized()` + `onResized`). **Close uses `win.close()`** → `CloseRequested` → windowManager dirty-confirmation interception, the same path as the system titlebar.
+- **Drag/double-click maximize require no new code**: Toolbar root and left/right groups already have `data-tauri-drag-region`; Tauri's built-in drag.js maps mousedown → `start_dragging` and double-click → `internal_toggle_maximize` on Windows/Linux.
+- **Edge resizing**: with decorations disabled, the WM no longer supplies resize borders. `WindowResizeHandles.tsx` places transparent hit areas on four edges (4px) and corners (12px); mousedown → `startResizeDragging(dir)` (internally `gtk_window_begin_resize_drag`, with KWin taking over as usual). Handles hide while maximized (avoiding the right scrollbar/status bar).
+- **Capabilities**: add `core:window:allow-minimize` / `allow-close` / `allow-toggle-maximize` / `allow-internal-toggle-maximize` (drag.js double-click) / `allow-is-maximized` / `allow-start-resize-dragging`.
 
-**坑**：`@tauri-apps/api` 2.10 未导出 `ResizeDirection` 类型（仅在 window.d.ts 本地声明），组件内本地复刻该联合类型。
+**Pitfall**: `@tauri-apps/api` 2.10 does not export the `ResizeDirection` type (it is only declared locally in window.d.ts), so the component replicates the union locally.
 
-**配套修复（2026-09-04，菜单两问题）**：
+**Related fixes (2026-09-04, two menu issues)**:
 
-- **窗口菜单空 / File 无退出 / View 无全屏**：muda 0.17 GTK 后端 `is_item_supported` 白名单仅放行 `Separator`/`Cut`/`Copy`/`Paste`/`SelectAll`/`About`，`Minimize`/`Maximize`/`Quit`/`CloseWindow`/`Fullscreen` 预定义项**静默丢弃**（Windows/macOS 后端正常）。Linux 下全部改自定义项：`window:minimize`/`window:maximize`（窗口菜单）、`view:fullscreen` F11（视图菜单）、`file:exit` Ctrl+Q（文件菜单，→ Rust `quit_app` 命令逐窗口 `close()` 走各窗口 CloseRequested 脏确认，不用 `app.exit` 绕过）。macOS/Windows 保留预定义项不变。
-- **菜单弹窗文字偏高（非打包问题）**：弹窗行高 42px、20px 墨迹呈上 8 下 14——deepin GTK 主题 menuitem padding 对称（5px），但菜单字体（思源黑体/Noto CJK）行盒偏大且 baseline 偏高所致；**宿主机原生 GTK3 探针同表现**（`/tmp/gtk3_menu_probe2.py`，GLib 定时自动弹菜单），与玲珑无关。修复：`fix_deepin_menuitem_alignment()`（lib.rs，仅 gtk-theme-name 含 deepin 时）注入 `menu menuitem { padding-top: 8px; padding-bottom: 2px; }` 把墨迹压回视觉居中；其他主题不动。Cargo.toml 的 Linux-only `gtk`/`gdk` 0.18 依赖为此重新引入。菜单栏带区本身文字居中（实测上 11 下 9），未动。
-- **菜单栏文字水平右偏（muda 控件结构问题）**：菜单栏项 80px 宽、文字墨迹左 30 右 8 明显偏右（原生 GTK 对称 8/8）。根因：muda 0.17 GTK 后端给**每个**菜单项打包 `GtkBox(spacing=6) + GtkImage + AccelLabel`，无图标时 image 是 `unwrap_or_default()` 的空 GtkImage——其 natural width 恒为 16（GTK 默认图标尺寸），占位 16+6=22px 把文字右推（复刻探针实测 item w=80、left=30/right=8，与 app 截图像素测量一致；deepin 主题本身 `menubar > menuitem { padding: 4px 8px }` 对称，非主题问题）。`image.hide()` 无效（GtkBox 仍给隐藏子控件留位），**必须从 Box 中 `remove`**（探针验证回到 8/8）。修复：`strip_menubar_icon_placeholders()`（lib.rs，仅 Linux）——遍历各窗口 gtk_window 控件树找 GtkMenuBar，摘除菜单项 Box 内无 pixbuf 的空 Image；三个调用点：setup、rebuild_menu（set_menu 重建控件树）、window_router 建新窗口后（app 菜单建窗时同步挂入）。只处理菜单栏；弹窗项 muda 已用 `margin-left:-22px` 自行补偿，不动。
+- **Empty Window menu / no Exit in File / no Fullscreen in View**: muda 0.17's GTK backend `is_item_supported` allowlist permits only `Separator`/`Cut`/`Copy`/`Paste`/`SelectAll`/`About`; predefined `Minimize`/`Maximize`/`Quit`/`CloseWindow`/`Fullscreen` items are **silently dropped** (Windows/macOS backends are normal). Linux uses custom items everywhere: `window:minimize`/`window:maximize` (Window), `view:fullscreen` F11 (View), and `file:exit` Ctrl+Q (File → Rust `quit_app`, closing each window through CloseRequested dirty confirmation rather than bypassing it with `app.exit`). macOS/Windows retain predefined items.
+- **Popup-menu text sits too high (not a packaging issue)**: a 42px row with 20px ink measured 8px above and 14px below. deepin GTK menuitem padding is symmetric (5px), but the menu font (Source Han Sans/Noto CJK) has a large line box and high baseline. **A native host GTK3 probe behaves identically** (`/tmp/gtk3_menu_probe2.py`, automatically opening a menu through a GLib timer), so Linglong is unrelated. Fix: `fix_deepin_menuitem_alignment()` (lib.rs, only when gtk-theme-name contains deepin) injects `menu menuitem { padding-top: 8px; padding-bottom: 2px; }` to restore visual centering; other themes are unchanged. Linux-only `gtk`/`gdk` 0.18 dependencies in Cargo.toml were reintroduced for this. Menubar text itself was centered (11px above, 9px below in measurements) and was not changed.
+- **Menubar text shifts right (muda control-structure issue)**: an 80px menubar item had text ink at left 30/right 8 instead of native GTK's symmetric 8/8. Root cause: muda 0.17's GTK backend packs **every** item as `GtkBox(spacing=6) + GtkImage + AccelLabel`; without an icon, image is an empty `unwrap_or_default()` GtkImage whose natural width is always 16 (GTK default icon size), occupying 16+6=22px and pushing text right. A replicated probe matched app screenshots exactly (item w=80, left=30/right=8); deepin's own `menubar > menuitem { padding: 4px 8px }` is symmetric, so the theme is not at fault. `image.hide()` does not help (GtkBox still reserves space for hidden children); **the image must be `remove`d from the Box** (the probe returned to 8/8). Fix: `strip_menubar_icon_placeholders()` (lib.rs, Linux only) walks each gtk_window control tree to find GtkMenuBar and removes empty Images without pixbuf from item Boxes. Three call sites: setup, rebuild_menu (set_menu rebuilds the control tree), and window_router after creating a window (the app menu is attached synchronously during creation). Only the menubar is changed; muda already compensates popup items with `margin-left:-22px`.
 
-**验证**：玲珑包重建后真机截图确认——顶部只剩菜单栏 + 工具栏两条，居中标题、三按钮、拖拽移动、双击最大化、边缘缩放、F10 菜单均正常；窗口菜单两项可用、文件菜单有退出、弹窗文字居中。
+**Verification**: real-device screenshots after rebuilding the Linglong package confirmed only menubar + toolbar remain, with working centered title, three buttons, drag movement, double-click maximize, edge resize, and F10 menus; both Window items work, File has Exit, and popup text is centered.
 
-### Windows 顶部三条栏 → 无边框 + 自绘菜单栏（frameless + MenuBar）
+### Three Bars at the Top on Windows → Borderless + Custom MenuBar (Frameless + MenuBar)
 
-> ✅ 已解决（2026-09-04）：Windows 关闭窗口装饰并**移除原生菜单栏**，菜单/快捷键全部前端化。
+> ✅ Resolved (2026-09-04): Windows disables window decorations and **removes the native menubar**; menus and shortcuts are entirely frontend-driven.
 
-**现象**：Windows 桌面端顶部同样是三条——系统标题栏 + 原生菜单栏（Win32 经典样式恒白，深色主题下刺眼）+ 应用工具栏。附带两问题：原生菜单弹窗位置由 OS 决定（观感偏右，应用不可控）；菜单语言依赖 rebuild_menu 链路，启动时序下可能停在英文（见下「根因」）。
+**Symptom**: Windows also stacked three bars—system titlebar + native menubar (classic Win32 style, always white and glaring in dark mode) + application toolbar. Two related issues: the OS controls native popup position (visually shifted right and uncontrollable by the app), and menu language depends on rebuild_menu timing, which can leave it in English (see “Root cause” below).
 
-**方案**（对标 VS Code / Typora-for-Windows 的 custom titlebar 惯例，单条 48px 工具栏容纳一切）：
+**Solution** (following VS Code / Typora-for-Windows custom-titlebar conventions; one 48px toolbar contains everything):
 
-- **Rust**：主窗口（lib.rs setup）建窗后 `set_decorations(false)`；新文档窗口（window_router）**Linux 建窗时 `decorations(false)`、Windows 必须建窗成功后再 `set_decorations(false)`**（原因见下「根因记录（新建窗口僵尸）」）；**Windows 不挂应用菜单**（setup 的 `build_menu`/`set_menu` 包 `cfg(not(windows))`，`rebuild_menu` 命令 Windows no-op）。menu.rs 的构建函数仅 macOS/Linux 使用，模块顶部 `#![cfg_attr(target_os = "windows", allow(dead_code))]` 保留编译（`RecentFilePayload` 类型仍被 rebuild_menu 签名引用）。
-- **菜单栏**：`src/components/Menu/MenuBar.tsx` 嵌 Toolbar 左组（菜单按钮 + 点击开合 + 打开后 hover 平移切换 + Escape/外部点击关闭；下拉 MenuPanel 左缘与菜单项左缘对齐，位置精确可控）。渲染门控 `!isMacOSDesktop() && !isLinuxDesktop()`——**浏览器 dev/E2E 同样显示**（`e2e/menubar.spec.ts` 直接覆盖）。构建器 `src/lib/menuBar.ts` 纯函数：结构/id 对齐 menu.rs Windows 布局（File/Edit/Paragraph/Format/View/Window/Help），checked/disabled 响应式直读 store（甩开 set_menu_item_checked 命令式同步与多窗口焦点门控）；Open Recent 子菜单由 recentFiles 动态生成。点击复用 `handleMenuAction`；`initNativeMenu` 在 Windows 整体跳过。
-- **快捷键**：Windows 无原生菜单 → accelerator 不再被 OS 拦截，`useKeyboardShortcuts.ts` 扩展为全量表（键位与 menu.rs 对齐）。**防重入靠 `e.defaultPrevented` 守卫**：编辑器自家 keymap（CM Mod-F/Z、Milkdown Mod-B/I）先处理并 preventDefault，hook 跳过；编辑器不绑定的键（Ctrl+1~6 等）正常落到 hook。输入框内只放行非文本编辑类（文件/视图/设置/F11）。Editor.tsx 旧的窗口级 zoom 监听（Ctrl+=/-/0）已删除并入 hook（否则会双重缩放）。
-- **预定义项平替**（原生 Cut/Copy/Paste/About 等不再存在）：Edit 剪贴板四项 → `editor-cut/copy/paste/select-all` CustomEvent，三个编辑器各自监听并复用右键菜单实现（CM：selection.sliceDoc/clipboard.ts；WYSIWYG：`applyWysiwygContextAction` 已有 cut/copy/paste/select-all；Preview：仅 copy/select-all，copy 读 window.getSelection）；Help ▸ About → `AboutDialog.tsx`（版本 `getVersion()`，浏览器回退 dev）；Window 菜单 Minimize/Maximize、View 全屏、File 退出复用 Linux 自定义 id（`window:*`/`view:fullscreen`/`file:exit`）。
-- **窗口 chrome**：Toolbar 自绘文件名 + `WindowControls`（渲染条件 `linuxFrameless || windowsFrameless`）+ `WindowResizeHandles`（同条件）。capabilities 此前 Linux 已全量授予（`windows: ["*"]`），零改动。
+- **Rust**: The main window (lib.rs setup) calls `set_decorations(false)` after creation. For new document windows (window_router), **Linux uses `decorations(false)` during creation, while Windows must call `set_decorations(false)` only after successful creation** (see “Root cause: zombie new windows” below). **Windows does not attach an application menu** (setup's `build_menu`/`set_menu` are wrapped in `cfg(not(windows))`, and `rebuild_menu` is a Windows no-op). menu.rs builders are used only on macOS/Linux; `#![cfg_attr(target_os = "windows", allow(dead_code))]` keeps the module compiling (`RecentFilePayload` remains referenced by the rebuild_menu signature).
+- **Menubar**: `src/components/Menu/MenuBar.tsx` sits in Toolbar's left group (menu buttons + click toggle + hover switching while open + Escape/outside click close; dropdown MenuPanel aligns its left edge exactly with the menu item). Render gate is `!isMacOSDesktop() && !isLinuxDesktop()`—**browser dev/E2E also displays it** (directly covered by `e2e/menubar.spec.ts`). Builder `src/lib/menuBar.ts` is pure: structure/IDs align with menu.rs Windows layout (File/Edit/Paragraph/Format/View/Window/Help), checked/disabled read the store reactively (eliminating imperative set_menu_item_checked synchronization and multi-window focus gating), and recentFiles dynamically generates Open Recent. Clicks reuse `handleMenuAction`; `initNativeMenu` is skipped entirely on Windows.
+- **Shortcuts**: with no native Windows menu, accelerators are no longer OS-intercepted, so `useKeyboardShortcuts.ts` handles the full table (aligned with menu.rs). **Reentry is prevented by `e.defaultPrevented`**: editor keymaps (CM Mod-F/Z, Milkdown Mod-B/I) handle and preventDefault first, then the hook skips them; keys not bound by editors (Ctrl+1–6, etc.) reach the hook normally. Text inputs allow only non-text-editing actions (file/view/settings/F11). Editor.tsx's old window-level zoom listener (Ctrl+=/-/0) was deleted and merged into the hook (otherwise zoom ran twice).
+- **Predefined-item replacements** (native Cut/Copy/Paste/About no longer exist): four Edit clipboard actions → `editor-cut/copy/paste/select-all` CustomEvents, with each editor listening and reusing its context-menu implementation (CM: selection.sliceDoc/clipboard.ts; WYSIWYG: existing `applyWysiwygContextAction` cut/copy/paste/select-all; Preview: copy/select-all only, with copy reading window.getSelection). Help ▸ About → `AboutDialog.tsx` (`getVersion()`, browser fallback dev); Window Minimize/Maximize, View Fullscreen, and File Exit reuse Linux custom IDs (`window:*`/`view:fullscreen`/`file:exit`).
+- **Window chrome**: custom filename in Toolbar + `WindowControls` (rendered for `linuxFrameless || windowsFrameless`) + `WindowResizeHandles` (same condition). Linux already granted all capabilities (`windows: ["*"]`), so no changes were needed.
 
-**根因记录（菜单停在英文）**：`initNativeMenu` 仅在 `isFocused()` 为 true 时做初始 `rebuildMenu`（Windows 启动时序下可能为 false），而 `onFocusChanged` 聚焦回调只同步 check/enabled 不重建标签 → 菜单停在 Rust setup 的 "en" 默认值；且 `rebuildMenu` 在 invoke 前就写 `lastRebuildKey`，一次失败永久去重。修复：聚焦回调补 `rebuildMenu`（有去重，廉价）+ invoke 失败重置 key。该修复同时惠及 macOS/Linux（nativeMenu.ts），Windows 因自绘菜单响应式渲染而天然免疫。
+**Root cause (menu stuck in English)**: `initNativeMenu` performed initial `rebuildMenu` only when `isFocused()` was true (which can be false during Windows startup), while `onFocusChanged` synchronized check/enabled without rebuilding labels → menus stayed at Rust setup's default "en". `rebuildMenu` also wrote `lastRebuildKey` before invoke, so one failure deduplicated retries forever. Fix: focus callback also calls `rebuildMenu` (deduplicated and cheap), and invoke failure resets the key. This also benefits macOS/Linux (nativeMenu.ts); Windows is naturally immune because its custom menu renders reactively.
 
-**根因记录（新建窗口僵尸，0.9.0 → 0.9.1 hotfix）**：0.9.0 在 Windows 按 Ctrl+N / 文件→新建 / 最近文件触发新窗口后应用「卡死」。现象链：`build()` 在创建 WebView2 控制器时**挂起**（OS 窗口已创建但 `Chrome_WidgetWin_0` 停留 0x0 隐藏、无渲染链，成为**不绘制、透明却吃点击**的僵尸顶层窗口盖在其他窗口上；Win32 层 `Responding=True`、CPU 0%、无模态禁用态，极具迷惑性）。**真因：两个建窗命令（`open_in_new_window`/`route_open`）是同步命令——Tauri 同步命令在主线程执行，而主线程事件循环运转后在主线程上 build() 会自死锁**（WebView2 创建的完成回调要由事件循环派发，事件循环却被 build() 自身阻塞；[wry#583](https://github.com/tauri-apps/wry/issues/583) 家族问题，Tauri 官方文档明确要求建窗命令必须 async）。排查走过两条弯路（均被实测证伪，勿再尝试）：①改「build 后 set_decorations(false)」排除天生无边框因素——无效；②`with_webview` 复用主窗口 WebView2 环境 + `run_on_main_thread` 强制主线程建窗——反而把挂起点挪进事件循环，全 app 连窗口都关不掉。修复（回归最简）：两个命令加 `#[tauri::command(async)]`（Tauri 在 runtime worker 线程执行，worker 上 wry 的 `wait_with_pump` 能正常收到完成回调）；macOS/Linux 建窗保持主线程（AppKit/GTK 线程亲和）——已在主线程直接建（macOS Opened 路径），否则 `run_on_main_thread` 派发（async 命令下事件循环空闲，无自死锁）；setup 记录主线程 id 供分流。`open_in_new_window` 失败补 `log::error!` 落文件（原路径全静默：Rust 透传 Err 无日志、前端只进 webview 控制台）。**遗留体验项**：新窗口先白屏再渲染内容（WebView2 默认白底），后续可让前端调用时带上当前主题背景色。
+**Root cause (zombie new windows, 0.9.0 → 0.9.1 hotfix)**: In 0.9.0 on Windows, Ctrl+N / File→New / recent files could freeze the app after creating a window. The chain: `build()` **hangs while creating the WebView2 controller** (the OS window exists, but `Chrome_WidgetWin_0` remains a hidden 0x0 with no rendering chain, becoming a **non-drawing, transparent, click-swallowing** zombie top-level window over other windows; Win32 reports `Responding=True`, CPU 0%, and no modal disabled state, making it misleading). **Actual cause: both window-creation commands (`open_in_new_window`/`route_open`) were synchronous—Tauri synchronous commands run on the main thread, and calling build() on that thread after its event loop starts self-deadlocks** (WebView2 creation completion callbacks require event-loop dispatch, but build() itself blocks that loop; part of the [wry#583](https://github.com/tauri-apps/wry/issues/583) family, and Tauri officially requires window-creation commands to be async). Two false leads were disproved by measurement and should not be retried: ① calling set_decorations(false) after build to rule out innate frameless behavior—no effect; ② reusing the main WebView2 environment through `with_webview` + forcing main-thread creation with `run_on_main_thread`—this moved the hang into the event loop and made even closing windows impossible. Fix (return to the simplest route): mark both commands `#[tauri::command(async)]` (Tauri runs them on runtime workers, where wry's `wait_with_pump` receives completion callbacks normally); macOS/Linux retain main-thread creation (AppKit/GTK thread affinity)—directly when already on main (macOS Opened path), otherwise dispatched through `run_on_main_thread` (the event loop is free under async commands, so no self-deadlock); setup records the main-thread id for routing. `open_in_new_window` failures now use `log::error!` to write to the log file (previously silent: Rust propagated Err without logging and the frontend logged only to the webview console). **Remaining UX item**: new windows show white before content (WebView2 default white); frontend calls could eventually pass the current theme background.
 
-**遗留/后续**：菜单栏无键盘导航（方向键/Alt 助记符）——菜单原语整体缺键盘导航，统一后续项；Win11 snap layouts 悬停（原生最大化按钮特有）在无边框下不可用，拖拽贴边 snap 不受影响。
+**Remaining/future**: no keyboard navigation in the menubar (arrows/Alt mnemonics)—all menu primitives lack keyboard navigation and will address it together; Win11 snap-layout hover (specific to native maximize buttons) is unavailable in frameless mode, while drag-to-edge snapping still works.
 
 ---
 
-## Markdown 扩展实现
+## Markdown Extension Implementation
 
 ### Admonitions (Callout Boxes)
 
@@ -178,8 +179,8 @@ admonitionTypes.forEach((type) => {
 **Dependencies:**
 
 ```bash
-pnpm add @plantuml/core    # 本地渲染引擎（TeaVM 编译，MIT，离线）
-pnpm add plantuml-encoder  # 在线服务 URL 编码（本地渲染失败时的回退路径）
+pnpm add @plantuml/core    # Local rendering engine (TeaVM compiled, MIT, offline)
+pnpm add plantuml-encoder  # Online-service URL encoding (fallback when local rendering fails)
 ```
 
 **Implementation:**
@@ -188,34 +189,34 @@ Two syntax entries, both produce placeholders (async local rendering):
 1. **Code block syntax** (` ```plantuml ``` `) - handled in highlight function
 2. **Inline syntax** (`@startuml...@enduml`) - preprocessed before markdown parsing
 
-两处入口统一产出 `data-plantuml-src` 占位符，由本地引擎（`src/lib/plantuml.ts renderPlantUmlSvg`）离线渲染为内联 SVG，失败回退 plantuml.com 在线图。引擎选型、串行队列、暗色与测试策略详见文末「2026-08-14 PlantUML 本地渲染」一节。
+Both entries emit `data-plantuml-src` placeholders, rendered offline as inline SVG by the local engine (`src/lib/plantuml.ts renderPlantUmlSvg`), with fallback to an online plantuml.com image on failure. See “2026-08-14 PlantUML Local Rendering” near the end for engine selection, serial queue, dark mode, and testing strategy.
 
-### 任务列表 (Checkbox)
+### Task Lists (Checkboxes)
 
-**Markdown 语法:**
+**Markdown syntax:**
 
 ```markdown
-- [ ] 未完成任务
-- [x] 已完成任务
+- [ ] Unfinished task
+- [x] Completed task
 
-* [ ] 支持星号标记
+* [ ] Asterisk markers are supported
 ```
 
-**实现要点:**
+**Implementation notes:**
 
-1. **预处理器 (preprocessTaskLists)**
-   - 使用正则 `/^(\s*)([-*])\s+\[([\sxX])\]\s+(.*)$/` 匹配任务列表
-   - 将 `[ ]` 或 `[x]` 替换为特殊标记 `[[TASK:index:status]]`
-   - 保留后续内容不变，以便 markdown-it 正常解析 Markdown
+1. **Preprocessor (preprocessTaskLists)**
+   - Uses `/^(\s*)([-*])\s+\[([\sxX])\]\s+(.*)$/` to match task lists
+   - Replaces `[ ]` or `[x]` with the special marker `[[TASK:index:status]]`
+   - Preserves remaining content so markdown-it parses Markdown normally
 
-2. **后处理器 (postprocessTaskLists)**
-   - 将 `[[TASK:index:status]]` 替换为 checkbox HTML
-   - 处理两种格式:
-     - `<li><p>[[TASK:...]]</p></li>` (markdown-it 自动包裹 p 标签)
-     - `<li>[[TASK:...]]</li>` (普通情况)
-   - 生成带有 `data-task-index` 属性的 checkbox，用于交互
+2. **Postprocessor (postprocessTaskLists)**
+   - Replaces `[[TASK:index:status]]` with checkbox HTML
+   - Handles two forms:
+     - `<li><p>[[TASK:...]]</p></li>` (markdown-it automatically wraps p tags)
+     - `<li>[[TASK:...]]</li>` (ordinary case)
+   - Generates checkboxes with `data-task-index` for interaction
 
-3. **HTML 结构**
+3. **HTML structure**
 
    ```html
    <li class="task-list-item" data-task-index="0" data-task-status="unchecked">
@@ -226,32 +227,32 @@ Two syntax entries, both produce placeholders (async local rendering):
        data-task-status="unchecked"
      />
      <span class="task-content"
-       >任务文本（支持 <strong>粗体</strong>、<a href="...">链接</a>）</span
+       >Task text (supports <strong>bold</strong> and <a href="...">links</a>)</span
      >
    </li>
    ```
 
-4. **CSS 关键样式**
-   - `display: flex` 布局让 checkbox 和文本对齐
-   - **重要**: 内容必须包装在 `<span class="task-content">` 中，避免 flex 把子元素分散
-   - 自定义 checkbox 样式，支持深色模式
+4. **Key CSS**
+   - `display: flex` aligns checkbox and text
+   - **Important**: content must be wrapped in `<span class="task-content">` so flex does not separate children
+   - Custom checkbox styling supports dark mode
 
-5. **交互实现 (Editor.tsx)**
-   - 监听预览区域的点击事件
-   - 点击 checkbox 时，根据 `data-task-index` 找到对应的 Markdown 行
-   - 切换 `- [ ]` ↔ `- [x]`，更新文档内容
-   - 与历史记录系统集成，支持撤销/重做
+5. **Interaction (Editor.tsx)**
+   - Listens for preview-area clicks
+   - Uses `data-task-index` to find the corresponding Markdown line
+   - Toggles `- [ ]` ↔ `- [x]` and updates document content
+   - Integrates with history for undo/redo
 
-6. **关键修复：dangerouslySetInnerHTML 状态同步**
+6. **Key fix: dangerouslySetInnerHTML state synchronization**
 
-   **问题**: 使用 `dangerouslySetInnerHTML` 时，浏览器会在 click 事件触发前自动改变 checkbox 的 `checked` 属性，导致状态判断错误。
+   **Problem**: with `dangerouslySetInnerHTML`, the browser changes a checkbox's `checked` property before the click event, causing incorrect state decisions.
 
-   **解决方案**:
-   - 使用 `data-task-status` 属性判断状态，而不是 `checkbox.checked`
-   - HTML 更新后，使用 `useEffect` 手动同步 checkbox 的 DOM 状态
+   **Solution**:
+   - Read `data-task-status`, not `checkbox.checked`
+   - After HTML updates, use `useEffect` to synchronize checkbox DOM state manually
 
    ```typescript
-   // HTML 更新后同步 checkbox 状态
+   // Synchronize checkbox state after HTML updates
    useEffect(() => {
      if (previewContainerRef.current) {
        const checkboxes = previewContainerRef.current.querySelectorAll('.task-checkbox')
@@ -267,95 +268,95 @@ Two syntax entries, both produce placeholders (async local rendering):
    }, [renderedHtml])
    ```
 
-7. **插入入口**
-   - 工具栏按钮已随工具栏精简重构移除（`FormatButton` 组件与 `useTextFormat.ts` 均已删除）
-   - 现经 `format:tasklist` 动作触发：原生菜单「格式」/ Windows MenuBar / 编辑器右键菜单「格式 ▸ 任务列表」/ 快捷键 `Cmd/Ctrl+Alt+X`
-   - 动作统一 dispatch `editor-format`（format 类型 `'tasklist'`），Source 模式由 `markdownEditing.ts` 的配置 `tasklist: '- [ ] '` 在当前光标位置插入 `- [ ] `（未勾选的任务列表项）
+7. **Insertion entry**
+   - The toolbar button was removed during toolbar simplification (both `FormatButton` and `useTextFormat.ts` were deleted)
+   - The `format:tasklist` action now triggers it through native Format menu / Windows MenuBar / editor context menu “Format ▸ Task List” / `Cmd/Ctrl+Alt+X`
+   - The action dispatches `editor-format` (format type `'tasklist'`); Source mode uses `tasklist: '- [ ] '` from `markdownEditing.ts` to insert `- [ ] ` at the cursor (an unchecked task item)
 
-**注意事项:**
+**Notes:**
 
-- 任务列表与普通列表混用时，只有任务列表项有 `task-list-item` 类
-- 全局 `globalTaskIndex` 用于给每个 checkbox 唯一标识
-- 每次渲染前调用 `resetTaskIndex()` 重置计数器
-- **重要**: checkbox 和 li 都必须有 `data-task-status` 属性，点击处理时使用 checkbox 上的属性判断状态
+- When task and ordinary lists are mixed, only task items receive `task-list-item`.
+- Global `globalTaskIndex` uniquely identifies each checkbox.
+- Call `resetTaskIndex()` before each render to reset the counter.
+- **Important**: both checkbox and li need `data-task-status`; click handling reads the checkbox attribute.
 
-### 数学公式 (KaTeX)
+### Math Formulas (KaTeX)
 
-双端实现，两侧语法规则必须严格一致（不一致会导致 Source/WYSIWYG 模式切换时公式抖动）：
+Implemented in both editors; syntax rules must match exactly or formulas flicker when switching Source/WYSIWYG:
 
-- **markdown-it 侧**：`src/lib/markdown/mathPlugin.ts`——自写 inline/block rule（不依赖 markdown-it-katex 等第三方插件）
-- **WYSIWYG 侧**：`mathPlugin.ts`（remark-math + `math_inline`/`math_block` atom schema）+ `mathView.ts`（nodeview，点击公式进入 textarea 编辑态）
-- **语法规则严格对齐 micromark-extension-math 3.x**：块级公式仅支持多行围栏形式（`$$` 独占行开启/闭合）；单行 `$$x$$` 一律按行内公式解析；不做 pandoc 式货币保护（`$5` 不特殊豁免）
-- **PDF 导出**：`exportPdf.ts` 的 `inlineKatexFonts` 把 KaTeX woff2 字体转 base64 内联进导出 HTML——`vividmark-pdf://` 自定义协议窗口加载不到应用内字体，不内联则公式字体缺失
+- **markdown-it**: `src/lib/markdown/mathPlugin.ts`—custom inline/block rules (no third-party plugin such as markdown-it-katex)
+- **WYSIWYG**: `mathPlugin.ts` (remark-math + `math_inline`/`math_block` atom schema) + `mathView.ts` (nodeview; clicking a formula opens textarea editing)
+- **Syntax strictly follows micromark-extension-math 3.x**: block math supports only multiline fences (`$$` alone on opening/closing lines); single-line `$$x$$` always parses as inline math; no pandoc-style currency protection (`$5` receives no special exemption)
+- **PDF export**: `inlineKatexFonts` in `exportPdf.ts` converts KaTeX woff2 fonts to base64 and inlines them into exported HTML—the `vividmark-pdf://` custom-protocol window cannot load in-app fonts, so formula fonts would otherwise be missing
 
-### YAML Frontmatter（2026-08-14）
+### YAML Frontmatter (2026-08-14)
 
-双端支持，纯函数底座在 `src/lib/markdown/frontmatter.ts`（自 `siteConfig.ts` 迁出并原地再导出，旧导入路径不变）：
+Supported in both editors; the pure-function base is `src/lib/markdown/frontmatter.ts` (moved from `siteConfig.ts` and re-exported there, preserving old import paths):
 
-- **预览/导出侧**：`parser.ts` 的 `parseMarkdown`/`parseMarkdownAsync` 渲染前 `parseFrontmatter` 剥离——仅文档开头 `---` 围栏生效；**YAML 解析失败保守保留原文**（不强行剥离）；文档中间 `---` 仍是分割线。PDF/站点导出自然继承（站点导出 P1 本就用同一纯函数取 `title`）
-- **大纲去噪**：`outlineUtils.extractOutline` 按行数跳过 frontmatter 行范围（块内 `#` 是 YAML 注释不是标题）；**跳过而非剥离文本**，lineIndex/charIndex 保持源码行号（Source 模式跳转依赖）
-- **WYSIWYG 侧**：`frontmatterPlugin.ts`（remark-frontmatter + `frontmatter` atom 块 schema，YAML 源码存 attrs.value）+ `frontmatterView.ts`（只读 nodeview：标签 + pre 原文，编辑走 Source 模式）；解析/序列化靠 micromark-extension-frontmatter + mdast-util-frontmatter，value 逐字节保留
-- **坑：Milkdown `$remark` 的 options 默认 `{}`**——`$remark(id, factory)` 内部 `initialOptions ?? {}` 并原样 `remark.use(plugin, options)`；校验 options 的 remark 插件（如 remark-frontmatter 把 `{}` 当 matter 对象、缺 `type` 字段直接抛 `Missing type in matter {}`）**必须显式传第三参**（frontmatter 传 `'yaml'`）。后续 Alerts/脚注批次接 remark 插件时注意同款坑
+- **Preview/export**: `parseMarkdown`/`parseMarkdownAsync` in `parser.ts` call `parseFrontmatter` before rendering—only a `---` fence at the document start applies; **YAML parse failures conservatively preserve the original text** rather than forcing removal; `---` in the middle remains a horizontal rule. PDF/site export inherit this automatically (site-export P1 already used the same pure function to read `title`).
+- **Outline denoising**: `outlineUtils.extractOutline` skips frontmatter line ranges by line number (`#` inside is a YAML comment, not a heading); **it skips rather than strips text**, preserving source lineIndex/charIndex needed by Source navigation.
+- **WYSIWYG**: `frontmatterPlugin.ts` (remark-frontmatter + `frontmatter` atom block schema, YAML source in attrs.value) + `frontmatterView.ts` (read-only nodeview: label + pre source; edit in Source mode); micromark-extension-frontmatter + mdast-util-frontmatter handle parsing/serialization with byte-for-byte value preservation.
+- **Pitfall: Milkdown `$remark` options default to `{}`**—`$remark(id, factory)` internally uses `initialOptions ?? {}` and passes it unchanged to `remark.use(plugin, options)`. Remark plugins that validate options (remark-frontmatter treats `{}` as a matter object and throws `Missing type in matter {}` when `type` is absent) **require an explicit third argument** (frontmatter passes `'yaml'`). Apply this lesson when adding remark plugins for Alerts/footnotes and later batches.
 
-### GitHub Alerts（`> [!NOTE]`，2026-08-17）
+### GitHub Alerts (`> [!NOTE]`, 2026-08-17)
 
-双端支持（语法批次 1；纯函数底座 `src/lib/markdown/githubAlert.ts` 的 `matchAlertMarkerLine` 双端共用）：
+Supported in both editors (syntax batch 1; both share `matchAlertMarkerLine` from `src/lib/markdown/githubAlert.ts`):
 
-- **预览/导出侧**：`githubAlertPlugin.ts`——**core rule 后处理 blockquote token**（非块级 rule：CommonMark 引用语义由 block parser 免费获得）。命中（首段首行 `[!TYPE]` 独占一行）后把 blockquote_open/close 改写为 `github_alert_open/close`，渲染复用 `<div class="admonition <type>">` 三段式（CSS 零适配），标记文本与换行从 inline.children 剥离；标记是唯一内容时连空段落三件套一并 splice。rule 放 core 链尾（text_join 之后，标记必为首个 text token）
-- **WYSIWYG 侧**：`githubAlertDecorations.ts`——**纯 PM Decoration，零 schema 变更**：命中 blockquote 注入 `admonition <type> github-alert` class（复用 admonition 亮暗配色，与预览视觉一致）+ 首段 `::before` 类型图标 + 标记文本 InlineDecoration 着色加粗。标记行可见可编辑，改 `[!TIP]` 即换色、删 `]` 退回普通引用；带 mark 的标记（`**[!NOTE]**`）不装饰（对齐预览正则口径）
-- **识别口径（对齐 GitHub，Obsidian 差异处从严）**：仅五类（note/tip/important/warning/caution）；未知类型、标记同行跟文本、Obsidian 折叠标记 `+`/`-`、标记非首行 → 一律普通引用块，原文保留不丢内容
-- **坑：自家序列化产物的两种形态必须容忍**——① Milkdown toMarkdown 把 `[` 转义成 `\[`（防链接误判），保存后的文件标记行是 `\[!NOTE]`；② 行内软换行序列化为 `\`+换行时标记行带 `\` 尾缀。`matchAlertMarkerLine` 正则因此对开括号转义与行尾 `\`/空白均放宽（对 GitHub 严格口径的有意偏差，双端一致性优先）
-- Milkdown 硬换行节点名是 `hardbreak`（非 prosemirror-markdown 的 `hard_break`），PM 侧首行截取按此判定
+- **Preview/export**: `githubAlertPlugin.ts`—**core-rule blockquote-token postprocessing** (not a block rule: CommonMark blockquote semantics come free from the block parser). On a match (`[!TYPE]` alone on the first line of the first paragraph), blockquote_open/close become `github_alert_open/close`; rendering reuses three-part `<div class="admonition <type>">` (zero CSS adaptation), and marker text/newline are stripped from inline.children. If the marker is the only content, the empty-paragraph trio is spliced out too. The rule sits at the end of the core chain (after text_join, so the marker is guaranteed to be the first text token).
+- **WYSIWYG**: `githubAlertDecorations.ts`—**pure PM Decoration with zero schema changes**: matching blockquotes receive `admonition <type> github-alert` classes (reusing admonition light/dark colors to match preview), the first paragraph gets a `::before` type icon, and marker text gets colored/bold InlineDecoration. The marker line remains visible/editable; changing to `[!TIP]` changes color and deleting `]` returns to an ordinary quote. Marked markers (`**[!NOTE]**`) are not decorated (matching preview regex behavior).
+- **Recognition (GitHub-aligned; stricter where Obsidian differs)**: only five types (note/tip/important/warning/caution); unknown types, trailing text on the marker line, Obsidian `+`/`-` fold markers, or a marker not on the first line all degrade to an ordinary blockquote with source preserved.
+- **Pitfall: tolerate both forms produced by our serializer**—① Milkdown toMarkdown escapes `[` as `\[` (to prevent link misclassification), so saved marker lines are `\[!NOTE]`; ② when inline soft breaks serialize as `\`+newline, the marker line gains a trailing `\`. `matchAlertMarkerLine` therefore permits opening-bracket escapes and trailing `\`/whitespace (an intentional deviation from strict GitHub behavior, prioritizing cross-editor consistency).
+- Milkdown's hard-break node is `hardbreak` (not prosemirror-markdown's `hard_break`), so PM first-line extraction uses that name.
 
-### 脚注（`[^id]`，2026-08-17）
+### Footnotes (`[^id]`, 2026-08-17)
 
-双端支持（语法批次 2）：
+Supported in both editors (syntax batch 2):
 
-- **WYSIWYG 侧零新增 schema**：Milkdown `gfm` 预设自带 `footnote_reference`（行内 atom，attrs.label）/ `footnote_definition`（块，`block+`，dl>dt+dd 结构）节点，remark-gfm 注册的 micromark/mdast 扩展包办解析与序列化——挂载即用，往返字节级无损（`wysiwygRoundtrip.test.ts` 锁定：引用/定义对应、多引用同定义、未引用定义保留、定义位置不归一化）。调研阶段验证过这一点，避免了原计划自写 `$remark` + 双 schema 的方案
-- **编号装饰**（`footnoteDecorations.ts`，纯 PM Decoration）：按「引用首现顺序」注入 `data-footnote-number`（与预览侧 markdown-it-footnote 编号口径一致），CSS `font-size:0` + `::before { content: '[' attr() ']' }` 把 label 原文替换为 `[N]` 显示；**悬空引用（定义被删）不编号**——label 原文继续显示，对应预览侧「无定义渲染为字面文本」的降级口径。定义块不编号，`dt` 显示 label 标识符（flex 挂排 `[^label]: 内容`，同 task-list-item 先例）
-- **预览/导出侧**：`markdown-it-footnote`（`md.use(footnote)` 注册于 parser.ts）。覆写 `md.renderer.rules.footnote_caption` 恒输出 `[N]`——默认同一定义第二次引用起输出 `[N:M]`，偏离 GitHub/Typora 观感；href/回链 id 仍走默认规则。未引用定义不渲染（同 GitHub）；编号按引用首现顺序、与定义书写顺序无关；同 md 实例连续渲染 env 计数天然隔离（每次 render 传新 env）
-- **锚点跳转**：预览点击 `a[href^="#"]` 不再走 `open()` 出站——`Editor.tsx` handlePreviewClick 拦截后 `scrollIntoView` 定位（逐元素比对 id，避开 CSS.escape 的 jsdom 兼容性）。站点导出天然支持页内锚点；`rewriteMarkdownLinks` 对纯 `#` href（pathPart 为空）不重写
-- **样式**：globals.css「脚注」一节三端共用（导出经 collectDocumentCss 自动受益）：预览 `.footnotes` 文末区块小字 muted + `scroll-margin-top`；WYSIWYG 角标 accent 色、悬空引用灰色 `[^label]` 形态
+- **Zero new WYSIWYG schema**: Milkdown's `gfm` preset includes `footnote_reference` (inline atom, attrs.label) and `footnote_definition` (block, `block+`, dl>dt+dd structure); remark-gfm's micromark/mdast extensions handle parsing and serialization—ready on registration, with byte-lossless round trips (`wysiwygRoundtrip.test.ts` locks reference/definition pairing, multiple references to one definition, unreferenced-definition preservation, and non-normalized definition position). Research verified this and avoided the originally planned custom `$remark` + dual schema.
+- **Number decorations** (`footnoteDecorations.ts`, pure PM Decoration): inject `data-footnote-number` in first-reference order (matching markdown-it-footnote preview numbering); CSS `font-size:0` + `::before { content: '[' attr() ']' }` replaces the original label with `[N]`. **Dangling references (definition deleted) are not numbered**—the original label remains, matching preview's fallback to literal text when no definition exists. Definition blocks are not numbered; `dt` displays the label identifier (flex layout `[^label]: content`, following task-list-item).
+- **Preview/export**: `markdown-it-footnote` (`md.use(footnote)` in parser.ts). Override `md.renderer.rules.footnote_caption` to always output `[N]`—the default emits `[N:M]` from the second reference to one definition, which differs from GitHub/Typora. href/backlink IDs retain default rules. Unreferenced definitions are not rendered (same as GitHub); numbering follows first-reference order, not definition order; consecutive renders on the same md instance isolate env counters naturally (each render receives a new env).
+- **Anchor navigation**: preview clicks on `a[href^="#"]` no longer use `open()` for external navigation—`Editor.tsx handlePreviewClick` intercepts and uses `scrollIntoView` (comparing element ids one by one to avoid CSS.escape jsdom compatibility). Site export supports in-page anchors naturally; `rewriteMarkdownLinks` does not rewrite pure `#` hrefs (empty pathPart).
+- **Styles**: the “Footnotes” section in globals.css is shared by all three targets (export inherits through collectDocumentCss): preview `.footnotes` uses a small muted endnote block + `scroll-margin-top`; WYSIWYG superscripts use accent, and dangling references display gray `[^label]`.
 
-### Mermaid（2026-08-17，语法批次 4 / FR-021.5）
+### Mermaid (2026-08-17, Syntax Batch 4 / FR-021.5)
 
-双端支持，全链路复用 PlantUML 占位符 + 懒加载基建（方案 `docs/syntax-extensions-plan.md` 批次 4）：
+Supported in both editors, reusing PlantUML placeholder + lazy-loading infrastructure (batch 4 in `docs/syntax-extensions-plan.md`):
 
-- **渲染封装**（`src/lib/mermaid.ts`）：官方 `mermaid` npm 包（v11）**dynamic import 拆 chunk 懒加载**（首个 mermaid 代码块出现才加载，chunk ~1MB+）；与 plantuml.ts 同款串行队列 + LRU 缓存 + inflight 去重（`mermaid.initialize` 是全局配置、`render` 向 body 挂临时容器量布局，并发不安全）。主题在渲染期确定：`dark` 变化时重新 `initialize({ theme: dark ? 'dark' : 'default' })` 后重渲；`suppressErrorRendering: true` 阻止引擎把错误图形塞进 body（错误态自己展示），finally 兜底清理 `#id`/`#d{id}` 残留容器
-- **与 PlantUML 的关键差异：无在线回退**——没有可用的离线等价公共服务，渲染失败（多为语法错误）统一展示错误态：`pre.hljs.mermaid-error` + 源码原文（预览渐进渲染、导出内联、WYSIWYG nodeview 三处一致）
-- **预览侧**（parser.ts）：只有 ` ```mermaid ` 围栏一种形态（无 `@startuml` 类行内语法，无需代码区掩码），highlight 回调产 `data-mermaid-src` 占位符 → `renderMermaidPlaceholders` 渐进渲染（Editor.tsx 与 PlantUML 同一 effect，deps 含 viewMode）→ 导出 `inlineMermaid: true` 内联 SVG（exportPdf/exportSite 已接入）
-- **WYSIWYG 侧**（plantUmlCodeBlockView.ts 泛化）：`diagramLanguageOf()` 按 language 分派 plantuml/mermaid 双区 nodeview（预览 + 可编辑源码，类名 `mermaid-block`/`mermaid-diagram` 与 plantuml 平行）；**kind 变化（含 plantuml ↔ mermaid）update() 一律返回 false 重建**；序列化走原 code_block 路径天然无损；codeHighlightPlugin 跳过 mermaid（同 plantuml）
-- **测试**：mermaid.ts 封装层假渲染器注入（`setMermaidRendererForTests`，jsdom 无布局引擎）；parser/nodeview mock `renderMermaidSvg`；真引擎冒烟 `e2e/mermaid.spec.ts`（含语法错误错误态、viewMode 切换回归）
-- **时序图角色框**：initialize 传 `sequence: { height: 46 }`——默认 65 相对 16px 文字上下留白过大（actor 框高来自 `conf.height`）。**WebKit 垂直居中坑**：WebKit 不认 `<text>` 的 `dominant-baseline="central"`（属性/CSS 形式均无视，退化字母基线），actor 文字在 WKWebView 偏高 ~0.35em；`normalizeCentralBaseline`（mermaid.ts）把 central 改写为字母基线 + **绝对 y 下移 0.35em**（≈ 字体 (ascent−descent)/2；不能加 dy——actor 文本的 tspan 带 `x`/`dy="0"` 会锚定坐标使 text 的 dy 失效），Chromium/WebKit 双引擎居中一致（13.6/13.4 vs 13.6/13.8）。`middle`（messageText 等无包围盒文字）不动。
-- **gitGraph 分支标签垂直居中**：标签文字是 `<tspan dy="1em">` 相对定位，系统 WKWebView 解析 dy 的 em 偏离 font-size（文字在 chip 内偏下 ~4 单位，像素实测上留白 6.5px vs 下留白 1.75px；Chromium 与 Playwright WebKit 均正常——**getBBox 量的是字体度量盒不是墨迹盒，探针必须栅格化按像素测**，且 chip 背景色采样要取行众数防采到笔画）。修复：`normalizeGitBranchLabels`（mermaid.ts）把分支标签 tspan 的 `dy="1em"` 改写为规范上各引擎一致的**绝对 y**（font-size 经 getComputedStyle 解析，需挂 document；回退 16）。tags：探针方法
-- **顺手修复**：`createPlantUmlOnlineFallback` 的 `MarkdownIt.prototype.utils.escapeHtml` 是未触达过的坏引用（utils 挂在实例上）——mermaid 错误态测试暴露，已改 `md.utils.escapeHtml`
-- **图表占位符不包 `<pre><code>`（2026-08-17 修复文字裁断）**：默认 fence 规则会把 highlight 产物包进 `<pre><code>`，全局样式 `.markdown-body pre * { font-family: inherit !important }` 随即将等宽字体压进 SVG 的 foreignObject 文本（mermaid 注入的 `#id { font-family: … }` 无 !important，敌不过）；而 mermaid 在挂到 body 的临时容器里按其配置字体（trebuchet ms…）量文字尺寸——渲染字体比测量字体宽 → 文字被 foreignObject 边界裁断。修复：parser.ts 覆写 `md.renderer.rules.fence`，plantuml/mermaid 占位符直接输出（语义上也不是代码），highlight 回调不再处理这两种语言。导出路径同源修复（内联替换的是同一占位符字符串）
+- **Rendering wrapper** (`src/lib/mermaid.ts`): official `mermaid` npm package (v11), **lazy-loaded through dynamic-import chunking** (loaded only for the first mermaid block, chunk ~1MB+); same serial queue + LRU cache + inflight deduplication as plantuml.ts (`mermaid.initialize` is global configuration and `render` attaches a temporary container to body for layout, so concurrency is unsafe). Theme is fixed at render time: when `dark` changes, re-run `initialize({ theme: dark ? 'dark' : 'default' })` and rerender. `suppressErrorRendering: true` prevents the engine from inserting error graphics into body (we display errors ourselves); finally cleans residual `#id`/`#d{id}` containers.
+- **Key difference from PlantUML: no online fallback**—there is no equivalent public service for offline use. Rendering failures (usually syntax errors) consistently show `pre.hljs.mermaid-error` + original source (same in progressive preview, inline export, and WYSIWYG nodeview).
+- **Preview** (parser.ts): only ` ```mermaid ` fenced form (no `@startuml`-style inline syntax, no code-region masking needed). The highlight callback emits `data-mermaid-src` placeholders → `renderMermaidPlaceholders` progressively renders (same Editor.tsx effect as PlantUML, deps include viewMode) → export `inlineMermaid: true` inlines SVG (connected in exportPdf/exportSite).
+- **WYSIWYG** (generalized plantUmlCodeBlockView.ts): `diagramLanguageOf()` dispatches plantuml/mermaid dual-pane nodeviews by language (preview + editable source, classes `mermaid-block`/`mermaid-diagram` parallel to plantuml). **Any kind change (including plantuml ↔ mermaid) makes update() return false to rebuild**. Serialization uses the original code_block path and is naturally lossless; codeHighlightPlugin skips mermaid (same as plantuml).
+- **Tests**: mermaid.ts injects a fake renderer (`setMermaidRendererForTests`, since jsdom has no layout engine); parser/nodeview mock `renderMermaidSvg`; real-engine smoke coverage in `e2e/mermaid.spec.ts` (syntax-error state and viewMode-switch regression).
+- **Sequence actor boxes**: initialize passes `sequence: { height: 46 }`—default 65 leaves excessive vertical space around 16px text (actor box height comes from `conf.height`). **WebKit vertical-centering pitfall**: WebKit ignores `<text>` `dominant-baseline="central"` (both attribute and CSS), falling back to alphabetic baseline; actor text in WKWebView sits ~0.35em high. `normalizeCentralBaseline` (mermaid.ts) rewrites central to alphabetic baseline + **absolute y shifted down 0.35em** (≈ font (ascent−descent)/2; dy cannot be added because actor text tspans carry `x`/`dy="0"`, anchoring coordinates and making text dy ineffective). Chromium/WebKit center consistently (13.6/13.4 vs 13.6/13.8). `middle` (messageText and other text without bounding boxes) is unchanged.
+- **gitGraph branch-label vertical centering**: label text uses relative `<tspan dy="1em">`; system WKWebView resolves dy's em away from font-size (text sits ~4 units low in its chip; pixels measured 6.5px above vs 1.75px below; Chromium and Playwright WebKit are normal—**getBBox measures the font-metrics box, not the ink box, so probes must rasterize and measure pixels**, and chip background sampling must use the row mode to avoid strokes). Fix: `normalizeGitBranchLabels` (mermaid.ts) rewrites branch-label `dy="1em"` to **absolute y**, which is consistent across engines (font-size resolved through getComputedStyle, requires document attachment; fallback 16). Tags: probe method.
+- **Related fix**: `MarkdownIt.prototype.utils.escapeHtml` in `createPlantUmlOnlineFallback` was an untouched bad reference (utils lives on the instance)—exposed by Mermaid error-state tests and changed to `md.utils.escapeHtml`.
+- **Diagram placeholders are not wrapped in `<pre><code>` (text-clipping fix, 2026-08-17)**: the default fence rule wraps highlight output in `<pre><code>`, after which global `.markdown-body pre * { font-family: inherit !important }` forces monospace into SVG foreignObject text (Mermaid's injected `#id { font-family: … }` lacks !important and loses). Mermaid measures text in its temporary body container using its configured font (trebuchet ms…)—the render font is wider than the measurement font → text clips at foreignObject boundaries. Fix: parser.ts overrides `md.renderer.rules.fence`, emitting plantuml/mermaid placeholders directly (semantically they are not code), and the highlight callback no longer handles those languages. Export is fixed by the same route (inlining replaces the same placeholder string).
 
-### 排版增强（`==` / `^` / `~` / emoji，2026-08-18，语法批次 5 / FR-023.4）
+### Typography Enhancements (`==` / `^` / `~` / Emoji, 2026-08-18, Syntax Batch 5 / FR-023.4)
 
-双端支持（方案 `docs/syntax-extensions-plan.md` 批次 5；WYSIWYG 实现 `src/components/Editor/typographyPlugin.ts`）：
+Supported in both editors (batch 5 in `docs/syntax-extensions-plan.md`; WYSIWYG implementation in `src/components/Editor/typographyPlugin.ts`):
 
-- **预览/导出侧**：parser.ts 链式 `.use()` 四个现成插件——`markdown-it-mark`（`==`→`<mark>`）、`markdown-it-sup`（`^`→`<sup>`）、`markdown-it-sub`（单 `~`→`<sub>`，与 markdown-it 的 `~~` 删除线天然无冲突）、`markdown-it-emoji` full 包（`:smile:`→unicode；代码区文本不处理）。mark/sup/sub 无官方类型包，本地声明 `src/types/markdown-it-plugins.d.ts`
-- **WYSIWYG 侧自写三件套**（无成熟社区包可用，micromark 层仿 micromark-extension-gfm-strikethrough 2.x 实现）：
-  1. **pairedDelimiter micromark 扩展工厂**（定长配对分隔符：mark=`==`、sup=`^`、sub=`~`）——tokenizer 只认定长序列（`=`/`===`/`^^` 整体不解析，nok 后靠「前一个字符是同款标记则非起点」防逐位重试误配）；flanking 规则与 GFM strikethrough 逐行一致（字母/数字相邻可字内配对 `H~2~O`、空白相邻不配对 `== x ==`、标点相邻需对侧非空白）；resolveAll 照搬（闭合序列向前找开放序列、内容经 insideSpan 重解析、未配对序列降级 data）
-  2. **mdast fromMarkdown/toMarkdown**：节点 mark/superscript/subscript（children 行内容器，PM 侧是 mark 非 node，比 admonition 简单）；toMarkdown handler 仿 handleDelete（tracker + containerPhrasing 恒回原始分隔符）；`canContainEols` 同 strikethrough
-  3. **PM $markSchema ×3 + 输入规则**：toDOM `<mark>/<sup>/<sub>`；markRule 输入规则键入闭合分隔符自动转换（仿 strikethroughInputRule，内容首尾非空白、内不含分隔字符）
-- **单 `~` 归下标的代价（关键决策）**：gfm 预设的 remarkGFMPlugin 默认 singleTilde: true（GitHub 式单 `~` 删除），与下标冲突。wysiwygPlugins 按引用比较过滤掉 remarkGFMPlugin 与 strikethroughInputRule 两个条目：前者以 `{ singleTilde: false }` 重注册（同 id `remarkGFM`，`~~` 删除线不受影响——与预览侧 markdown-it 本就只认 `~~` 对齐，GitHub 式单 `~` 删除在本应用内统一为 pandoc/Typora 式下标）；后者替换为 `~~` 限定版输入规则（原规则 `(~{1,2})` 会把单 `~` 输入转成删除线 mark、序列化成 `~~`，改写用户源码）。**同字符 `~` 的 tokenizer 按 remark 插件注册序尝试**——remarkGFMNoSingleTilde 必须排在 remarkTypographyPlugin 之前（strikethrough 先认领 `~~`，单 `~` 才落到 subscript）
-- **序列化转义策略（防纯文本重解析误判，unsafe 机制）**：`=` 只转义紧跟 `=` 的第二个（`{ character: '=', before: '=' }`——单 `=` 永不构成分隔符，`a = b` 不被污染成 `a \= b`；`a == b` 序列化为 `a =\= b`，重解析时 `=`+`\=` 不形成序列）；`^` 任意单个即可两两配对，**全转义**（`a ^ b` → `a \^ b`）；`~` 已由 gfm strikethrough 既有 unsafe 覆盖（全转义）无需重复。notInConstruct 沿用 strikethrough 清单（autolink/destination*/reference/title* 内不可转义，链接 URL 中的 `^` 原样保留）
-- **emoji 仅预览侧**（既定决策）：WYSIWYG 显示 `:smile:` 字面短码文本，零建模零往返风险；预览/PDF/站点导出渲染
-- **已知双端口径差（病态写法，examples/typography.md 有记录）**：超长分隔符 `===x===`/`^^x^^`——预览（markdown-it）解析内层配对（`=<mark>x</mark>=`），WYSIWYG 整体字面（定长不匹配 nok）；往返均安全（unsafe 转义保住字面），仅渲染口径不同
-- **测试**：`typographyRoundtrip.test.ts` 16 例（真实 PM mark 断言非字面透传、flanking、转义稳定性、脚注 `[^1]`/代码区/链接 destination 不受 `^` 影响、不动点）；parser.test.ts +9 例
-- **样式**：`--mark-bg`/`--mark-text` 双主题变量，`.markdown-body mark` 与 `.wysiwyg-editor .ProseMirror mark` 共用（sup/sub 用浏览器默认上标下标渲染，无需样式）
+- **Preview/export**: parser.ts chains four existing plugins through `.use()`—`markdown-it-mark` (`==`→`<mark>`), `markdown-it-sup` (`^`→`<sup>`), `markdown-it-sub` (single `~`→`<sub>`, naturally compatible with markdown-it's `~~` strikethrough), and the full `markdown-it-emoji` package (`:smile:`→unicode; code-region text untouched). mark/sup/sub have no official types, declared locally in `src/types/markdown-it-plugins.d.ts`.
+- **Three custom WYSIWYG parts** (no mature community package; micromark layer modeled on micromark-extension-gfm-strikethrough 2.x):
+  1. **pairedDelimiter micromark extension factory** (fixed-length paired delimiters: mark=`==`, sup=`^`, sub=`~`)—tokenizer recognizes only fixed-length runs (`=`/`===`/`^^` remain unparsed; after nok, “previous character is the same marker” prevents position-by-position retry mismatches); flanking rules match GFM strikethrough line by line (alphanumeric adjacency allows intra-word pairing `H~2~O`, whitespace adjacency rejects `== x ==`, punctuation adjacency requires non-whitespace on the other side); resolveAll is copied (closing run searches backward for opener, content reparses through insideSpan, unmatched runs degrade to data).
+  2. **mdast fromMarkdown/toMarkdown**: mark/superscript/subscript nodes (children are inline containers; PM uses marks rather than nodes, simpler than admonition); toMarkdown handlers follow handleDelete (tracker + containerPhrasing always return original delimiters); `canContainEols` matches strikethrough.
+  3. **PM $markSchema ×3 + input rules**: toDOM `<mark>/<sup>/<sub>`; markRule input rules convert when the closing delimiter is typed (following strikethroughInputRule, non-whitespace at content edges and no delimiter character inside).
+- **Cost of assigning single `~` to subscript (key decision)**: the gfm preset's remarkGFMPlugin defaults to singleTilde: true (GitHub single-`~` deletion), conflicting with subscript. wysiwygPlugins filters remarkGFMPlugin and strikethroughInputRule by reference identity: the former re-registers with `{ singleTilde: false }` (same id `remarkGFM`; `~~` deletion unaffected—aligned with preview markdown-it recognizing only `~~`; GitHub single-`~` deletion becomes pandoc/Typora-style subscript throughout this app); the latter is replaced by a `~~`-only input rule (the original `(~{1,2})` converts single `~` to a strikethrough mark and serializes it as `~~`, rewriting user source). **Tokenizers for the same `~` character run in remark registration order**—remarkGFMNoSingleTilde must precede remarkTypographyPlugin (strikethrough claims `~~` first so single `~` reaches subscript).
+- **Serialization escape strategy (prevent plain-text reparse misclassification through unsafe)**: `=` escapes only a second `=` immediately following another (`{ character: '=', before: '=' }`—a single `=` never forms a delimiter, `a = b` does not become `a \= b`; `a == b` serializes as `a =\= b`, and `=`+`\=` does not form a run on reparse); any single `^` can pair with another, so **all are escaped** (`a ^ b` → `a \^ b`); `~` is already covered by gfm strikethrough's existing unsafe (all escaped), with no duplication. notInConstruct follows strikethrough's list (no escaping inside autolink/destination*/reference/title*; `^` in link URLs remains literal).
+- **Emoji is preview-only** (established decision): WYSIWYG displays literal `:smile:` shortcode text with zero modeling and zero round-trip risk; preview/PDF/site export render it.
+- **Known cross-editor difference (pathological syntax, documented in examples/typography.md)**: overlong delimiters `===x===`/`^^x^^`—preview (markdown-it) parses the inner pair (`=<mark>x</mark>=`), while WYSIWYG keeps the entire run literal (fixed-length mismatch nok); round trips remain safe (unsafe escaping preserves literal text), and only rendering differs.
+- **Tests**: 16 cases in `typographyRoundtrip.test.ts` (real PM marks rather than literal pass-through, flanking, escape stability, footnote `[^1]`/code regions/link destinations unaffected by `^`, fixed point); parser.test.ts +9 cases.
+- **Styles**: `--mark-bg`/`--mark-text` theme variables shared by `.markdown-body mark` and `.wysiwyg-editor .ProseMirror mark` (sup/sub use browser-default rendering and need no styles).
 
-### React 19：无关重渲染会重置 dangerouslySetInnerHTML（2026-08-17）
+### React 19: Unrelated Rerenders Reset dangerouslySetInnerHTML (2026-08-17)
 
-**现象**：预览区放大/缩小（或任何无关 store 更新）后，渐进渲染出的 PlantUML/Mermaid SVG 消失，退回 loading 占位符。
+**Symptom**: after preview zoom (or any unrelated store update), progressively rendered PlantUML/Mermaid SVG disappears and returns to loading placeholders.
 
-**根因**：React 19 的 props diff 对 `dangerouslySetInnerHTML` 按**对象 identity** 比对（`nextProp === lastProp`），`setProp` 里无条件 `domElement.innerHTML = nextProp.__html`——内联对象字面量 `{{ __html: renderedHtml }}` 每次渲染都是新对象，所以 Editor 的任何重渲染（zoomLevel、cursorLine 等 whole-store 订阅字段变化）都会把预览 DOM 重置回占位 HTML；而渐进渲染 effect 的 deps 不含这些字段，不会重跑，于是图表永久消失（innerHTML setter 陷阱 + MutationObserver 实证，React 18 按 `__html` 字符串比对无此问题）。
+**Root cause**: React 19 props diffing compares `dangerouslySetInnerHTML` by **object identity** (`nextProp === lastProp`), and `setProp` unconditionally performs `domElement.innerHTML = nextProp.__html`. An inline object literal `{{ __html: renderedHtml }}` is new on every render, so any Editor rerender (whole-store fields such as zoomLevel/cursorLine) resets preview DOM to placeholder HTML. The progressive-rendering effect does not depend on those fields and does not rerun, so diagrams disappear permanently (innerHTML setter trap + MutationObserver evidence; React 18 compared `__html` strings and did not have this problem).
 
-**修复**（Editor.tsx）：`const previewHtmlProp = useMemo(() => ({ __html: renderedHtml }), [renderedHtml])`——identity 稳定时 React 跳过 innerHTML 重写。回归测试 `e2e/mermaid.spec.ts`「keeps rendered SVG after zoom in/out」。**凡往预览里做渐进/命令式 DOM 修改的功能，都依赖这一稳定性**；新增 `dangerouslySetInnerHTML` 用法时同样必须 memo 化对象。
+**Fix** (Editor.tsx): `const previewHtmlProp = useMemo(() => ({ __html: renderedHtml }), [renderedHtml])`—stable identity makes React skip innerHTML rewriting. Regression test: `e2e/mermaid.spec.ts` “keeps rendered SVG after zoom in/out.” **Every feature that progressively/imperatively modifies preview DOM depends on this stability**; memoize the object for new `dangerouslySetInnerHTML` uses too.
 
-### Markdown 扩展测试模式
+### Markdown Extension Test Patterns
 
 **Test Pattern for Container Plugins:**
 
@@ -384,60 +385,57 @@ it('should render inline PlantUML as image', () => {
 
 ---
 
-## 编辑器架构
+## Editor Architecture
 
-### WYSIWYG 模式架构
+### WYSIWYG Architecture
 
-> 2026-03-05 创建  
-> 状态：Phase 1 已完成，Phase 2 待开始
+> Created 2026-03-05
+> Status: Phase 1 completed, Phase 2 pending
 
-**设计方案**：方案 A（四模式共存，WYSIWYG 作为默认模式）
+**Design**: Option A (four modes coexist, WYSIWYG is default)
 
-```
-[WYSIWYG] [Source] [Preview] [Split]
-   ↑ 默认选中
-```
+Available modes: **WYSIWYG (default)**, Source, Preview, Split.
 
-**类型定义:**
+**Type definitions:**
 
 ```typescript
 // editorStore.ts
 viewMode: 'wysiwyg' | 'source' | 'preview' | 'split'
 
-// 默认模式
-viewMode: 'wysiwyg' // 从 'source' 改为 'wysiwyg'
+// Default mode
+viewMode: 'wysiwyg' // Changed from 'source' to 'wysiwyg'
 ```
 
-**Phase 1 文件变更记录:**
+**Phase 1 file changes:**
 
-| 文件                                 | 变更内容                                        |
-| ------------------------------------ | ----------------------------------------------- |
-| `src/stores/editorStore.ts`          | 扩展 ViewMode 类型，修改默认值，持久化 viewMode |
-| `src/i18n/locales/en.json`           | 添加 `toolbar.viewMode.wysiwyg`: "WYSIWYG"      |
-| `src/i18n/locales/zh-CN.json`        | 添加 `toolbar.viewMode.wysiwyg`: "编辑"         |
-| `src/components/Toolbar/Toolbar.tsx` | 添加 WYSIWYG 模式切换按钮                       |
-| `src/components/Editor/Editor.tsx`   | 添加 WYSIWYG 模式渲染分支（临时占位）           |
+| File | Change |
+| --- | --- |
+| `src/stores/editorStore.ts` | Extended ViewMode, changed default, persisted viewMode |
+| `src/i18n/locales/en.json` | Added `toolbar.viewMode.wysiwyg`: "WYSIWYG" |
+| `src/i18n/locales/zh-CN.json` | Added `toolbar.viewMode.wysiwyg`: "编辑" |
+| `src/components/Toolbar/Toolbar.tsx` | Added WYSIWYG mode-switch button |
+| `src/components/Editor/Editor.tsx` | Added WYSIWYG render branch (temporary placeholder) |
 
-**实现阶段:**
+**Implementation phases:**
 
-- Phase 1 ✅（2026-03-05）：Store 类型扩展与默认值变更、模式切换 UI、i18n、测试覆盖
-- Phase 2 ⏳：Markdown → HTML 渲染（带位置映射）、HTML → Markdown 反向转换（turndown）、基础编辑同步
-- Phase 3-7 📋：块级元素支持（列表、代码块、表格）、行内样式与快捷键、高级功能（图片、Admonitions）、优化与测试
+- Phase 1 ✅ (2026-03-05): Store type/default changes, mode-switch UI, i18n, test coverage
+- Phase 2 ⏳: Markdown → HTML rendering (with position mapping), HTML → Markdown reverse conversion (turndown), basic editing sync
+- Phases 3–7 📋: block elements (lists, code blocks, tables), inline styles and shortcuts, advanced features (images, Admonitions), optimization and tests
 
-**技术文档:**
+**Technical documents:**
 
-- 调研: [`wysiwyg-research.md`](./wysiwyg-research.md)
-- 实现计划: [`wysiwyg-implementation-plan.md`](./wysiwyg-implementation-plan.md)
+- Research: [`wysiwyg-research.md`](./wysiwyg-research.md)
+- Implementation plan: [`wysiwyg-implementation-plan.md`](./wysiwyg-implementation-plan.md)
 
-**待决策事项:**
+**Pending decisions:**
 
-| #   | 问题                                      | 当前状态 |
-| --- | ----------------------------------------- | -------- |
-| 1   | 工具栏按钮在 WYSIWYG 模式下的行为         | 待讨论   |
-| 2   | 快捷键设计（`Cmd+/` 切换）                | 待实现   |
-| 3   | 是否使用 ProseMirror 替代 contenteditable | 待调研   |
+| # | Question | Current status |
+| --- | --- | --- |
+| 1 | Toolbar-button behavior in WYSIWYG | Pending discussion |
+| 2 | Shortcut design (`Cmd+/` toggle) | Pending implementation |
+| 3 | Whether ProseMirror should replace contenteditable | Pending research |
 
-### Outline Navigation (大纲视图点击跳转)
+### Outline Navigation (Click to Navigate from Outline)
 
 1. **Extract Outline from Markdown**
 
@@ -456,11 +454,11 @@ viewMode: 'wysiwyg' // 从 'source' 改为 'wysiwyg'
 
 2. **Navigation in Different View Modes**
 
-   | Mode    | Navigation Method            | Implementation                             |
-   | ------- | ---------------------------- | ------------------------------------------ |
-   | Source  | CM 移动选区 + 滚动 scrollDOM | `scrollToCharIndex(view, charIndex)`       |
-   | Split   | CM 移动选区 + 滚动 scrollDOM | `scrollToCharIndex(view, charIndex)`       |
-   | Preview | Scroll to heading element    | `scrollPreviewToHeading(container, index)` |
+   | Mode | Navigation Method | Implementation |
+   | --- | --- | --- |
+   | Source | Move CM selection + scroll scrollDOM | `scrollToCharIndex(view, charIndex)` |
+   | Split | Move CM selection + scroll scrollDOM | `scrollToCharIndex(view, charIndex)` |
+   | Preview | Scroll to heading element | `scrollPreviewToHeading(container, index)` |
 
 3. **Component Communication via CustomEvent**
 
@@ -503,17 +501,17 @@ viewMode: 'wysiwyg' // 从 'source' 改为 'wysiwyg'
 
 ### Split View Sync Scrolling
 
-**Challenge:** Bidirectional scroll synchronization between the source editor and div (preview). 编辑器侧滚动容器是 CodeMirror 的 `view.scrollDOM`（textarea 时代的表述已过时）。
+**Challenge:** Bidirectional scroll synchronization between the source editor and div (preview). The editor-side scroll container is CodeMirror's `view.scrollDOM` (older textarea-era wording is obsolete).
 
-1. **Ref Assignment**: Ensure refs point to scrollable containers, not inner content（同上）
+1. **Ref Assignment**: Ensure refs point to scrollable containers, not inner content (same as above).
 
-2. **Prevent Scroll Loop**: Use flag + timeout to prevent infinite recursion
+2. **Prevent Scroll Loop**: Use flag + timeout to prevent infinite recursion.
 
    ```typescript
    const isSyncingScroll = useRef(false)
 
    const handleSourceScroll = useCallback(() => {
-     const sourceEl = cmView.scrollDOM // 编辑器侧滚动容器：CodeMirror view.scrollDOM
+     const sourceEl = cmView.scrollDOM // Editor scroll container: CodeMirror view.scrollDOM
      if (!isSyncingScroll.current && previewContainerRef.current) {
        isSyncingScroll.current = true
 
@@ -533,26 +531,26 @@ viewMode: 'wysiwyg' // 从 'source' 改为 'wysiwyg'
 
 3. **Percentage-based Sync**: Scroll position is synchronized proportionally rather than absolutely, accommodating different content heights.
 
-### 缩放功能 (Zoom)
+### Zoom
 
-支持编辑器内容区域的缩放（50% - 200%），步进 10%，状态持久化。
+Editor content zoom is supported from 50% to 200% in 10% steps, with persisted state.
 
-**Store 状态** (`editorStore.ts`):
+**Store state** (`editorStore.ts`):
 
 ```typescript
-zoomLevel: number  // 默认 100
+zoomLevel: number  // Default 100
 setZoomLevel: (level: number) => void
-zoomIn: () => void   // +10%，上限 200%
-zoomOut: () => void  // -10%，下限 50%
-zoomReset: () => void // 重置为 100%
+zoomIn: () => void   // +10%, maximum 200%
+zoomOut: () => void  // -10%, minimum 50%
+zoomReset: () => void // Reset to 100%
 ```
 
-**应用缩放**，Source / Split / Preview / WYSIWYG 模式都支持:
+**Applying zoom** in Source / Split / Preview / WYSIWYG:
 
-- 编辑器（CodeMirror / WYSIWYG）：字号缩放——`fontSize = 14px × zoomLevel / 100`（CM 经 compartment 重配置，WYSIWYG 内联 style），内边距不随缩放变化
-- 预览区：CSS `zoom`（Editor.tsx `.markdown-body` 容器 `style={{ zoom: `${zoomLevel}%` }}`）
+- Editors (CodeMirror / WYSIWYG): font-size scaling—`fontSize = 14px × zoomLevel / 100` (CM reconfigures a compartment; WYSIWYG uses inline style); padding does not scale.
+- Preview: CSS `zoom` (Editor.tsx `.markdown-body` container `style={{ zoom: `${zoomLevel}%` }}`).
 
-**快捷键处理**:
+**Shortcut handling:**
 
 ```typescript
 if (isMod && (e.key === '=' || e.key === '+')) {
@@ -567,24 +565,24 @@ if (isMod && (e.key === '=' || e.key === '+')) {
 }
 ```
 
-### 外部链接打开（系统浏览器）
+### Opening External Links (System Browser)
 
-**需求:** 点击 Markdown 中的链接时，使用系统默认浏览器打开，而不是在 VividMark 窗口内打开。
+**Requirement:** clicking a Markdown link opens it in the system's default browser, not inside the VividMark window.
 
-**实现方案:**
+**Implementation:**
 
-1. **依赖安装**
+1. **Install dependency**
 
    ```bash
    pnpm add @tauri-apps/plugin-shell
    ```
 
-2. **Rust 后端配置**
-   - `src-tauri/Cargo.toml` 添加 `tauri-plugin-shell = "2"`
-   - `src-tauri/src/lib.rs` 初始化: `.plugin(tauri_plugin_shell::init())`
-   - `src-tauri/capabilities/default.json` 添加权限 `"shell:default"`
+2. **Rust backend configuration**
+   - Add `tauri-plugin-shell = "2"` to `src-tauri/Cargo.toml`
+   - Initialize in `src-tauri/src/lib.rs`: `.plugin(tauri_plugin_shell::init())`
+   - Add `"shell:default"` to `src-tauri/capabilities/default.json`
 
-3. **前端实现 (Editor.tsx)**
+3. **Frontend implementation (Editor.tsx)**
 
    ```typescript
    import { open } from '@tauri-apps/plugin-shell'
@@ -607,46 +605,46 @@ if (isMod && (e.key === '=' || e.key === '+')) {
    }, [])
    ```
 
-**关键点:**
+**Key points:**
 
-- 使用 `target.closest('a[href]')` 捕获点击链接的事件（包括点击链接内的元素）
-- **必须**调用 `e.preventDefault()` 阻止默认的导航行为
-- 权限配置 `shell:default` 是关键，缺少会导致功能无法工作
+- Use `target.closest('a[href]')` to capture link clicks (including clicks on nested elements).
+- **Always** call `e.preventDefault()` to prevent default navigation.
+- The `shell:default` permission is essential; without it, the feature does not work.
 
 ---
 
-## 侧边栏文件树实现
+## Sidebar File Tree Implementation
 
-**文件结构:**
+**File structure:**
 
 ```
 src/
 ├── components/FileTree/
-│   ├── FileTree.tsx        # 文件树主组件
-│   ├── FileTreeItem.tsx    # 单个文件/文件夹项
+│   ├── FileTree.tsx        # Main file-tree component
+│   ├── FileTreeItem.tsx    # Individual file/folder item
 │   └── index.ts
-├── hooks/useResizable.ts   # 可拖拽调整宽度 hook
-└── lib/fileTreeUtils.ts    # 文件树工具函数
+├── hooks/useResizable.ts   # Drag-to-resize hook
+└── lib/fileTreeUtils.ts    # File-tree utilities
 
-src-tauri/src/lib.rs        # Rust 后端 read_directory 命令
+src-tauri/src/lib.rs        # Rust backend read_directory command
 ```
 
-**关键技术点:**
+**Key technical points:**
 
-1. **Rust 后端类型映射**
+1. **Rust backend type mapping**
 
    ```rust
    #[derive(Debug, Clone, Serialize, Deserialize)]
    pub struct FileTreeItem {
        pub name: String,
        pub path: String,
-       #[serde(rename = "isDirectory")]  // 重要：驼峰命名映射
+       #[serde(rename = "isDirectory")]  // Important: camelCase mapping
        pub is_directory: bool,
        pub children: Option<Vec<FileTreeItem>>,
    }
    ```
 
-2. **递归展开所有子目录**
+2. **Recursively expand all subdirectories**
 
    ```typescript
    const setAllExpanded = (items: FileTreeItem[], expanded: boolean): FileTreeItem[] => {
@@ -658,7 +656,7 @@ src-tauri/src/lib.rs        # Rust 后端 read_directory 命令
    }
    ```
 
-3. **Markdown 文件过滤**
+3. **Markdown file filtering**
 
    ```typescript
    export function filterMarkdownFiles(items: FileTreeItem[]): FileTreeItem[] {
@@ -678,7 +676,7 @@ src-tauri/src/lib.rs        # Rust 后端 read_directory 命令
    }
    ```
 
-4. **可拖拽调整宽度 Hook**
+4. **Drag-to-resize hook**
    ```typescript
    export function useResizable({
      initialWidth,
@@ -688,203 +686,182 @@ src-tauri/src/lib.rs        # Rust 后端 read_directory 命令
    }: UseResizableOptions)
    ```
 
-**界面元素:**
+**UI elements:**
 
-- 标签页切换（大纲 / 文件树）
-- 文件夹标题栏（显示文件夹名 + 关闭按钮）
-- 文件项（展开/折叠指示器 + 文件图标 + 文件名）
-- 拖拽 handle（右侧边缘，hover 显示）
+- Tab switcher (Outline / File Tree)
+- Folder titlebar (folder name + close button)
+- File items (expand/collapse indicator + file icon + filename)
+- Drag handle (right edge, shown on hover)
 
-**默认行为:**
+**Default behavior:**
 
-- 默认只显示 Markdown/txt 文件和文件夹（`showMarkdownOnly = true`）
-- 所有文件夹默认展开
-- 点击文件夹切换展开/折叠
-- 点击文件打开（有未保存更改时确认）
-- 当前打开的文件高亮显示
+- Show only Markdown/txt files and folders by default (`showMarkdownOnly = true`)
+- All folders expanded by default
+- Click folders to toggle expansion
+- Click files to open (confirm if unsaved changes exist)
+- Highlight the currently open file
 
 ---
 
-## 工具栏布局 (2026-03-06)
+## Toolbar Layout (2026-03-06)
 
-**优化目标：** 解决工具栏按钮过多、布局拥挤的问题，将功能合理分组。
+**Goal:** reduce excessive toolbar buttons and crowding through sensible grouping.
 
-**布局调整：**
+**Layout adjustments:**
 
-- **左侧**：文件操作（新建、打开、保存）+ 撤销/重做
-- **中间**：核心格式化工具 + 视图切换
-- **右侧**：缩放控制 + 语言/主题设置
+- **Left**: file actions (New, Open, Save) + undo/redo
+- **Center**: core formatting tools + view switcher
+- **Right**: zoom controls + language/theme settings
 
-**功能分组:**
+**Feature groups:**
 
-| 按钮组     | 包含功能                                                 |
-| ---------- | -------------------------------------------------------- |
-| 基础格式化 | 粗体、斜体                                               |
-| 标题下拉   | H1/H2/H3 合并为一个下拉菜单                              |
-| 列表       | 无序列表                                                 |
-| 插入菜单   | 图片、表格、代码块（下拉）                               |
-| 更多格式   | 删除线、行内代码、链接、有序列表、任务列表、引用（下拉） |
+| Button group | Features |
+| --- | --- |
+| Basic formatting | Bold, italic |
+| Heading dropdown | H1/H2/H3 in one dropdown |
+| Lists | Unordered list |
+| Insert menu | Image, table, code block (dropdown) |
+| More formatting | Strikethrough, inline code, link, ordered list, task list, quote (dropdown) |
 
-**新增组件:**
+**New components:**
 
-- `HeadingDropdown.tsx` — 标题级别选择下拉，Props: `onSelect: (level: 1 | 2 | 3) => void`
-- `InsertMenu.tsx` — 插入功能下拉，Props: `onImage, onTable, onCodeBlock`
-- `FormatMenu.tsx` — 更多格式化选项下拉，Props: `onFormat: (format: FormatType) => void`
+- `HeadingDropdown.tsx` — heading-level dropdown, Props: `onSelect: (level: 1 | 2 | 3) => void`
+- `InsertMenu.tsx` — insertion dropdown, Props: `onImage, onTable, onCodeBlock`
+- `FormatMenu.tsx` — additional formatting dropdown, Props: `onFormat: (format: FormatType) => void`
 
-**窗口标题:**
+**Window title:**
 
-- 文件名从工具栏移除，改为显示在窗口标题栏
-- 格式：`文件名 ● - VividMark`（有未保存更改时显示 ●）
-- 标题必须走 `set_window_title` Rust 命令（`src-tauri/src/titlebar.rs`，设题后显式重排红绿灯）；**前端禁止直接调 `@tauri-apps/api/window` 的 setTitle**——会触发 AppKit 把红绿灯按钮弹回默认 y（详见文末「2026-08-14 macOS 红绿灯」一节）
-- `core:window:allow-set-title` 属 tauri 2.10+ 非默认权限，capabilities 必须显式授予；缺失时 IPC 被 ACL 静默拒绝、标题恒为 conf 初始值（曾致 Dock 窗口列表全部显示 "VividMark"）
+- Filename moved out of the toolbar and into the window titlebar.
+- Format: `filename ● - VividMark` (● indicates unsaved changes).
+- Titles must use the `set_window_title` Rust command (`src-tauri/src/titlebar.rs`, which explicitly rearranges traffic lights after setting a title); **frontend code must not call setTitle from `@tauri-apps/api/window` directly**—that triggers AppKit to return traffic lights to their default y (see “2026-08-14 macOS Traffic Lights” near the end).
+- `core:window:allow-set-title` is non-default in Tauri 2.10+ and must be granted explicitly in capabilities; without it, ACL silently denies IPC and the title remains the conf initial value (this once made every Dock window list entry display "VividMark").
 
-**语言选择器:**
+**Language selector:**
 
-- 原使用 emoji 国旗（🇺🇸 🇨🇳）在 Windows 上可能显示异常，改为文字标签 `EN` / `中`
-- 数据结构增加 `label` 字段：
+- Emoji flags (🇺🇸 🇨🇳) could render incorrectly on Windows, so text labels `EN` / `中` replaced them.
+- The data structure adds a `label` field:
   ```typescript
   { code: 'en', name: 'English', flag: '🇺🇸', label: 'EN' },
   { code: 'zh-CN', name: '简体中文', flag: '🇨🇳', label: '中' }
   ```
 
-**视图切换按钮:** 四个模式按钮为紧凑的文字按钮，使用 bg 色区分激活状态，顺序：WYSIWYG | Source | Split | Preview
+**View switcher:** four compact text buttons use background color for active state, ordered WYSIWYG | Source | Split | Preview.
 
 ---
 
-## Windows 路径处理
+## Windows Path Handling
 
-**问题背景:**
-Windows 系统使用 `\` 作为路径分隔符，而 Unix/macOS 使用 `/`。处理跨平台文件路径时需要统一处理两种分隔符，否则会导致路径解析错误。
+**Background:**
+Windows uses `\` as its path separator, while Unix/macOS uses `/`. Cross-platform path handling must normalize both to avoid parsing errors.
 
-**涉及场景:**
+**Affected scenarios:**
 
-1. **图片插入** - 计算相对路径时（`src/lib/imageUtils.ts`）
-2. **Markdown 渲染** - 解析相对路径为绝对路径时（`src/lib/imageSrc.ts`，由 parser.ts 调用）
-3. **baseDir 计算** - 从文件路径提取目录时（`src/components/Editor/Editor.tsx`）
+1. **Image insertion** - relative-path calculation (`src/lib/imageUtils.ts`)
+2. **Markdown rendering** - resolving relative to absolute paths (`src/lib/imageSrc.ts`, called by parser.ts)
+3. **baseDir calculation** - extracting directories from file paths (`src/components/Editor/Editor.tsx`)
 
-**解决方案:**
-统一将路径转换为 POSIX 风格（使用 `/`）后再进行处理：
+**Solution:**
+Convert paths to POSIX style (`/`) before processing:
 
 ```typescript
-// 统一转换为 POSIX 风格路径
+// Normalize to POSIX-style paths
 const normalizedPath = windowsPath.replace(/\\/g, '/')
 
-// 处理路径分隔符（支持 Windows 和 Unix）
+// Handle path separators (Windows and Unix)
 const lastSlash = filePath.lastIndexOf('/')
 const lastBackslash = filePath.lastIndexOf('\\')
 const separatorIndex = Math.max(lastSlash, lastBackslash)
 ```
 
-**关键函数:**
+**Key functions:**
 
-- `getRelativePath()` - 计算相对路径（imageUtils.ts）
-- `resolveRelativePath()` - 解析相对路径为绝对路径（imageSrc.ts）
-- Editor.tsx 中的 baseDir 计算
+- `getRelativePath()` - calculate relative paths (imageUtils.ts)
+- `resolveRelativePath()` - resolve relative to absolute paths (imageSrc.ts)
+- baseDir calculation in Editor.tsx
 
-**注意事项:**
+**Notes:**
 
-- Windows 绝对路径如 `C:\Users\...` 转换后仍为 `C:/Users/...`，Tauri API 可以正常处理
-- 相对路径中的 `../` 和 `./` 在转换后保持一致
+- A Windows absolute path such as `C:\Users\...` becomes `C:/Users/...`, which Tauri APIs handle correctly.
+- `../` and `./` in relative paths remain unchanged by conversion.
 
 ---
 
-## Export PDF 详解
+## PDF Export in Detail
 
-Typora 式直存：保存对话框 → 静默生成 PDF 文件，无打印对话框。
+Typora-style direct save: save dialog → silently generate a PDF, with no print dialog.
 
-### 工作流程
+### Workflow
 
-1. **触发** - 原生菜单 `export-pdf`（Cmd/Ctrl+P）/ MoreMenu / Preview 右键菜单，统一派发 `editor-export-pdf` 事件 → `Editor.tsx` 监听并调用 `exportCurrentDocument()`
-2. **平台检查** - `pdf_export_supported` 命令（macOS 检查 `WKWebView.printOperationWithPrintInfo` 可用性；Windows 恒 true；Linux false）。不支持 → 直接回退 `print_pdf` 打印对话框
-3. **保存对话框** - 前端 `@tauri-apps/plugin-dialog` 的 `save()`，默认 `<文件名>.pdf`
-4. **生成导出 HTML**（`src/lib/exportPdf.ts buildPdfExportHtml`）：
-   - `parseMarkdownAsync(content, { baseDir })` 渲染（与预览同管线，本地图片读取为 base64 data URL 内联）
-   - `document.styleSheets` + `adoptedStyleSheets` 序列化为内联 `<style>`（Tailwind/hljs/.markdown-body 全套，与预览像素级一致；不带 `.dark` class → PDF 恒浅色）
-   - 追加导出专用 CSS（`@page` 边距、`page-break-inside: avoid`、`print-color-adjust: exact` 保留背景色等）
-5. **Rust 渲染与写盘**（`src-tauri/src/pdf.rs export_pdf_file`）：
-   - 导出任务经 tokio Mutex 串行排队；HTML 存入全局 slot
-   - 创建隐藏 `WebviewWindow`（label `pdf-export`，800×1132），经自定义协议 `vividmark-pdf://localhost/export.html`（Windows 为 `http://vividmark-pdf.localhost/...`）加载 slot 中的 HTML
-   - `on_page_load` Finished（≈ load 事件，含图片等子资源）→ 开始打印；15s 超时兜底继续（远程图片不可达时缺图好过失败）
-   - 平台原生 print-to-PDF 写入目标路径，`destroy()` 窗口并清空 slot
+1. **Trigger** - native menu `export-pdf` (Cmd/Ctrl+P) / MoreMenu / Preview context menu all dispatch `editor-export-pdf` → `Editor.tsx` listens and calls `exportCurrentDocument()`.
+2. **Platform check** - `pdf_export_supported` command (macOS checks `WKWebView.printOperationWithPrintInfo` availability; Windows always true; Linux false). Unsupported platforms fall back directly to the `print_pdf` print dialog.
+3. **Save dialog** - frontend `@tauri-apps/plugin-dialog` `save()`, defaulting to `<filename>.pdf`.
+4. **Generate export HTML** (`src/lib/exportPdf.ts buildPdfExportHtml`):
+   - Render through `parseMarkdownAsync(content, { baseDir })` (same pipeline as preview; local images read and inlined as base64 data URLs).
+   - Serialize `document.styleSheets` + `adoptedStyleSheets` into inline `<style>` (complete Tailwind/hljs/.markdown-body styles, pixel-matched to preview; no `.dark` class → PDF is always light).
+   - Append export-only CSS (`@page` margins, `page-break-inside: avoid`, `print-color-adjust: exact` to retain backgrounds, etc.).
+5. **Rust rendering and disk write** (`src-tauri/src/pdf.rs export_pdf_file`):
+   - Export jobs queue serially through a tokio Mutex; HTML is stored in a global slot.
+   - Create a hidden `WebviewWindow` (label `pdf-export`, 800×1132), loading slot HTML through custom protocol `vividmark-pdf://localhost/export.html` (`http://vividmark-pdf.localhost/...` on Windows).
+   - `on_page_load` Finished (≈ load event, including images and other subresources) → start printing; a 15s timeout continues anyway (missing a remote image is better than failing).
+   - Native platform print-to-PDF writes the target path, then `destroy()`s the window and clears the slot.
 
-### 平台实现
+### Platform Implementations
 
-| 平台    | 机制                                                                                         | 备注                                      |
-| ------- | -------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| macOS   | `WKWebView.printOperationWithPrintInfo:` + `NSPrintSaveJob` + `NSPrintJobSavingURL`（objc2） | 需 macOS 11+，否则回退                    |
-| Windows | WebView2 `ICoreWebView2_7::PrintToPdf`（webview2-com）                                       | 需 Runtime 1.0.1518.46+，cast 失败回退    |
-| Linux   | 不支持（webkit2gtk 2.0 未绑定 `print_to_pdf`）                                               | `pdf_export_supported` false → 打印对话框 |
+| Platform | Mechanism | Notes |
+| --- | --- | --- |
+| macOS | `WKWebView.printOperationWithPrintInfo:` + `NSPrintSaveJob` + `NSPrintJobSavingURL` (objc2) | Requires macOS 11+, otherwise falls back |
+| Windows | WebView2 `ICoreWebView2_7::PrintToPdf` (webview2-com) | Requires Runtime 1.0.1518.46+; cast failure falls back |
+| Linux | Unsupported (webkit2gtk 2.0 does not bind `print_to_pdf`) | `pdf_export_supported` false → print dialog |
 
-### macOS 关键坑（spike 实测，macOS 26）
+### Key macOS Pitfalls (Spike Measurements, macOS 26)
 
-- **`createPDFWithConfiguration:` 不适用**：生成的是整页长截图式单页 PDF，不分页
-- **全新 `NSPrintInfo()` + `runOperation()` 会无限分页**（页数爆炸、文件线性增长到 GB 级）；
-  必须复刻 wry 的 print 模式：`NSPrintInfo.sharedPrintInfo().copy()`（自带合法纸张）+
-  `canSpawnSeparateThread(true)` + `runOperationModalForWindow:delegate:didRunSelector:contextInfo:`，
-  完成回调走 delegate 的 `printOperationDidRun:success:contextInfo:`（contextInfo 携带 oneshot sender + delegate Retained 保活）
-- 页边距在 Rust 侧 `NSPrintInfo` 设 15mm（42.52pt）；纸张随系统地区（A4/Letter）
-- 隐藏窗口（从未 orderFront）可正常打印；背景色需 CSS `print-color-adjust: exact`
+- **`createPDFWithConfiguration:` is unsuitable**: it produces a single long screenshot-like page with no pagination.
+- **A fresh `NSPrintInfo()` + `runOperation()` causes infinite pagination** (page count explodes and the file grows linearly to GB scale).
+  Replicate wry's print mode: `NSPrintInfo.sharedPrintInfo().copy()` (includes valid paper) +
+  `canSpawnSeparateThread(true)` + `runOperationModalForWindow:delegate:didRunSelector:contextInfo:`.
+  Completion arrives through delegate `printOperationDidRun:success:contextInfo:` (contextInfo carries a oneshot sender + retained delegate for lifetime).
+- Rust-side `NSPrintInfo` sets 15mm margins (42.52pt); paper follows system region (A4/Letter).
+- Hidden windows (never orderFront) print correctly; background colors require CSS `print-color-adjust: exact`.
 
-### Windows 注意
+### Windows Notes
 
-- `PlatformWebview.controller()` → `CoreWebView2()` → `cast::<ICoreWebView2_7>()`；
-  打印设置经 `environment()` cast `ICoreWebView2Environment6` → `CreatePrintSettings()`（开 `ShouldPrintBackgrounds`，边距 0.59in ≈ 15mm）
-- 完成回调 `PrintToPdfCompletedHandler::create`（webview2-com 宏生成），`HRESULT + BOOL` 双参数判成败
+- `PlatformWebview.controller()` → `CoreWebView2()` → `cast::<ICoreWebView2_7>()`;
+  print settings use `environment()` cast to `ICoreWebView2Environment6` → `CreatePrintSettings()` (enable `ShouldPrintBackgrounds`, margins 0.59in ≈ 15mm).
+- Completion callback uses `PrintToPdfCompletedHandler::create` (macro-generated by webview2-com), checking both `HRESULT + BOOL`.
 
-### 回退与错误处理
+### Fallback and Error Handling
 
-- `export_pdf_file` 返回 `error` 以 `unsupported` 开头 → 前端自动回退 `print_pdf`（打印对话框）
-- 其他失败 → `alertDialog(t('messages.exportPdfFailed'))`；用户取消保存对话框 → 静默
-- 浏览器 dev / E2E（无 Tauri）→ `window.print()`
+- If `export_pdf_file` returns an `error` beginning with `unsupported`, frontend automatically falls back to `print_pdf` (print dialog).
+- Other failures → `alertDialog(t('messages.exportPdfFailed'))`; cancelling the save dialog is silent.
+- Browser dev / E2E (without Tauri) → `window.print()`.
 
-### 实现文件
+### Implementation Files
 
-| 文件                               | 说明                                                           |
-| ---------------------------------- | -------------------------------------------------------------- |
-| `src-tauri/src/pdf.rs`             | `export_pdf_file` / `pdf_export_supported` 命令 + 协议 handler |
-| `src-tauri/src/lib.rs`             | 协议注册 + `print_pdf`（回退，保持原样）                       |
-| `src/lib/exportPdf.ts`             | 前端导出编排 + 导出 HTML 生成 + 回退逻辑                       |
-| `src/components/Editor/Editor.tsx` | 监听 `editor-export-pdf`                                       |
+| File | Purpose |
+| --- | --- |
+| `src-tauri/src/pdf.rs` | `export_pdf_file` / `pdf_export_supported` commands + protocol handler |
+| `src-tauri/src/lib.rs` | Protocol registration + `print_pdf` (fallback, unchanged) |
+| `src/lib/exportPdf.ts` | Frontend export orchestration + HTML generation + fallback logic |
+| `src/components/Editor/Editor.tsx` | Listens for `editor-export-pdf` |
 
-### 分页 CSS 的实测结论（与 Typora 对比调试）
+### Pagination CSS Findings (Debugging Against Typora)
 
-- **打印图片必须是块级并限制高度**：WebKit 对行内 `img` 使用 `page-break-inside: avoid` 可能只留下
-  分页占位而不绘制图片；导出 CSS 用 `display: block` 修复。另设 `max-height: 360px` + `width/height: auto`
-  等比缩小高截图，降低整图推到下一页造成的大片空白（实仓 17 图文档由 16 页降为 14 页，首图恢复）
-- **长表格禁止整表 `page-break-inside: avoid`**：超出一页剩余空间的表会被整体推到下一页，
-  前页留大片空白（对比 Typora 时页数 6 vs 3 的主因）。正确做法：表格允许跨页 +
-  `tr/td/th { break-inside: avoid }` + `thead { display: table-header-group }`（跨页自动重复表头）
-- **WebKit 引擎限制**：多行文本的表格行在页边界处仍可能被行内拆分（`break-inside` 对 tr 不生效，
-  WebKit 长期未支持；Chromium/WebView2 正常）。行高越大越容易踩中，暂不规避
-- **末尾空白页**：`.markdown-body > :last-child` 的 margin 在内容恰好满页时溢出成空白页，
-  导出 CSS 需 `margin-bottom: 0`
-- **应用外壳样式必须重置**：序列化全集 CSS 里的 `html, body, #root { height: 100% }` 等需
-  `height: auto !important; overflow: visible !important` 覆盖
-- **打印密度独立于预览**：导出 CSS 覆盖 `font-size: 14px`（预览 16px）、`td/th padding: 6px 10px`、
-  `.markdown-body padding: 0`；`th` + 首列 `white-space: nowrap` 避免「完成」「8/1（六）」这类
-  短内容列被内容列挤压折行（首列若是长段落会撑宽表格，属可接受取舍）
-- **长代码行折行**：应用侧 `.hljs code { white-space: pre !important }` 会阻止折行导致代码在
-  `pre` 边界被裁剪，导出 CSS 需用同优先级+靠后的 `pre code / pre.hljs code / code.hljs`
-  选择器组覆盖为 `pre-wrap !important; word-break: break-all !important`
-- **表格内图片右侧被裁**：WebKit 把单元格内 `img { max-width: 100% }` 的百分比基准解析为
-  padding box（而非 content box），图片宽出左右 padding 各 10px，再被表格圆角的
-  `overflow: hidden` 切掉。修复：`td:has(> img) { padding-left/right: 0 }`（内容盒 = 填充盒）
-- **满宽表格右边线缺失**：WebKit 打印在页面可打印区边界裁剪内容，collapse 网格的右/下外边线
-  外凸半侧边框宽度（100% 宽表格恰好顶到边界）被裁 → 右边线只剩半宽近不可见（屏幕渲染有
-  次像素所以预览正常）。修复：导出 CSS `table { width: calc(100% - 2px) !important }`
+- **Printed images must be block-level and height-constrained**: WebKit may apply `page-break-inside: avoid` to an inline `img` by leaving a page-break placeholder without drawing the image; export CSS fixes this with `display: block`. Also set `max-height: 360px` + `width/height: auto` to scale tall screenshots proportionally, reducing large blank areas caused by pushing a whole image to the next page (a real 17-image document dropped from 16 to 14 pages, with the first image restored).
+- **Never apply whole-table `page-break-inside: avoid` to long tables**: a table exceeding remaining page space moves entirely to the next page, leaving a large blank area (the main reason for 6 pages vs Typora's 3). Correct approach: allow tables to cross pages + `tr/td/th { break-inside: avoid }` + `thead { display: table-header-group }` (repeat headers automatically across pages).
+- **WebKit engine limitation**: multiline table rows can still split inline content at page boundaries (`break-inside` does not work on tr; long unsupported in WebKit; Chromium/WebView2 behaves correctly). Larger line heights hit this more often; currently accepted.
+- **Trailing blank page**: `.markdown-body > :last-child` margins overflow into a blank page when content exactly fills a page; export CSS needs `margin-bottom: 0`.
+- **Application-shell styles must reset**: serialized global CSS includes `html, body, #root { height: 100% }`, which must be overridden with `height: auto !important; overflow: visible !important`.
+- **Print density is independent of preview**: export CSS overrides `font-size: 14px` (preview 16px), `td/th padding: 6px 10px`, and `.markdown-body padding: 0`; `th` + first column use `white-space: nowrap` to keep short columns from wrapping under pressure from content columns (a long-paragraph first column widens the table, an accepted tradeoff).
+- **Long code-line wrapping**: application `.hljs code { white-space: pre !important }` prevents wrapping and clips code at `pre` boundaries; export CSS uses an equally specific but later `pre code / pre.hljs code / code.hljs` selector group to override with `pre-wrap !important; word-break: break-all !important`.
+- **Images clipped on the right inside tables**: WebKit resolves the percentage base of an in-cell `img { max-width: 100% }` against the padding box rather than content box, making the image wider by 10px of left/right padding, then clipping it through the table's rounded-corner `overflow: hidden`. Fix: `td:has(> img) { padding-left/right: 0 }` (content box = padding box).
+- **Missing right border on full-width tables**: WebKit printing clips at the printable page boundary; collapsed-grid right/bottom outer borders extend half a border width outward (a 100%-width table reaches the boundary exactly), so the right border is clipped to a nearly invisible half-width (screen subpixels keep preview normal). Fix: export CSS `table { width: calc(100% - 2px) !important }`.
 
-### PDF 书签大纲（macOS 后处理）
+### PDF Bookmark Outline (macOS Post-Processing)
 
-WebKit 打印不生成 PDF outline（Chromium 自动生成，Windows 无需处理）。macOS 在打印成功后用
-**PDFKit 后处理**：前端从渲染后 HTML 提取标题（`extractPdfOutline`，DOMParser + textContent，
-与 PDF 文本一致）→ `export_pdf_file` 携带 `outline: [{text, level}]` → `add_pdf_outline`：
-逐页取 `PDFPage.string()`，与标题做归一化包含匹配（页码游标单调向前，重复标题按序定位），
-按 level 用栈建树写入 `outlineRoot` 后 `writeToURL:` 覆盖。
+WebKit printing generates no PDF outline (Chromium generates one automatically, so Windows needs no handling). After successful macOS printing, **PDFKit post-processing** runs: frontend extracts headings from rendered HTML (`extractPdfOutline`, DOMParser + textContent, matching PDF text) → `export_pdf_file` carries `outline: [{text, level}]` → `add_pdf_outline`:
+each page's `PDFPage.string()` is normalized and inclusion-matched against headings (page cursor moves monotonically forward; repeated headings are located in order), a stack builds the level tree into `outlineRoot`, and `writeToURL:` overwrites the file.
 
-**WebKit PDF 文本提取大坑**：部分汉字被映射为**兼容表意文字**（八→⼋ U+2F08，NFKC 可折叠）
-或**康熙部首增补字符**（风→⻛ U+2EDB、门→⻔ U+2ED4，U+2E80–U+2EFF 区块**无** Unicode 分解映射，
-NFKC 不折叠），且中英文边界会插入空格。因此 PDFKit `findString:` 精确匹配不可靠，必须：
-NFKC 归一 + 去除全部空白 + haystack 侧部首/兼容字符按单字符通配（`pdf_text_contains`）。
+**Major WebKit PDF text-extraction pitfall**: some Han characters map to **compatibility ideographs** (八→⼋ U+2F08, foldable through NFKC) or **Kangxi radical supplement characters** (风→⻛ U+2EDB、门→⻔ U+2ED4; U+2E80–U+2EFF has **no** Unicode decomposition mapping, so NFKC cannot fold them), and spaces are inserted at CJK/Latin boundaries. Therefore PDFKit `findString:` exact matching is unreliable. Required: NFKC normalization + remove all whitespace + treat radicals/compatibility characters on the haystack side as single-character wildcards (`pdf_text_contains`).
 
 ---
 
@@ -944,157 +921,157 @@ The Rust backend uses `tauri-plugin-log` for structured logging with comprehensi
 
 ---
 
-## Tauri Commands 一览
+## Tauri Commands
 
-Defined in `src-tauri/src/lib.rs`（PDF 导出相关在 `src-tauri/src/pdf.rs`，站点导出在 `src-tauri/src/site_export.rs`，多窗口路由在 `src-tauri/src/window_router.rs`，窗口标题在 `src-tauri/src/titlebar.rs`）:
+Defined in `src-tauri/src/lib.rs` (PDF export in `src-tauri/src/pdf.rs`, site export in `src-tauri/src/site_export.rs`, multi-window routing in `src-tauri/src/window_router.rs`, and window titles in `src-tauri/src/titlebar.rs`):
 
-| Command                   | Parameters                    | Returns            | Description                                                                                                                              |
-| ------------------------- | ----------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `read_file`               | `path`                        | `FileInfo`         | Read file content                                                                                                                        |
-| `save_file`               | `path, content`               | `SaveResult`       | Write file content                                                                                                                       |
-| `file_exists`             | `path`                        | `bool`             | Check existence                                                                                                                          |
-| `read_directory`          | `ReadDirectoryParams`         | `FileTreeItem[]`   | File tree data                                                                                                                           |
-| `create_file`             | `path`                        | `null`             | Create empty file                                                                                                                        |
-| `create_folder`           | `path`                        | `null`             | Create directory                                                                                                                         |
-| `rename_path`             | `oldPath, newPath`            | `null`             | Rename/move file or folder                                                                                                               |
-| `delete_path`             | `path`                        | `null`             | Delete (folder: recursive)                                                                                                               |
-| `copy_path`               | `oldPath, newPath`            | `null`             | Copy (folder: recursive)                                                                                                                 |
-| `reveal_in_folder`        | `path`                        | `null`             | Reveal in system file manager                                                                                                            |
-| `pdf_export_supported`    | —                             | `bool`             | 平台是否支持 PDF 直存（macOS/Windows 支持）                                                                                              |
-| `export_pdf_file`         | `params(ExportPdfFileParams)` | `ExportPdfResult`  | 隐藏窗口渲染 → 原生 print-to-PDF 静默写文件；params 字段 `{ html, outputPath, title?, outline? }`（携带 outline 时 macOS 重建 PDF 书签） |
-| `print_pdf`               | `fileName`                    | `ExportPdfResult`  | 打印对话框（PDF 直存不支持时的回退路径）                                                                                                 |
-| `export_site`             | `params(outputDir,files)`     | `ExportSiteResult` | 「导出为网站」批量写盘（文本写入 + 资产镜像复制）                                                                                        |
-| `rebuild_menu`            | `lang, recentFiles`           | `null`             | Rebuild native menu (i18n / recent files)                                                                                                |
-| `set_menu_item_enabled`   | `id, enabled`                 | `null`             | Native menu item enabled state                                                                                                           |
-| `set_menu_item_checked`   | `id, checked`                 | `null`             | Native menu check item state                                                                                                             |
-| `update_dock_menu`        | `lang, recentFiles`           | `null`             | Rebuild macOS Dock menu（其他平台 no-op）                                                                                                |
-| `report_window_state`     | `path, dirty`                 | `null`             | 前端上报本窗口文档状态（窗口注册表）                                                                                                     |
-| `open_in_new_window`      | `path?`                       | `String`(label)    | 新建文档窗口（file-new / 路由新建）                                                                                                      |
-| `route_open`              | `paths`                       | `null`             | 打开路径智能路由（聚焦/复用/新建）                                                                                                       |
-| `take_startup_open_files` | `label?`                      | `String[]`         | 取走本窗口启动待打开队列（传 None 会清空全部窗口队列——已知坑）                                                                           |
-| `set_window_title`        | `title`                       | `null`             | 设窗口标题并重排红绿灯                                                                                                                   |
-| `quit_app`                | —                             | `null`             | 逐窗口 close 走脏确认的退出（`file:exit`，lib.rs）                                                                                       |
-| `watch_file`              | `path`                        | `null`             | 按窗口监听父目录过滤目标文件（file_watch.rs，300ms 防抖）                                                                                |
-| `unwatch_file`            | —                             | `null`             | 停止本窗口的文件监听（file_watch.rs）                                                                                                    |
+| Command | Parameters | Returns | Description |
+| --- | --- | --- | --- |
+| `read_file` | `path` | `FileInfo` | Read file content |
+| `save_file` | `path, content` | `SaveResult` | Write file content |
+| `file_exists` | `path` | `bool` | Check existence |
+| `read_directory` | `ReadDirectoryParams` | `FileTreeItem[]` | File tree data |
+| `create_file` | `path` | `null` | Create empty file |
+| `create_folder` | `path` | `null` | Create directory |
+| `rename_path` | `oldPath, newPath` | `null` | Rename/move file or folder |
+| `delete_path` | `path` | `null` | Delete (folder: recursive) |
+| `copy_path` | `oldPath, newPath` | `null` | Copy (folder: recursive) |
+| `reveal_in_folder` | `path` | `null` | Reveal in system file manager |
+| `pdf_export_supported` | — | `bool` | Whether the platform supports direct PDF saving (supported on macOS/Windows) |
+| `export_pdf_file` | `params(ExportPdfFileParams)` | `ExportPdfResult` | Hidden-window rendering → native print-to-PDF silent file write; params fields `{ html, outputPath, title?, outline? }` (when outline is present, macOS rebuilds PDF bookmarks) |
+| `print_pdf` | `fileName` | `ExportPdfResult` | Print dialog (fallback when direct PDF saving is unsupported) |
+| `export_site` | `params(outputDir,files)` | `ExportSiteResult` | Batch disk writes for Export as Website (text writes + mirrored asset copies) |
+| `rebuild_menu` | `lang, recentFiles` | `null` | Rebuild native menu (i18n / recent files) |
+| `set_menu_item_enabled` | `id, enabled` | `null` | Native menu item enabled state |
+| `set_menu_item_checked` | `id, checked` | `null` | Native menu check item state |
+| `update_dock_menu` | `lang, recentFiles` | `null` | Rebuild macOS Dock menu (no-op on other platforms) |
+| `report_window_state` | `path, dirty` | `null` | Frontend reports this window's document state (window registry) |
+| `open_in_new_window` | `path?` | `String`(label) | Create document window (file-new / routed creation) |
+| `route_open` | `paths` | `null` | Smart open-path routing (focus/reuse/create) |
+| `take_startup_open_files` | `label?` | `String[]` | Drain this window's startup open queue (passing None clears every window's queue—known pitfall) |
+| `set_window_title` | `title` | `null` | Set window title and rearrange traffic lights |
+| `quit_app` | — | `null` | Quit by closing each window through dirty confirmation (`file:exit`, lib.rs) |
+| `watch_file` | `path` | `null` | Watch parent directory per window and filter target file (file_watch.rs, 300ms debounce) |
+| `unwatch_file` | — | `null` | Stop this window's file watcher (file_watch.rs) |
 
-新增命令：实现 `#[tauri::command]` → 注册进 `generate_handler![]` → 前端经 `@tauri-apps/api/core` invoke。结构体字段跨桥为 camelCase（`#[serde(rename = "isDirectory")]`）。
+To add a command: implement `#[tauri::command]` → register it in `generate_handler![]` → invoke it from the frontend through `@tauri-apps/api/core`. Struct fields cross the bridge as camelCase (`#[serde(rename = "isDirectory")]`).
 
-## 键盘快捷键一览
+## Keyboard Shortcuts
 
-macOS/Linux 桌面端带 accelerator 的键被 OS 拦截（webview 收不到 keydown）——快捷键由原生菜单事件驱动；**Windows 桌面端（无原生菜单）与浏览器 dev/E2E 由 `useKeyboardShortcuts.ts` 全量接管**（编辑器 keymap 已处理的键经 `e.defaultPrevented` 守卫跳过）。
+On macOS/Linux desktop, keys with accelerators are intercepted by the OS (the webview receives no keydown), so native menu events drive those shortcuts. **On Windows desktop (no native menubar) and in browser dev/E2E, `useKeyboardShortcuts.ts` handles the full set** (keys already handled by editor keymaps are skipped through the `e.defaultPrevented` guard).
 
-| Shortcut                           | Action                                 | Implementation                                                                                                                         |
-| ---------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `Cmd/Ctrl + O / S / Shift+S`       | Open / Save / Save As                  | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                                   |
-| `Cmd/Ctrl + N`                     | 新建**窗口**（多窗口 SDI）             | 原生菜单（macOS/Linux）→ open_in_new_window；Windows 桌面端 hook 同路；浏览器端原地新建                                                |
-| `Cmd/Ctrl + Shift+O`               | 打开文件夹                             | 原生菜单（macOS/Linux）/ `useKeyboardShortcuts.ts`（Windows/浏览器）                                                                   |
-| `Cmd/Ctrl + /`                     | WYSIWYG ⇄ Source 切换                  | `useKeyboardShortcuts.ts`（刻意不入菜单——与视图模式 check 项并列易混淆；桌面端无 accelerator 占用，keydown 直达 webview）              |
-| `Cmd/Ctrl + B / I / K`             | Bold / Italic / Link                   | 原生菜单（macOS/Linux）→ editor-format；Windows/浏览器 hook → editor-format（Milkdown Mod-B/I 等自家 keymap 优先）                     |
-| `Cmd/Ctrl + 0`                     | 正文（剥掉块级前缀）                   | 原生菜单（macOS/Linux）/ hook → editor-format                                                                                          |
-| `Cmd/Ctrl + 1 ~ 6`                 | Heading 1 ~ 6                          | 原生菜单（macOS/Linux）/ hook → editor-format；浏览器另有 CM keymap / `wysiwygShortcutPlugin`（仅 1~3）                                |
-| `Cmd/Ctrl + Alt+Q / U / O / X / C` | 引用 / 无序 / 有序 / 任务列表 / 代码块 | 原生菜单（macOS/Linux）/ hook → editor-format                                                                                          |
-| `Cmd/Ctrl + Shift+V`               | 粘贴为纯文本                           | 原生菜单（macOS/Linux）/ hook → clipboard 读文本 → editor-insert                                                                       |
-| `Cmd/Ctrl + Z / Shift+Z`           | Undo / Redo                            | 原生菜单（macOS/Linux）/ hook → editor-undo/redo；编辑器内 CM / Milkdown history keymap 优先（defaultPrevented 守卫）                  |
-| `Cmd/Ctrl + F`                     | Find & replace                         | 原生菜单（macOS/Linux）/ hook → editor-find → `@codemirror/search`（CM 自家 Mod-F 优先）                                               |
-| `Cmd/Ctrl + = / -`                 | Zoom in / out                          | 原生菜单（macOS/Linux）/ hook（Editor.tsx 旧窗口级 zoom 监听已并入，不再重复）                                                         |
-| `Cmd/Ctrl + Shift+0`               | Zoom reset（⌘0 已让位「正文」）        | 原生菜单（macOS/Linux）/ hook                                                                                                          |
-| `Cmd/Ctrl + ,`                     | Settings                               | 原生菜单（macOS/Linux）/ hook                                                                                                          |
-| `Cmd/Ctrl + Shift+B`               | Toggle Sidebar                         | 原生菜单（macOS/Linux）/ hook                                                                                                          |
-| `Ctrl+Cmd + 1 / 2`（仅 macOS）     | 侧栏 文件 / 大纲 tab                   | 原生菜单（View 菜单 check 项）                                                                                                         |
-| `Cmd/Ctrl + Alt+1~4`               | WYSIWYG / Source / Split / Preview     | 原生菜单（macOS/Linux）/ hook                                                                                                          |
-| `Cmd/Ctrl + P`                     | Export PDF                             | 原生菜单（macOS/Linux）/ hook → editor-export-pdf / `MoreMenu`                                                                         |
-| `Cmd/Ctrl + Q` / `Cmd+W`           | 退出应用 / 关闭窗口                    | Q：Linux 自定义 `file:exit` → `quit_app`（逐窗口 close 走脏确认），macOS 系统预定义 Quit；W：macOS 预定义 Close Window                 |
-| `F11`                              | 全屏切换                               | macOS 预定义 Fullscreen；Linux 自定义 `view:fullscreen`；Windows hook + 自绘菜单（View ▸ 全屏）                                        |
-| `Escape`                           | 关闭对话框/菜单/图片查看器             | 各组件自理（Dialog/MenuPanel/ImageLightbox）；编辑器内退出公式与代码块语言内联编辑（无全局「退出编辑模式」绑定——块编辑器时代遗留已删） |
+| Shortcut | Action | Implementation |
+| --- | --- | --- |
+| `Cmd/Ctrl + O / S / Shift+S` | Open / Save / Save As | Native menu (macOS/Linux) / `useKeyboardShortcuts.ts` (Windows/browser) |
+| `Cmd/Ctrl + N` | New **window** (multi-window SDI) | Native menu (macOS/Linux) → open_in_new_window; same route through Windows desktop hook; browser creates in place |
+| `Cmd/Ctrl + Shift+O` | Open Folder | Native menu (macOS/Linux) / `useKeyboardShortcuts.ts` (Windows/browser) |
+| `Cmd/Ctrl + /` | WYSIWYG ⇄ Source toggle | `useKeyboardShortcuts.ts` (intentionally not in menu—placing it beside view-mode check items is confusing; no desktop accelerator occupies it, so keydown reaches the webview directly) |
+| `Cmd/Ctrl + B / I / K` | Bold / Italic / Link | Native menu (macOS/Linux) → editor-format; Windows/browser hook → editor-format (Milkdown's own Mod-B/I keymaps take priority) |
+| `Cmd/Ctrl + 0` | Body text (strip block prefix) | Native menu (macOS/Linux) / hook → editor-format |
+| `Cmd/Ctrl + 1 ~ 6` | Heading 1 ~ 6 | Native menu (macOS/Linux) / hook → editor-format; browser additionally has CM keymap / `wysiwygShortcutPlugin` (1–3 only) |
+| `Cmd/Ctrl + Alt+Q / U / O / X / C` | Quote / unordered / ordered / task list / code block | Native menu (macOS/Linux) / hook → editor-format |
+| `Cmd/Ctrl + Shift+V` | Paste as plain text | Native menu (macOS/Linux) / hook → clipboard text read → editor-insert |
+| `Cmd/Ctrl + Z / Shift+Z` | Undo / Redo | Native menu (macOS/Linux) / hook → editor-undo/redo; CM / Milkdown history keymaps take priority inside editors (defaultPrevented guard) |
+| `Cmd/Ctrl + F` | Find & replace | Native menu (macOS/Linux) / hook → editor-find → `@codemirror/search` (CM's own Mod-F takes priority) |
+| `Cmd/Ctrl + = / -` | Zoom in / out | Native menu (macOS/Linux) / hook (Editor.tsx's old window-level zoom listener was merged, no duplication) |
+| `Cmd/Ctrl + Shift+0` | Zoom reset (⌘0 yielded to Body Text) | Native menu (macOS/Linux) / hook |
+| `Cmd/Ctrl + ,` | Settings | Native menu (macOS/Linux) / hook |
+| `Cmd/Ctrl + Shift+B` | Toggle Sidebar | Native menu (macOS/Linux) / hook |
+| `Ctrl+Cmd + 1 / 2` (macOS only) | Sidebar Files / Outline tab | Native menu (View check items) |
+| `Cmd/Ctrl + Alt+1~4` | WYSIWYG / Source / Split / Preview | Native menu (macOS/Linux) / hook |
+| `Cmd/Ctrl + P` | Export PDF | Native menu (macOS/Linux) / hook → editor-export-pdf / `MoreMenu` |
+| `Cmd/Ctrl + Q` / `Cmd+W` | Quit app / close window | Q: Linux custom `file:exit` → `quit_app` (close each window through dirty confirmation), macOS predefined Quit; W: macOS predefined Close Window |
+| `F11` | Toggle fullscreen | macOS predefined Fullscreen; Linux custom `view:fullscreen`; Windows hook + custom menu (View ▸ Fullscreen) |
+| `Escape` | Close dialog/menu/image viewer | Each component handles its own (Dialog/MenuPanel/ImageLightbox); inside editors, exits math and code-block-language inline editing (no global “exit editing mode” binding—the block-editor-era leftover was removed) |
 
 ---
 
-## CI/CD 与发布
+## CI/CD and Release
 
-### CI 工作流 (test.yml)
+### CI Workflow (test.yml)
 
 1. **Lint job**: ESLint + Prettier check
 2. **Typecheck job**: TypeScript compilation check
 3. **Unit Tests job**: Vitest with coverage reporting to Codecov
 4. **E2E Tests job**: Currently disabled (requires Tauri setup)
 
-### GitHub Actions 自动构建与发布 (release.yml)
+### GitHub Actions Automatic Build and Release (release.yml)
 
-**功能:**
+**Features:**
 
-- 推送 `v*` 标签时自动触发构建，支持手动触发
-- 多平台并行构建：macOS (Apple Silicon)、Windows (x64)、Linux (x64, deb + AppImage)
-- 玲珑（Linglong）arm64 构建：`build-linglong` job（`ubuntu-24.04-arm` runner）随 tag 构建 `.layer`/`.uab` 并挂到 Release（手动 dispatch 只传 artifact，见 `linglong/README.md`）
-- 自动上传到 GitHub Releases（tauri-action 创建 **draft** Release）
+- Pushing a `v*` tag automatically triggers a build; manual dispatch is also supported.
+- Parallel multi-platform builds: macOS (Apple Silicon), Windows (x64), Linux (x64, deb + AppImage).
+- Linglong arm64 build: `build-linglong` job (`ubuntu-24.04-arm` runner) builds `.layer`/`.uab` with the tag and attaches them to the Release (manual dispatch only uploads an artifact; see `linglong/README.md`).
+- Automatic upload to GitHub Releases (tauri-action creates a **draft** Release).
 
-**触发方式:**
+**Trigger:**
 
 ```bash
 git tag v0.1.1
 git push origin v0.1.1
 ```
 
-**工作流配置要点:**
+**Workflow configuration notes:**
 
-- Rust toolchain 使用 `dtolnay/rust-toolchain@stable`（注意：不是 `rust-action`）
-- Ubuntu 需要安装: `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`
-- `pnpm install --frozen-lockfile`
-- 构建使用 `tauri-apps/tauri-action@v0`，自动创建 draft Release
-- macOS 使用 Developer ID Application 签名并启用 Hardened Runtime；Tauri 完成 App 公证后，工作流再单独公证 DMG、staple/validate，并用 `gh release upload --clobber` 替换草稿中的未 stapled DMG
+- Rust toolchain uses `dtolnay/rust-toolchain@stable` (not `rust-action`).
+- Ubuntu requires `libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf`.
+- `pnpm install --frozen-lockfile`.
+- Builds use `tauri-apps/tauri-action@v0`, automatically creating a draft Release.
+- macOS uses Developer ID Application signing and Hardened Runtime; after Tauri completes App notarization, the workflow separately notarizes the DMG, staples/validates it, and uses `gh release upload --clobber` to replace the unstapled DMG in the draft.
 
-**常见问题及解决:**
+**Common issues and solutions:**
 
-1. **TypeScript 编译错误** (`TS6133: 'match' is declared but its value is never read`)
-   - CI 环境使用严格模式，未使用变量需要加下划线前缀 `_match`
+1. **TypeScript compilation error** (`TS6133: 'match' is declared but its value is never read`)
+   - CI uses strict mode; prefix unused variables with an underscore, such as `_match`.
 
-2. **macOS "应用已损坏" 提示**
-   - 正式 Release 已完成 Developer ID 签名和 Apple 公证，正常不应出现此提示
-   - 自行构建的未签名版本可用 `xattr -rd com.apple.quarantine /Applications/VividMark.app` 临时绕过 Gatekeeper
+2. **macOS “App is damaged” warning**
+   - Official Releases have Developer ID signing and Apple notarization and should not show this warning.
+   - A self-built unsigned version can temporarily bypass Gatekeeper with `xattr -rd com.apple.quarantine /Applications/VividMark.app`.
 
-**macOS 签名/公证 Secrets:**
+**macOS signing/notarization secrets:**
 `APPLE_CERTIFICATE` / `APPLE_CERTIFICATE_PASSWORD` / `APPLE_SIGNING_IDENTITY` / `APPLE_API_ISSUER` / `APPLE_API_KEY` / `APPLE_API_KEY_CONTENT`
 
-> `APPLE_CERTIFICATE` 是 `.p12` 的 Base64；`APPLE_API_KEY_CONTENT` 是 App Store Connect API `.p8` 内容。工作流仅在 macOS runner 还原临时密钥文件，构建后校验签名、Hardened Runtime、Gatekeeper 评估及 DMG 公证票据。
+> `APPLE_CERTIFICATE` is the Base64 form of a `.p12`; `APPLE_API_KEY_CONTENT` is App Store Connect API `.p8` content. The workflow restores temporary key files only on the macOS runner, then verifies the signature, Hardened Runtime, Gatekeeper assessment, and DMG notarization ticket after building.
 
-**注意事项:**
+**Notes:**
 
-- Windows 未签名应用会显示 SmartScreen 警告
-- Linux 无需签名，但 `.deb` 包需要管理员权限安装
+- Unsigned Windows apps show a SmartScreen warning.
+- Linux needs no signing, but installing `.deb` packages requires administrator privileges.
 
-### GitHub Release 发布流程
+### GitHub Release Process
 
-**版本号管理**（三者应保持同步）:
+**Version management** (all three must stay synchronized):
 
-- `package.json` - 前端版本号
-- `src-tauri/tauri.conf.json` - Tauri 应用版本号
-- `src-tauri/Cargo.toml` - Rust crate 版本号
+- `package.json` - frontend version
+- `src-tauri/tauri.conf.json` - Tauri app version
+- `src-tauri/Cargo.toml` - Rust crate version
 
-**发布主流程（推 tag → CI 建 draft → 核对产物 → 人工 publish）:**
+**Main release flow (push tag → CI creates draft → verify artifacts → publish manually):**
 
 ```bash
-# 1. 确保版本号已更新
+# 1. Ensure version numbers are updated
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
 git commit -m "chore: bump version to X.Y.Z"
 
-# 2. 创建并推送 tag
+# 2. Create and push tag
 git tag vX.Y.Z
 git push origin main
 git push origin vX.Y.Z
 
-# 3. CI（release.yml）自动构建全平台产物并创建 draft Release（含玲珑 arm64 .layer/.uab）
+# 3. CI (release.yml) automatically builds all platform artifacts and creates a draft Release (including Linglong arm64 .layer/.uab)
 
-# 4. 在 GitHub Releases 页面核对 draft 产物齐全、填写发布说明后，人工 publish
+# 4. Verify all artifacts in GitHub Releases, add release notes, then publish manually
 ```
 
-**备用路径（CI 不可用时的本地构建 + 手动建 Release）:**
+**Fallback path (local build + manual Release when CI is unavailable):**
 
-> ⚠️ 同一 tag 若 CI 已建 draft，`gh release create` 会因 tag 已占用而冲突——先在 Releases 页面删掉 CI 的 draft 再执行。
+> ⚠️ If CI has already created a draft for the same tag, `gh release create` conflicts because the tag exists—delete CI's draft on the Releases page before running this.
 
 ```bash
-# 1. 构建 release（macOS 示例）
+# 1. Build release (macOS example)
 pnpm tauri build
 
-# 2. 创建 GitHub Release 并上传构建产物
+# 2. Create GitHub Release and upload build artifacts
 gh release create vX.Y.Z \
   --title "VividMark vX.Y.Z" \
   --notes "Release notes here" \
@@ -1103,667 +1080,672 @@ gh release create vX.Y.Z \
   "src-tauri/target/release/bundle/dmg/VividMark_X.Y.Z_aarch64.dmg"
 ```
 
-**构建产物位置:**
-| 平台 | 产物类型 | 路径 |
-|------|---------|------|
+**Build artifact locations:**
+
+| Platform | Artifact type | Path |
+| --- | --- | --- |
 | macOS | .app bundle | `src-tauri/target/release/bundle/macos/VividMark.app` |
-| macOS | .dmg 安装包 | `src-tauri/target/release/bundle/dmg/VividMark_X.Y.Z_aarch64.dmg` |
+| macOS | .dmg installer | `src-tauri/target/release/bundle/dmg/VividMark_X.Y.Z_aarch64.dmg` |
 
-### 文档国际化（README / GitHub Pages）
+### Documentation Internationalization (README / GitHub Pages)
 
-**README 双版本结构:**
+**README dual-version structure:**
 
 ```
-README.md          # 英文版（主文件）
-README.zh-CN.md    # 简体中文版
+README.md          # English (primary file)
+README.zh-CN.md    # Simplified Chinese
 ```
 
-**README 语言切换链接格式:**
+**README language-switch link format:**
 
 ```markdown
-<!-- README.md 顶部 -->
+<!-- Top of README.md -->
 
 **English | [简体中文](README.zh-CN.md)**
 
-<!-- README.zh-CN.md 顶部 -->
+<!-- Top of README.zh-CN.md -->
 
 **[English](README.md) | 简体中文**
 ```
 
-**GitHub Pages 双版本结构:**
+**GitHub Pages dual-version structure:**
 
 ```
 docs/
-├── index.html          # 英文版首页
-├── index.zh-CN.html    # 简体中文版首页
-├── css/style.css       # 共享样式（含 .lang-switch 语言切换器样式）
-└── images/             # 共享资源
+├── index.html          # English home page
+├── index.zh-CN.html    # Simplified Chinese home page
+├── css/style.css       # Shared styles (including .lang-switch language switcher)
+└── images/             # Shared assets
 ```
 
-**同步更新清单（必须成对修改）:**
+**Synchronized-update checklist (must be edited in pairs):**
 
 - `README.md` ↔ `README.zh-CN.md`
+- `PLAN.md` ↔ `PLAN.zh-CN.md`
+- `AGENTS.md` ↔ `AGENTS.zh-CN.md`
+- `docs/implementation-notes.md` ↔ `docs/implementation-notes.zh-CN.md`
+- `docs/DESIGN_SYSTEM.md` ↔ `docs/DESIGN_SYSTEM.zh-CN.md`
 - `docs/index.html` ↔ `docs/index.zh-CN.html`
 
 ### GitHub Pages Deployment
 
-- 静态文件放在 `docs/` 目录，工作流为 `.github/workflows/pages.yml`
-- 使用 `actions/configure-pages@v5` + `actions/upload-pages-artifact@v5` (path: `./docs`) + `actions/deploy-pages@v5`
-- 仓库 Settings → Pages → Source 必须设为 **GitHub Actions**（不是 "Deploy from branch"），否则 Setup Pages 步骤失败
-- 部署完成后 404 可能是 CDN 传播延迟，等待 1-2 分钟
+- Static files live in `docs/`; the workflow is `.github/workflows/pages.yml`.
+- It uses `actions/configure-pages@v5` + `actions/upload-pages-artifact@v5` (path: `./docs`) + `actions/deploy-pages@v5`.
+- Repository Settings → Pages → Source must be **GitHub Actions** (not "Deploy from branch"), or the Setup Pages step fails.
+- A 404 immediately after deployment may be CDN propagation delay; wait 1–2 minutes.
 
 ---
 
-## Git 仓库管理
+## Git Repository Management
 
-### 不应提交到 Git 的文件类型
+### File Types That Should Not Be Committed
 
-| 类别         | 示例                                  | 原因                    |
-| ------------ | ------------------------------------- | ----------------------- |
-| **生成文件** | `coverage/`, `dist/`, `*.log`         | 每次构建都会重新生成    |
-| **测试报告** | `test-results/`, `playwright-report/` | CI 生成，无需版本控制   |
-| **依赖目录** | `node_modules/`, `src-tauri/target/`  | 通过 package 管理器安装 |
-| **本地配置** | `.claude/`, `.idea/`, `.vscode/`      | 个人开发环境配置        |
-| **敏感信息** | `.env`, `*.token`, `*.key`            | 安全风险                |
-| **系统文件** | `.DS_Store`, `Thumbs.db`              | 操作系统生成            |
+| Category | Examples | Reason |
+| --- | --- | --- |
+| **Generated files** | `coverage/`, `dist/`, `*.log` | Regenerated by every build |
+| **Test reports** | `test-results/`, `playwright-report/` | CI-generated; no version control needed |
+| **Dependency directories** | `node_modules/`, `src-tauri/target/` | Installed through package managers |
+| **Local configuration** | `.claude/`, `.idea/`, `.vscode/` | Personal development settings |
+| **Sensitive information** | `.env`, `*.token`, `*.key` | Security risk |
+| **System files** | `.DS_Store`, `Thumbs.db` | OS-generated |
 
-### 检查与清理
+### Inspection and Cleanup
 
 ```bash
-# 查找不应提交的文件
+# Find files that should not be committed
 git ls-files | grep -E "(coverage|test-results|\.claude|node_modules|dist)"
 
-# 清理：先加入 .gitignore，再从 git 移除（保留本地文件）
+# Cleanup: add to .gitignore first, then remove from Git (keep local files)
 git rm -r --cached coverage test-results
 git add .gitignore
-git commit -m "chore: 移除生成文件"
+git commit -m "chore: remove generated files"
 ```
 
-### 最佳实践
+### Best Practices
 
-1. **项目初始化时就配置好 `.gitignore`**
-2. **定期检查** `git status` 确保没有遗漏
-3. **提交前审查** `git diff --cached --name-only`
-4. **已提交的大文件** 使用 `git filter-branch` 或 BFG Repo-Cleaner 清理历史
-5. **敏感信息泄露** 立即轮换密钥，清理历史，启用 secret scanning
+1. **Configure `.gitignore` when initializing a project**.
+2. **Check `git status` regularly** for omissions.
+3. **Review before committing** with `git diff --cached --name-only`.
+4. **Large files already committed** can be removed from history with `git filter-branch` or BFG Repo-Cleaner.
+5. **If sensitive information leaks**, rotate credentials immediately, clean history, and enable secret scanning.
 
 ---
 
-## Typst 离线支持
+## Typst Offline Support
 
-> **详细任务计划**: [`typst-offline-plan.md`](./typst-offline-plan.md)（含 9 个 Phase 的完整清单）
+> **Detailed task plan**: [`typst-offline-plan.md`](./typst-offline-plan.md) (complete nine-phase checklist)
 
-**状态**: ⏸️ 待当前重要任务完成后启动（创建于 2026-03-02）
-**预计工期**: 2-3 周（完整功能）/ 1 周（MVP）
+**Status**: ⏸️ Start after current high-priority tasks (created 2026-03-02)
+**Estimated effort**: 2–3 weeks (full feature) / 1 week (MVP)
 
-**需求背景：** 为 VividMark 添加 Typst 渲染支持，确保离线/弱网环境下可用。
+**Requirement:** add Typst rendering to VividMark, available offline or on weak networks.
 
-**技术方案:**
+**Technical approach:**
 
-- 使用 `@myriaddreamin/typst.ts` 提供 JavaScript API
-- WASM 文件本地打包（compiler + renderer，约 5MB）
-- 字体文件本地打包（最小集约 1MB，含中文字体约 15-20MB）
-- Tauri 资源目录托管，零外部 CDN 依赖
+- Use `@myriaddreamin/typst.ts` for the JavaScript API.
+- Bundle WASM files locally (compiler + renderer, about 5MB).
+- Bundle fonts locally (minimal set about 1MB; roughly 15–20MB with CJK fonts).
+- Host through Tauri's resource directory with zero external CDN dependencies.
 
-**实现要点:**
+**Implementation notes:**
 
 ```typescript
-// WASM 本地加载配置
+// Local WASM loading configuration
 $typst.setCompilerInitOptions({
   getModule: () => '/typst/typst_ts_web_compiler_bg.wasm',
   getFontAssets: () => ['/typst/fonts/'],
 })
 
-// 代码块渲染
+// Code-block rendering
 if (lang === 'typst') {
   const svg = await $typst.svg({ mainContent: code })
   return `<div class="typst-render">${svg}</div>`
 }
 ```
 
-**待决策事项:**
+**Pending decisions:**
 
-| #   | 问题          | 建议方案                     |
-| --- | ------------- | ---------------------------- |
-| 1   | 中文支持策略  | 先使用系统字体，后续可选打包 |
-| 2   | WASM 加载时机 | 懒加载（首次使用 Typst 时）  |
-| 3   | 字体回退      | 宽松回退（用户体验优先）     |
-| 4   | 缓存策略      | 从内存缓存开始               |
-
----
-
-## 2026-08-04 CodeMirror 6 编辑器地基（UX 改进 P0/P1）
-
-> 背景与完整方案：`docs/ux-improvement-plan.md`；任务看板：PLAN.md「Phase 13」。
-
-### 架构要点
-
-- **编辑内核**：Source/Split 的 textarea 已全部替换为 CodeMirror 6，封装在 `src/components/Editor/CodeMirrorEditor.tsx`。WYSIWYG 占位页未动（Editor.tsx wysiwyg 分支）。
-- **格式化逻辑是纯函数**：`src/lib/markdownEditing.ts`（`formatTransaction` / `insertTextAtCursor`），接收 EditorState 返回 TransactionSpec；工具栏 `editor-format` 事件与快捷键（Mod-B/I/K/1/2/3，`Prec.highest` keymap）共用，可脱离 DOM 单测。
-- **store ↔ CM 同步防回环**：updateListener 写 store 前比较 `value !== store.content`；store → CM 全量替换前同样比较。以 `filePath` 为 key 重建视图，打开新文件自然重置 CM history。
-- **撤销**：CM history（按操作分组、恢复选区）取代原 500ms 全文快照 HistoryManager（`useHistory`/`useTextFormat`/`historyManager` 已删除）。`canUndo`/`canRedo` 写入 store 驱动工具栏 disabled 态。
-- **智能输入**：`markdownKeymap`（回车延续列表/任务/引用、空项退出）、`indentWithTab`、`closeBrackets`。
-- **查找替换**：`@codemirror/search`（`search({ top: true })`），面板亮/暗样式补在 globals.css 末尾。
-- **图片粘贴/拖拽**：`domEventHandlers` paste/drop → `imageUtils.createImageMarkdownFromFile`（已保存文件复制到 `assets/` 用相对路径，未保存回退 base64）；drop 用 `posAtCoords` 定位插入点。
-- **预览防抖**：渲染 120ms（Editor.tsx）、大纲/字数 200ms（`useDebouncedValue` + `src/lib/textStats.ts` 公共算法，Sidebar 与状态栏共用）。
-- **状态栏**：`src/components/StatusBar/StatusBar.tsx`；光标行/列经 store 非持久化字段 `cursorLine/cursorCol` 上报。
-- **组件常驻挂载**：CodeMirrorEditor 在 preview/wysiwyg 模式下仅 `hidden`，保证撤销历史与工具栏事件跨模式可用。
-
-### 踩坑记录
-
-- **jsdom 跑 CM6 需要 polyfill**：`Range.prototype.getClientRects/getBoundingClientRect`、`scrollIntoView` 等，见 `src/test/setup.ts`。
-- **E2E 选择器**：textarea → `.cm-content`；读编辑器内容用 `innerText()` + `expect.poll`（CM 不是 form control，没有 value）。
-- **zoom 实现变化**：从 textarea 的 CSS `zoom` 改为字号缩放（14px × zoomLevel/100），内边距不再随缩放变化。
-- **遗留**：`e2e/drag-drop.spec.ts` 有 2 个用例依赖 Tauri 窗口级拖拽事件/原生文件对话框，纯浏览器 E2E 无法通过（改造前即失败，与 CM 无关）；预览区点击 checkbox 后 CM 光标移到文末（可接受）；OS 级图片拖入在 Tauri 运行时未实测。
+| # | Question | Recommended approach |
+| --- | --- | --- |
+| 1 | CJK support strategy | Start with system fonts; optional bundling later |
+| 2 | WASM loading timing | Lazy-load (on first Typst use) |
+| 3 | Font fallback | Permissive fallback (UX first) |
+| 4 | Cache strategy | Start with an in-memory cache |
 
 ---
 
-## 2026-08-04 WYSIWYG 落地（Milkdown，UX 改进 P2）
+## 2026-08-04 CodeMirror 6 Editor Foundation (UX Improvements P0/P1)
 
-### 架构要点
+> Background and complete plan: `docs/ux-improvement-plan.md`; task board: PLAN.md “Phase 13”.
 
-- **内核**：WYSIWYG 模式由 Milkdown v7（ProseMirror）实现，headless 用法（无 `@milkdown/react`，nodeview 全部纯 DOM），组件 `src/components/Editor/WysiwygEditor.tsx`，插件集合 `wysiwygPlugins.ts`。**`@milkdown/kit` 根导出为空，必须子路径导入**（`@milkdown/kit/core`、`/preset/gfm`、`/utils`、`/prose/*`）。
-- **同步模型**：markdown 源码是单一事实来源。编辑 → `listener.markdownUpdated` 序列化回 store（200ms 防抖、值相等跳过、仅 wysiwyg 激活时回写）；外部变更 → `replaceAll(content, flush=true)` 重建 EditorState（不产生 transaction，天然不触发回写——**初始化脏标记守卫依赖这一点**，有测试锁定：打开文件/切换模式不标 dirty）。编辑器以 `filePath` 为 key 重建实例。
-- **viewMode 分流**：CM 与 Milkdown 都常驻挂载（非激活 hidden）。两侧的事件 handler（`editor-format`/`editor-insert`/`editor-undo`/`editor-redo`）与 `canUndo/canRedo` 写入各自按 `viewMode` 门控——CM 侧门控不可少：wysiwyg 打字时 store→CM 同步会触发 CM listener，不门控会覆写 Milkdown 上报的撤销深度。
-- **markdown 往返无损**：不认识的语法降级保留（admonition→段落原文、plantuml→代码块），二次往返不动点有测试锁定；首次进入会一次性规范化（`-`→`*`、裸 URL→`<url>` 等，语义等价，WYSIWYG 固有行为）。
-- **自定义语法**：
-  - **Admonition**：`admonitionPlugin.ts`（`$remark` mdast 变换 + remark-stringify handler）+ schema + `admonitionView.ts`（复用 preview 的 `.admonition` CSS）。两个坑：① commonmark 的 remarkLineBreak 会融合软换行，变换必须排在它之后并炸裂融合段落；② admonition schema 注册顺序不能先于 paragraph（PM createAndFill 递归栈溢出）。
-  - **PlantUML / Mermaid**：`plantUmlCodeBlockView.ts`——`$view(codeBlockSchema.node)` 按 `language` attr 分派（plantuml/mermaid）渲染「预览图 + 可编辑源码」，编码逻辑共用 `src/lib/plantuml.ts` / `src/lib/mermaid.ts`（parser.ts 已改为调用）；Mermaid 接入细节见上文「Mermaid（2026-08-17）」。
-  - **本地图片**：`imageView.ts`——只改 DOM 的 src，节点 attrs 保持原文（序列化无损），解析逻辑共用 `src/lib/imageSrc.ts`。相对路径三种形态（`./x` `../x` 与裸相对路径 `images/x.png`）都经 `resolveToAbsoluteImagePath` 基于 baseDir 解析；裸相对路径曾不解析导致图片 404（2026-08-04 修复，preview 的 `preprocessImages` 同构修复）。
-- **isTauri() 的正确写法**：Tauri v2 运行时总是注入 `window.__TAURI_INTERNALS__`（invoke 依赖它），而 `__TAURI__` 仅在 `withGlobalTauri: true` 时才存在（本项目未开启）。检测 Tauri 环境必须查 `__TAURI_INTERNALS__`——此前查 `__TAURI__` 导致 convertFileSrc 路径在生产环境从未生效（preview 靠 base64 兜底才没暴露）。
-  - **任务列表**：`taskListItemView.ts` 纯 DOM nodeview，补上 GFM preset 缺失的可点击 checkbox。
-  - **数学公式**：remark-math + `math_inline`/`math_block` atom schema + `mathView.ts` 点击编辑，见上文「数学公式 (KaTeX)」。
-- **格式化**：`wysiwygFormat.ts` 的 `applyWysiwygFormat` 覆盖 FormatType 全集（toggle 类走 preset 命令；link 无选区插占位并选中；tasklist 三态）；`insertWysiwygSnippet` 把 markdown 片段解析为 PM 节点插入（不退化成纯文本）。
-- **默认模式**：新安装默认 wysiwyg（P0 的强制迁移已删，persist 尊重用户上次选择）。E2E 依赖 source 模式的 spec 用 `e2e/sourceMode.ts` 的 `presetSourceMode(page)` 预置 localStorage。
-- **bundle**：Milkdown 使主 bundle 增至约 2.5MB（gzip 814KB），后续可对 WysiwygEditor 做动态 import。
+### Architecture Notes
 
-### 已知限制（P3+ 候选）
+- **Editor core**: all Source/Split textareas were replaced by CodeMirror 6, wrapped in `src/components/Editor/CodeMirrorEditor.tsx`. The WYSIWYG placeholder remained unchanged (Editor.tsx wysiwyg branch).
+- **Formatting logic is pure**: `src/lib/markdownEditing.ts` (`formatTransaction` / `insertTextAtCursor`) receives EditorState and returns TransactionSpec; toolbar `editor-format` events and shortcuts (Mod-B/I/K/1/2/3, `Prec.highest` keymap) share it and can be unit-tested without DOM.
+- **Store ↔ CM loop prevention**: updateListener compares `value !== store.content` before writing the store; store → CM full replacement compares similarly. The view is keyed by `filePath`, so opening a new file naturally resets CM history.
+- **Undo**: CM history (operation grouping, selection restoration) replaced the old 500ms full-document-snapshot HistoryManager (`useHistory`/`useTextFormat`/`historyManager` deleted). `canUndo`/`canRedo` write to the store to drive toolbar disabled state.
+- **Smart input**: `markdownKeymap` (Enter continues lists/tasks/quotes, empty item exits), `indentWithTab`, `closeBrackets`.
+- **Find and replace**: `@codemirror/search` (`search({ top: true })`), with light/dark panel styles appended to globals.css.
+- **Image paste/drag**: `domEventHandlers` paste/drop → `imageUtils.createImageMarkdownFromFile` (saved files copy into `assets/` and use relative paths; unsaved files fall back to base64); drop uses `posAtCoords` to locate insertion.
+- **Preview debounce**: 120ms rendering (Editor.tsx), 200ms outline/word count (`useDebouncedValue` + shared algorithm in `src/lib/textStats.ts`, used by Sidebar and status bar).
+- **Status bar**: `src/components/StatusBar/StatusBar.tsx`; cursor line/column reported through non-persisted store fields `cursorLine/cursorCol`.
+- **Components stay mounted**: CodeMirrorEditor is merely `hidden` in preview/wysiwyg modes, preserving undo history and toolbar events across modes.
 
-- 表格创建是 Milkdown 的 `|CxR| ` 语法，不是 Typora 的 `|a|b|`+回车；行列增删无 UI
-- admonition 已有块的类型/标题 attr 在编辑器内不可修改（需切 source 改围栏行）
-- slash menu / 悬浮格式条未接；WYSIWYG 查找替换未接（Find 仅 source/split）
+### Pitfalls
 
----
-
-## 2026-08-05 WYSIWYG 编辑体验补全（代码块高亮 / 语言输入框 / admonition 新建 / 快捷键）
-
-### 代码块语法高亮（codeHighlightPlugin.ts）
-
-- 方案：highlight.js（已有依赖，与预览 parser.ts 同引擎）分词 → PM inline decorations，span 挂全局 `.hljs-*` 类（globals.css 亮暗双套裸类选择器直接生效，无需新增样式）。
-- `hljs.highlight(...).value` 的 HTML 写入游离 div 递归遍历，展平为 `{from, to, cls}` 区间（嵌套 span 类名栈合并）；偏移以代码块内容起点 `pos + 1` 为基准。
-- 缓存 `Map<lang+code, spans>`（200 条 FIFO）：每次 docChanged 全量重建 decorations，但只有内容变过的块重新分词。
-- 只认显式 `language`（无语言/未知语言/plantuml 跳过），不做 highlightAuto——避免误判闪烁与击键开销，与 Typora 行为一致。
-
-### 代码块语言输入框（plantUmlCodeBlockView.ts 扩展）
-
-- 非 plantuml 分支的 `pre` 加 `hljs` class（基色/等宽规则与预览一致），`pre` 内追加 `<input class="code-block-lang">`（contentDOM 之外的兄弟节点，PM 不管理）。
-- 提交：Enter/blur → `setNodeMarkup(getPos(), …, {language})`；Escape 还原；无变化不 dispatch（避免空事务弄脏文档）。
-- nodeview 三件套：`stopEvent` 拦截 input 内事件（按键不交给 PM）、`ignoreMutation` 由「非 contentDOM 即忽略」天然覆盖、`update()` 在非聚焦时同步 input.value（undo/外部变更）。
-- 输入 `plantuml` 走既有「update 返回 false 重建 nodeview」路径，自动切换为预览双区。
-
-### Admonition 编辑器内新建
-
-- 链路：InsertMenu「提示框」→ `AdmonitionDialog`（9 类型网格复用 `.admonition` CSS 渲染迷你预览 + 可选自定义标题）→ dispatch `editor-insert`，片段 `::: {type}{ title}\n\n:::\n`。
-- WYSIWYG 侧 `insertWysiwygSnippet` 经 remark 变换天然解析为 admonition 节点；光标修正条件从 table/code_block 扩到 admonition（落入容器内首个块）。source 模式由 CM 直接插文本，零改动。
-
-### WYSIWYG 快捷键（wysiwygFormat.ts 的 wysiwygShortcutPlugin）
-
-- `$prose((ctx) => keymap({...}))`：Mod-K 链接、Mod-1/2/3 标题 1/2/3，处理函数复用工具栏同一套 `applyLink`/`applyHeading`（行为两端一致）。
-- Mod-B/I 由 Milkdown commonmark 自带 keymap 提供；原生菜单 accelerator 未占用这三个键（视图切换是 Cmd+Alt+1~4），桌面/浏览器均直达 webview。
-
-### 中文 IME 组合输入系列问题（最终形态，2026-08-06）
-
-这一系列问题（`\` 垃圾行、换行拼接、幻影空行、`<!-- -->` 注释包裹）都发生在 WKWebView + macOS 拼音的组合输入路径上，互相纠缠，最终拆解为六个独立机制：
-
-**1. 幻影节点（`\`/空格垃圾）— strictBrParserPlugin.ts（ignore 语义）**
-
-- 机制：组合输入时浏览器在 DOM 插入无属性 `<br>` 占位（预编辑文本分音节处、块尾），PM 回读时按默认规则解析成 hardbreak 节点（序列化为 `\`）或空格文本。
-- 修复：自定义 `domParser` 视图 prop（readDOMChange 与剪贴板解析都经 `someProp("domParser")` 命中）：`br[data-type="hardbreak"]` → hardbreak 节点（PM 渲染的 hardbreak 必带此属性，回读无损，`data-is-inline` 经 getAttrs 保真）；裸 `<br>` → `ignore: true` 整块跳过（**不产生任何节点或文本**）。
-- 教训：v1 曾用 `getAttrs: false` 拒绝裸 br——落入 leafFallback 变成 `\n` 文本、折叠成空格，空格混进文本流干扰 PM 的 diff 对齐，导致上屏错位（「拼接」回归）。**让幻影消失必须什么都不产生**。
-- 注意：PM Plugin 构造器的 bindProps 会立即读取 props 值（getter 惰性求值不可行）；`$prose` 工厂在 SchemaReady 后执行，`ctx.get(schemaCtx)` 直接可用。
-
-**2. 残留兜底 — hardbreakCleanupPlugin.ts（延迟清理）**
-
-- 规则：①纯 hardbreak 段落删除（唯一子节点时替换为空段落，满足 `block+` 约束）；②文本段落内 ≥2 连续非 inline hardbreak 运行段删除（合法 Shift+Enter 只会产生单个）；③文本块内 ≥3 连续 ASCII 空格删除（macOS 拼音预编辑文本的分音节空格 span 残留；≤2 保留，代码块不动）。
-- 时机：仅 composition-meta 事务；**上屏事务 dispatch 时 PM 仍处于 composing 状态**（compositionend 事件更晚到），此时不能 dispatch——记标记，compositionend 后延迟 50ms 统一清理（晚于 PM 的 scheduleComposeEnd 20ms flush；若新一轮组合已开始则顺延）。
-
-**3. 换行被吞/拼接 — imeEnterGuardPlugin.ts**
-
-- 机制：prosemirror-view 的 `inOrNearComposition` kludge——`safari` 判定（navigator.vendor 含 Apple，WKWebView 命中）下 **compositionend 后 500ms 内第一个非组合态 keydown 被整个忽略**（本意是吞掉 IME 确认上屏时 Safari 补发的配对 Enter）。中文用户「选词上屏→立刻回车」的 Enter 被吞 → 新段落没建成 → 后续文本接到上一行（「拼接」）。插件的 handleKeyDown 看不到这次按键（PM 提前返回），只能从 DOM 事件层补。
-- 修复：view.dom 的 **capture 阶段**监听（先于 PM 冒泡处理器，不依赖注册顺序）；直接读写 PM 的 `input.compositionEndedAt`（不维护镜像状态，与 kludge 天然同步）；命中窗口内 Enter 就 preventDefault + stopImmediatePropagation + 手动执行与正常 Enter 相同的 `wysiwygEnterCommand`——**有且仅有一次分段**。60ms 下界：确认上屏的配对 Enter 与 compositionend 同刻到达，放行给 kludge。代码块内不补偿。
-- 测试注意：jsdom 默认 vendor 就是 "Apple Computer, Inc."，PM 的 safari 标记在模块加载时固化——测试里 kludge 真实生效；补偿事务带 `imeEnterGuardCompensation` meta 供探针计数。
-
-**4. `<!-- -->` 注释包裹 — 不是序列化 bug，是 CodeMirror 的按键冲突**
-
-- 机制：`@codemirror/commands` 的 defaultKeymap 把 **Mod-/ 绑定到 toggleComment**（`<!-- -->` 正是 markdown 的注释语法）。源码模式按 Cmd+/ 想切视图，CM 顺手把当前行/选区注释掉；再按一次又解开（toggle）。admonition 围栏、代码块收尾围栏被裹都是它。
-- 排查手段值得记录：所有序列化路径查无产出者后，给 `store.setContent` 包装调用栈记录，直接指名写入者。
-- 修复：CodeMirrorEditor 装配时从 defaultKeymap 过滤掉 `Mod-/`（模式切换走 window 级监听，CM 不拦截传播，两者都能收到按键）。
-
-**5. 单换行 Enter 模型 — wysiwygFormat.ts 的 wysiwygEnterCommand**
-
-- 用户约定：普通段落 Enter = 行内软换行（isInline:true hardbreak，序列化为单个换行符，行间无空行）；段尾已是换行时再按 → 折叠为新段落（Enter×2 = 新段落，段落语义入口）。列表走 splitListItemCommand（**prosemirror 原版 splitListItem 与 Milkdown 列表自定义 attrs 不兼容，会抛 TransformError**）；代码块/表格交默认。
-- 坑：Milkdown 的 `hardbreakClearMarkPlugin` 在带 `hardbreak` meta 的事务后会把节点 attrs 重置为默认（isInline 被抹成 false）——插入事务**不能带 hardbreak meta**。
-- 渲染：isInline 软换行默认渲染成带空格的 span（不换行，多行会挤成一行）——`hardbreakView.ts` nodeview 统一渲染为 `<br>`（属性保留供解析器回读）。
-- 优先级：wysiwygEnterPlugin 在 wysiwygPlugins 数组首位（keymap 先匹配）。
-
-**6. macOS 智能替换（引号变全角）**
-
-- WKWebView contenteditable 默认启用系统智能替换（弯引号/自动大写），会悄悄改写文档字节。WYSIWYG 根节点设 `autocorrect=off autocapitalize=off`（WysiwygEditor 创建后 setAttribute）；代码块 pre 额外 `spellcheck=false`。CM6 默认已全关（contentAttrs 内置）。
-- **既有垃圾文件**：清理机制只防新增；文件里已存在的 `\`/`<!-- -->` 残留需在源码模式手动删一次。
-- **同类已知残留**：PM kludge 吞的是「第一个 keydown」不区分键——上屏后 500ms 内的第一个 Backspace 也会被吞（按第二次即可），影响轻微未处理。
-
-### 内联 html `<br>` 换行渲染（htmlView.ts，2026-09-09）
-
-- **现象**：GFM 表格单元格常用 `<br>` 换行写法（GitHub/Typora 均渲染为换行），所见即所得下显示为字面字符。预览侧 markdown-it `html: true` 本就正常渲染。
-- **机制**：Milkdown commonmark 预设自带 html 内联 atom 节点（`htmlSchema`），默认 toDOM 把原文塞进 span 的 textContent——字面显示是预设行为，非解析缺失。
-- **修复**：`htmlView.ts` $view——attrs.value 匹配 `/^<br\s*\/?\s*>$/i`（`<br>`/`<br/>`/`<br />`/大小写）渲染为真实 `<br data-type="html" data-value=原文>`；其余内联 html（`<b>`等）维持字面 span 不变。序列化恒走 attrs.value 原文（html 节点 toMarkdown 原样输出），往返无损；br/span 形态互变时`update()` 返回 false 交 PM 重建。
-- **回读配套**：`strictBrParserPlugin` 新增 `br[data-type="html"]` → html 节点规则（priority 70，value 从 data-value 回读）——否则 DOM 重解析（readDOMChange/剪贴板）会命中裸 br 的 `ignore: true` 规则把节点丢掉。
-- 测试锁在 `wysiwygRoundtrip.test.ts`「内联 html 节点」组：表格单元格往返、三种 `<br>` 变体渲染与原文保真、其余内联 html 字面显示、二次不动点。
-
-### Admonition 结束围栏融合（`<br />\n:::` 被 html 块吞掉）
-
-- **机制**：admonition 末块是空段落时，Milkdown 的 paragraph 序列化器把它编码为 html 节点 `<br />`，且紧贴结束围栏输出（`<br />\n:::`）；重解析时 micromark 把 `<br />` 当作 html 块起始，**html 块一直吞到空行才停**——结束围栏被吞进 html 节点（`value: "<br />\n:::"`），remarkPreserveEmptyLinePlugin 的精确匹配剥除也因此失效，admonition 整体降级为普通文本。同类风险：末块是 blockquote 时 `:::` 被懒惰延续吞掉。
-- **修复**（`admonitionToMarkdown`）：①序列化前丢弃尾部空段落（空行在 markdown 本无语义）；②结束围栏前强制输出一个空行（`\n\n:::` 成为规范形态，旧写法解析后规范化一次）。空 admonition 的不动点是 `::: note\n:::`。有回归测试锁定（尾部空段落/空容器/末块 blockquote 三种形态）。
-
-### explodeParagraph 换行保真
-
-- 重拼融合段落时，段间插入**原始 break 节点**而非新建 `isInline:true` 的软换行——此前硬换行（`\`）经过 admonition 解析会被改写成软换行，导致含硬换行的内容每次往返都被悄悄改写。
-
-## 2026-08-04 自绘对话框系统
-
-原生 `confirm()`/`alert()` 在 Tauri WKWebView 中行为不可靠（用户报告：新建文件确认框点 Cancel 仍执行了清空，Chrome 中同逻辑验证正常）。已全部替换为自绘弹窗：
-
-- `src/stores/dialogStore.ts`：`ask(kind, message)` Promise 化挂起 + `answer(value)`
-- `src/lib/dialog.ts`：`confirmDialog(message): Promise<boolean>` / `alertDialog(message): Promise<void>`
-- `src/components/Dialog.tsx`：全局单例弹窗（App 挂载），风格对齐 TableDialog；Esc/overlay 取消、Enter 确认
-- 6 处调用点（Toolbar/useKeyboardShortcuts/Sidebar/FileTree/useFileDragDrop）全部改为 `await confirmDialog(...)`；生产代码已无原生 confirm/alert
+- **CM6 in jsdom needs polyfills**: `Range.prototype.getClientRects/getBoundingClientRect`, `scrollIntoView`, etc.; see `src/test/setup.ts`.
+- **E2E selectors**: textarea → `.cm-content`; read editor content with `innerText()` + `expect.poll` (CM is not a form control and has no value).
+- **Zoom implementation changed**: from textarea CSS `zoom` to font-size scaling (14px × zoomLevel/100); padding no longer scales.
+- **Remaining**: two cases in `e2e/drag-drop.spec.ts` depend on Tauri window-level drag events/native file dialogs and cannot pass in browser-only E2E (they failed before this work too; unrelated to CM); preview checkbox clicks move the CM cursor to document end (accepted); OS-level image drag-in was not tested in the Tauri runtime.
 
 ---
 
-## 2026-08-05 Logo 重设计（V + 光标）
+## 2026-08-04 WYSIWYG Implementation (Milkdown, UX Improvement P2)
 
-新 logo：紫色渐变（#6366F1→#8B5CF6→#D946EF）+ 白色 V 字母 + 琥珀色光标下划线。矢量源 `src-tauri/icons/icon.svg`，方案对比图与母版在 `docs/images/logo-concepts/`。
+### Architecture Notes
 
-**macOS 图标安全区**：Big Sur 起图标内容只能占画布的 ~80%（1024 画布中 824），全幅图标在 Dock 会比其他应用大一圈。重新生成图标时必须用带 80% 内边距的母版（`docs/images/logo-concepts/a-vivid-v-padded-1024.png`）执行 `pnpm tauri icon <母版>`。
+- **Core**: WYSIWYG uses Milkdown v7 (ProseMirror), headless (no `@milkdown/react`; all nodeviews pure DOM), component `src/components/Editor/WysiwygEditor.tsx`, plugin collection `wysiwygPlugins.ts`. **`@milkdown/kit` root exports are empty; subpath imports are required** (`@milkdown/kit/core`, `/preset/gfm`, `/utils`, `/prose/*`).
+- **Synchronization model**: Markdown source is the single source of truth. Edits → `listener.markdownUpdated` serializes back to the store (200ms debounce, equal values skipped, writes only while WYSIWYG active); external changes → `replaceAll(content, flush=true)` rebuilds EditorState (produces no transaction and therefore no write-back—**the initial dirty-mark guard depends on this**, with tests locking that opening files/switching modes does not mark dirty). The editor instance is keyed by `filePath`.
+- **viewMode routing**: CM and Milkdown both stay mounted (inactive hidden). Event handlers on both sides (`editor-format`/`editor-insert`/`editor-undo`/`editor-redo`) and `canUndo/canRedo` writes are gated by `viewMode`—CM gating is essential: while typing in WYSIWYG, store→CM sync triggers CM listeners and would otherwise overwrite Milkdown's reported undo depth.
+- **Lossless Markdown round trips**: unknown syntax degrades while preserving source (admonition→literal paragraphs, plantuml→code block), with second-round-trip fixed-point tests. First entry normalizes once (`-`→`*`, bare URL→`<url>`, etc.; semantically equivalent and inherent to WYSIWYG).
+- **Custom syntax**:
+  - **Admonition**: `admonitionPlugin.ts` (`$remark` mdast transform + remark-stringify handler) + schema + `admonitionView.ts` (reuses preview `.admonition` CSS). Two pitfalls: ① commonmark remarkLineBreak merges soft breaks, so the transform must run after it and split merged paragraphs; ② admonition schema must not register before paragraph (PM createAndFill recurses into stack overflow).
+  - **PlantUML / Mermaid**: `plantUmlCodeBlockView.ts`—`$view(codeBlockSchema.node)` dispatches by `language` attr (plantuml/mermaid) to render “preview + editable source”; encoding shares `src/lib/plantuml.ts` / `src/lib/mermaid.ts` (parser.ts already calls these). See “Mermaid (2026-08-17)” above for integration details.
+  - **Local images**: `imageView.ts`—changes only DOM src while node attrs retain source (lossless serialization); resolution shares `src/lib/imageSrc.ts`. All three relative forms (`./x`, `../x`, bare `images/x.png`) resolve through `resolveToAbsoluteImagePath` against baseDir; bare relative paths once failed to resolve and caused 404s (fixed 2026-08-04, with an equivalent fix in preview `preprocessImages`).
+- **Correct isTauri() implementation**: Tauri v2 always injects `window.__TAURI_INTERNALS__` at runtime (invoke depends on it), while `__TAURI__` exists only with `withGlobalTauri: true` (not enabled here). Tauri detection must check `__TAURI_INTERNALS__`—checking `__TAURI__` previously meant convertFileSrc paths never took effect in production (preview's base64 fallback hid the problem).
+  - **Task lists**: `taskListItemView.ts` pure-DOM nodeview supplies the clickable checkbox missing from the GFM preset.
+  - **Math**: remark-math + `math_inline`/`math_block` atom schema + `mathView.ts` click editing; see “Math Formulas (KaTeX)” above.
+- **Formatting**: `applyWysiwygFormat` in `wysiwygFormat.ts` covers all FormatType (toggles use preset commands; link without selection inserts and selects a placeholder; tasklist has three states); `insertWysiwygSnippet` parses Markdown fragments into PM nodes rather than degrading to plain text.
+- **Default mode**: new installations default to WYSIWYG (P0's forced migration was deleted; persist respects the user's last choice). Source-dependent E2E specs use `presetSourceMode(page)` from `e2e/sourceMode.ts` to preset localStorage.
+- **Bundle**: Milkdown increased the main bundle to about 2.5MB (gzip 814KB); WysiwygEditor could later use dynamic import.
+
+### Known Limitations (P3+ Candidates)
+
+- Table creation uses Milkdown's `|CxR| ` syntax, not Typora's `|a|b|`+Enter; no row/column add/remove UI
+- Existing admonition type/title attrs cannot be edited in WYSIWYG (switch to Source to edit fence lines)
+- Slash menu / floating format toolbar not connected; WYSIWYG find/replace not connected (Find only in Source/Split)
 
 ---
 
-## 2026-08-05 P4 侧栏/工具栏优化与 P3 关联项（主题/菜单/标题栏/文件树）
+## 2026-08-05 WYSIWYG Editing Completion (Code Highlighting / Language Input / Admonition Creation / Shortcuts)
 
-### dark 变体失灵根因与 @custom-variant 修法
+### Code-Block Syntax Highlighting (codeHighlightPlugin.ts)
 
-- **根因**：Tailwind CSS 4 的 `dark:` 变体默认编译为 `prefers-color-scheme` 媒体查询，应用内手动切换 `.dark` class 完全不影响 `dark:` 样式——表现为暗色切换"半失灵"。
-- **修法**：`globals.css` 顶部声明 `@custom-variant dark (&:where(.dark, .dark *))`，把 `dark:` 重定义为跟随 `.dark` class；`.dark` 由 App.tsx effect 挂到 `documentElement`（原来挂根 div，Portal/overlay 组件吃不到暗色）。
-- **变量收编**：新增 `--hover-bg` / `--active-bg` / `--color-text-muted`（:root 与 .dark 双定义），Sidebar/FileTree/Toolbar/App 的 Tailwind 硬编码灰色全部替换为变量。**约定：新组件禁止 Tailwind 灰色硬编码，颜色一律走 CSS 变量。**
+- Approach: highlight.js (existing dependency, same engine as preview parser.ts) tokenizes → PM inline decorations, with spans using global `.hljs-*` classes (bare light/dark selectors in globals.css apply directly without new styles).
+- Write `hljs.highlight(...).value` HTML into a detached div and recursively flatten it into `{from, to, cls}` ranges (nested-span class stacks merge); offsets are based on code-block content start `pos + 1`.
+- Cache `Map<lang+code, spans>` (200-entry FIFO): decorations rebuild fully on each docChanged, but only changed blocks retokenize.
+- Only explicit `language` is recognized (no language/unknown language/plantuml skipped); no highlightAuto—avoids misclassification flicker and per-keystroke cost, matching Typora.
 
-### persist v0 → v1 迁移要点
+### Code-Block Language Input (plantUmlCodeBlockView.ts Extension)
 
-- persisted `themeMode: 'light'|'dark'|'system'`（默认 system）取代持久化的 `isDarkMode` bool；`isDarkMode` 变为派生非持久化字段（`resolveTheme(themeMode, getSystemDark())`，见 `src/lib/theme.ts`）。
-- `version: 1` + `migrate`：旧版 persist 数据里的 `isDarkMode: true/false` 映射为 `themeMode: 'dark'/'light'`。
-- 自定义 `merge`：rehydrate 时用持久化的 themeMode + 当前系统偏好重算 `isDarkMode`，不复用快照里的旧值。
-- 系统主题变化经 `setSystemDark` 回写，`themeMode: 'system'` 时实时跟随；`toggleDarkMode` 语义变为 light↔dark 显式切换。
+- Non-plantuml `pre` gains the `hljs` class (base colors/monospace rules match preview), and `<input class="code-block-lang">` is appended inside `pre` (a sibling outside contentDOM, unmanaged by PM).
+- Submit: Enter/blur → `setNodeMarkup(getPos(), …, {language})`; Escape restores; unchanged values do not dispatch (avoid empty transactions dirtying the document).
+- Nodeview trio: `stopEvent` intercepts input events (keys do not reach PM), `ignoreMutation` is naturally covered by “ignore everything outside contentDOM,” and `update()` synchronizes input.value while unfocused (undo/external changes).
+- Entering `plantuml` follows the existing “update returns false to rebuild nodeview” path, automatically switching to dual-pane preview.
 
-### 菜单原语（src/components/Menu/）
+### Creating Admonitions Inside the Editor
 
-- `Dropdown`：trigger + 面板，外部点击/Escape 关闭，`align: left|right`；`ContextMenu`：受控组件，fixed 坐标 + 边界翻转，props `{x, y, items, onSelect, onClose}`；`MenuPanel`：统一渲染 item（`{id,label,icon?,shortcut?,checked?,disabled?} | {divider:true}`）；`menuPosition.ts` 的 `resolveContextMenuPosition` 是纯函数可单测。
-- **坑**：ContextMenu 的 `onClose` 必须 `useCallback` 稳定化，否则父组件重渲染会导致菜单意外关闭。
-- MoreMenu 已重构复用 Dropdown；**禁止再复制 outside-click 模式自绘菜单**。（FormatMenu / HeadingDropdown / InsertMenu 已随工具栏精简删除，功能并入 MenuBar / MoreMenu——Toolbar 下现仅剩 MoreMenu.tsx。）
+- Flow: InsertMenu “Admonition” → `AdmonitionDialog` (nine-type grid reuses `.admonition` CSS for mini previews + optional custom title) → dispatch `editor-insert` with snippet `::: {type}{ title}\n\n:::\n`.
+- WYSIWYG `insertWysiwygSnippet` naturally parses this into an admonition node through the remark transform; cursor correction expanded from table/code_block to admonition (lands in the container's first block). Source mode inserts text directly through CM with no changes.
 
-### macOS 融合标题栏注意点
+### WYSIWYG Shortcuts (wysiwygShortcutPlugin in wysiwygFormat.ts)
 
-- `tauri.conf.json` windows 配置 `"titleBarStyle": "Overlay", "hiddenTitle": true`（仅 macOS 生效，Windows/Linux 忽略）。
-- `hiddenTitle` 后系统不再绘制标题，需自绘：Toolbar 居中渲染文件名（含脏标记 ●），`hidden min-[760px]:block` 窗口过窄时让位给控件；仅 macOS + Tauri 运行时渲染（`src/lib/platform.ts` 的 `isMacOSDesktop`，App 同时给 documentElement 加 `is-macos` class）。
-- 拖拽与 traffic light：Toolbar 根节点加 `data-tauri-drag-region`，macOS 下左侧 `pl-[78px]` 预留红绿灯区域。
+- `$prose((ctx) => keymap({...}))`: Mod-K link, Mod-1/2/3 headings 1/2/3; handlers reuse the toolbar's `applyLink`/`applyHeading` (identical behavior).
+- Milkdown commonmark's built-in keymap supplies Mod-B/I; native-menu accelerators do not occupy these keys (view switching is Cmd+Alt+1–4), so desktop/browser both reach the webview directly.
 
-### 文件树 collect/apply 刷新策略
+### Chinese IME Composition Issue Series (Final Form, 2026-08-06)
 
-- 文件管理操作（新建/重命名/删除）后需重新 `read_directory`，但重建会丢展开状态。解法：操作前 `collectExpandedPaths()` 收集展开目录路径集合，刷新后 `applyExpandedPaths()` 按路径恢复；当前文件父链强制展开。
-- 过滤搜索：query 非空时 `filterTreeByQuery`（保留祖先链）并临时全展开；清空后回到"第一层展开 + 当前文件父链展开"策略（`expandFirstLevel`）。
-- 重命名当前打开文件必须同步 store 的 `filePath`/`fileName` 并 `renameRecentFile`，否则自动保存会写到旧路径。
+This series (`\` garbage lines, joined lines, phantom blank lines, `<!-- -->` comment wrapping) all occurred in the WKWebView + macOS Pinyin composition path and interacted with one another. It was ultimately separated into six independent mechanisms:
 
-## 2026-08-06 编辑器右键菜单（Source / Preview / WYSIWYG 三区域）
+**1. Phantom nodes (`\`/space garbage) — strictBrParserPlugin.ts (ignore semantics)**
 
-在文件树之后，右键菜单覆盖到编辑器全部三个区域。分层：菜单项构建是纯函数，动作执行按 id 前缀分发，区域各自只持有「打开菜单 → 渲染 → 分发」的薄壳。
+- Mechanism: during composition, the browser inserts attribute-free `<br>` placeholders into DOM (at syllable boundaries in preedit text and at block ends). PM's default read rules parse them into hardbreak nodes (serialized as `\`) or space text.
+- Fix: custom `domParser` view prop (both readDOMChange and clipboard parsing hit `someProp("domParser")`): `br[data-type="hardbreak"]` → hardbreak node (PM-rendered hardbreak always carries this attribute, preserving round trips, with `data-is-inline` preserved through getAttrs); bare `<br>` → `ignore: true`, skipping it entirely (**producing no node or text**).
+- Lesson: v1 used `getAttrs: false` to reject bare br—it fell into leafFallback as `\n` text, collapsed into spaces, and those spaces entered the text stream and disturbed PM diff alignment, causing committed-text misplacement (the “joining” regression). **To make a phantom disappear, it must produce nothing**.
+- Note: the PM Plugin constructor's bindProps reads prop values immediately (lazy getter evaluation is not viable); the `$prose` factory runs after SchemaReady, so `ctx.get(schemaCtx)` is directly available.
 
-### 分层结构
+**2. Residual fallback — hardbreakCleanupPlugin.ts (deferred cleanup)**
 
-- **`src/lib/contextMenu.ts`（纯函数，可单测）**：`buildSourceMenuItems` / `buildWysiwygMenuItems` / `buildPreviewMenuItems` 输出 `MenuItem[]`（id、i18n 文案、`disabled`、分隔线、快捷键标注）；`getShortcutLabels(isMac)` 出 ⌘/Ctrl+ 两套标注（仅展示——桌面端带 accelerator 的键由原生菜单/OS 处理）。WYSIWYG 构建器接收 `WysiwygMenuContext` 快照（inTable/inTableHeader/linkHref/onImage/inCodeBlock），上下文组排最前，尾部分隔线去重。
-- **`src/hooks/useContextMenu.ts`**：受控状态（坐标 + 打开时刻的上下文快照 data），`openMenu` 做 preventDefault/stopPropagation，`closeMenu` useCallback 稳定化（Menu 原语的老约定）。
-- **动作分发（各编辑器组件内）**：`format:*` → 既有 editor-format 通道（CM `runFormat` / `applyWysiwygFormat`，行为与工具栏一致）；`undo/redo` → 各自 history；剪贴板 → `src/lib/clipboard.ts`。
+- Rules: ① delete pure-hardbreak paragraphs (when it is the only child, replace with an empty paragraph to satisfy `block+`); ② delete runs of ≥2 consecutive non-inline hardbreaks inside text paragraphs (legitimate Shift+Enter produces only one); ③ delete ≥3 consecutive ASCII spaces inside text blocks (residual syllable-separating spaces from macOS Pinyin preedit spans; ≤2 retained, code blocks untouched).
+- Timing: composition-meta transactions only; **when a commit transaction dispatches, PM is still composing** (compositionend arrives later), so it cannot dispatch immediately—set a flag and clean once 50ms after compositionend (later than PM's scheduleComposeEnd 20ms flush; defer again if a new composition has started).
 
-### 剪贴板（src/lib/clipboard.ts + 新依赖）
+**3. Enter swallowed/lines joined — imeEnterGuardPlugin.ts**
 
-- 桌面端 WKWebView 的 `navigator.clipboard.readText` 不可用，必须 **`@tauri-apps/plugin-clipboard-manager`**（npm 2.3.2 + Cargo `tauri-plugin-clipboard-manager = "2"` + `lib.rs` 注册 + capabilities 显式授权）；浏览器 dev/E2E 降级 `navigator.clipboard`。失败返回 null/false 并记日志，调用方零 try/catch。
-- **⚠️ 权限坑（2026-08-24 实机定位）**：插件 2.3.2 的 `default.toml` 权限集为**空**（"Clipboard interaction needs to be explicitly enabled"）——capabilities 写 `clipboard-manager:default` 等于零授权，读写全部被 ACL 静默拒绝（前端走 catch → warn → null/false，无任何界面表现），症状是「右键复制/剪切/粘贴全部没反应」。必须显式写 `clipboard-manager:allow-read-text` + `clipboard-manager:allow-write-text`。浏览器 dev 降级 `navigator.clipboard` 正常，所以该问题只在打包/dev 的 Tauri 应用里出现。
-- WYSIWYG 的 copy/cut 序列化为**纯文本**（`doc.textBetween`）——保留格式的剪贴板序列化未接，属已知限制；paste 读剪贴板后按 markdown 解析插入（与 Milkdown 原生粘贴一致，`insertWysiwygSnippet`），异常输入回退纯文本。
+- Mechanism: prosemirror-view's `inOrNearComposition` kludge—under its `safari` check (navigator.vendor contains Apple, which WKWebView matches), **the first non-composition keydown within 500ms after compositionend is ignored entirely** (intended to swallow Safari's paired Enter sent when IME confirms text). For Chinese users, “select candidate to commit → immediately press Enter” loses Enter → no new paragraph → subsequent text joins the previous line (“joining”). The plugin's handleKeyDown cannot see this key (PM returns early), so compensation must occur at the DOM event layer.
+- Fix: listen on view.dom in the **capture phase** (before PM bubble handlers, independent of registration order); directly read/write PM's `input.compositionEndedAt` (no mirrored state, naturally synchronized with the kludge); on Enter inside the window, preventDefault + stopImmediatePropagation + manually execute the same `wysiwygEnterCommand` as normal Enter—**exactly one paragraph split**. 60ms lower bound: the confirmation's paired Enter arrives at the same time as compositionend and is allowed through to the kludge. No compensation inside code blocks.
+- Testing note: jsdom's default vendor is "Apple Computer, Inc.", and PM's safari flag freezes at module load—the kludge genuinely runs in tests; compensation transactions carry `imeEnterGuardCompensation` meta so probes can count them.
 
-### WYSIWYG 上下文（wysiwygContextMenu.ts）
+**4. `<!-- -->` comment wrapping — not a serialization bug, but a CodeMirror key conflict**
 
-- **光标先行**：contextmenu 时 `posAtCoords` 换算落点，落在选区外则先把 `TextSelection.near` 光标移过去（编辑器标准行为），上下文解析与动作都以新光标为准。
-- **链接**：`getLinkRange` 按「光标落在带 link mark 的文本节点内（含右边界）」命中并向两侧同 mark 节点扩展——自实现而非 tiptap 版 `getMarkRange`，因为后者在 `parentOffset=0` 边界取不到节点。
-- **表格**：行/列**新增**复用 milkdown gfm 命令（`addRowBeforeCommand` 等，作用于当前选区）；行/列/整表**删除**是自实现 PM transaction（按 `$from.index(tableDepth)` 算行 index、逐行收集单元格删除区间后从后往前删）——不走 milkdown `selectRowCommand` + `deleteSelectedCellsCommand` 的 index 语义组合。schema 注意：表头是独立节点类型 `table_header_row`，markdown 表格必须有表头 → 表头行禁删行（菜单 disabled + 动作层双保险）；仅剩一列时删列退化为删整表。
-- **图片**：atom 节点无内部光标，右键时 `nodeBefore/nodeAfter` 判定与删除。
-- **E2E 坑**：Preview 的 `.markdown-body` 选择器会命中常驻挂载但隐藏的 `.markdown-body.wysiwyg-editor`，测试里要用 `.markdown-body.p-8` 区分。
+- Mechanism: `@codemirror/commands` defaultKeymap binds **Mod-/ to toggleComment** (`<!-- -->` is Markdown comment syntax). In Source mode, Cmd+/ intended to switch views also makes CM comment the current line/selection; pressing again toggles it off. Wrapped admonition fences and code-block closing fences were both caused by this.
+- Diagnostic technique worth recording: after all serialization paths showed no producer, wrapping `store.setContent` with call-stack logging directly identified the writer.
+- Fix: filter `Mod-/` out of defaultKeymap when assembling CodeMirrorEditor (mode switching uses a window-level listener; CM does not stop propagation, so both receive the key).
 
-### 右键菜单 Typora 化重组与插入段落（2026-08-07 补充）
+**5. Single-Enter line-break model — wysiwygEnterCommand in wysiwygFormat.ts**
 
-- **MenuPanel 子菜单**：`MenuSubmenuItem { children: MenuItem[] }`（一层嵌套）。子菜单面板挂在触发行的 relative 容器内（`left-full -ml-1` 轻微重叠，hover 平移无间隙不断开）；展开时按触发行 `getBoundingClientRect` 修正：右缘放不下翻到左侧（`right-full`），底部溢出向上收拢。普通项/分隔线 hover 收起已展开子菜单；子菜单触发行的 click 只展开不下发 id。
-- **菜单结构对齐 Typora**：Source = 基础组 + 段落▸（format:h1-h3/quote/list/tasklist/codeblock，全部复用既有 formatTransaction）+ 格式▸；WYSIWYG = 上下文组 + 基础组 + 段落▸（多「正文」`block:paragraph` = setBlockType paragraph）+ 格式▸ + 插入▸（图像/表格/代码块/水平分割线 + 在上方/下方插入段落）。
-- **insert:\* 动作**：`insertWysiwygSnippet` markdown 解析插入（表格片段复用 `generateTable(2,2)`）；注意 Milkdown 序列化水平分割线为 `***`。
-- **在上方/下方插入段落**：`$from.before(1)` / `$from.after(1)` 定位当前**顶层块**边界，插空段落 + `TextSelection.near(pos+1)` 落入光标——解决表格/代码块紧贴文档边缘或彼此相邻时无法插出新段落的问题。
+- User convention: in ordinary paragraphs, Enter = inline soft break (isInline:true hardbreak, serialized as a single newline with no blank line); pressing at the end of a paragraph that already ends in a break collapses to a new paragraph (Enter×2 = new paragraph, the paragraph-semantic entry). Lists use splitListItemCommand (**stock prosemirror splitListItem is incompatible with Milkdown's custom list attrs and throws TransformError**); code blocks/tables use defaults.
+- Pitfall: Milkdown's `hardbreakClearMarkPlugin` resets node attrs to defaults after transactions carrying `hardbreak` meta (isInline becomes false)—insertion transactions **must not carry hardbreak meta**.
+- Rendering: isInline soft breaks default to a span with a space (no actual break, so multiple lines collapse together)—the `hardbreakView.ts` nodeview consistently renders `<br>` (attributes retained for parser readback).
+- Priority: wysiwygEnterPlugin is first in the wysiwygPlugins array (keymap matches first).
 
-### 空段落序列化为 `<br />` 的问题（2026-08-07）
+**6. macOS smart replacement (quotes become full-width)**
 
-- **现象**：WYSIWYG 下块级元素（代码块/表格）之间残留的空段落，序列化成独立 `<br />` 行，源码被污染。
-- **根因**：Milkdown commonmark 预设自带 `remark-preserve-empty-line`——paragraph 序列化器对空段落（非文档末节点）输出 `<br />` html 节点（见 preset-commonmark `paragraphSchema.toMarkdown` 的 `shouldPreserveEmptyLine(ctx)` 检查）；解析侧 `visitEmptyLine` 把独立 `<br />` 行从 mdast 摘除。这是 Milkdown 的「空行无损」设计，但对用户是垃圾行。
-- **修法**：`wysiwygPlugins.ts` 按二元组引用比较从 commonmark 预设中剔除该插件（`commonmark.filter(p => !preserveEmptyLineParts.has(p))`）。剔除后：空段落序列化为普通空行（markdown 渲染本来就会折叠，重载时自然消失）；源码已有的 `<br />` 行解析为 html 节点保留不丢；空表格单元格序列化为 `|  |`（GFM 合法）。
-- **注意**：`$remark` 返回 `[pluginCtx, plugin]` 二元组，commonmark 数组里是两个独立条目，过滤时两个都要剔除。
+- WKWebView contenteditable enables system smart replacement by default (smart quotes/auto-capitalization), silently rewriting document bytes. The WYSIWYG root sets `autocorrect=off autocapitalize=off` (setAttribute after WysiwygEditor creation); code-block pre additionally sets `spellcheck=false`. CM6 disables all of these by default (built-in contentAttrs).
+- **Existing damaged files**: cleanup prevents only new damage; `\`/`<!-- -->` remnants already in files need one manual deletion in Source mode.
+- **Known related residual**: PM's kludge swallows the “first keydown” regardless of key—the first Backspace within 500ms after committing is also swallowed (the second works). Impact is minor and currently unaddressed.
 
-### 右键 WebKit 抢选问题（2026-08-07，探针定位）
+### Inline HTML `<br>` Line-Break Rendering (htmlView.ts, 2026-09-09)
 
-- **现象**：WYSIWYG/Source 右键点击行首会选中相邻第一个词、空行选中整行（菜单动作随之作用于错误选区）。
-- **探针结论**（`save_file` 写 /tmp 日志，事件级时序）：WebKit/WKWebView 在右键 `mousedown`→`contextmenu` 之间把词/行选择写入 DOM——**不可取消的内部步骤**（`mousedown`/`contextmenu` 的 preventDefault 都无效）；此刻编辑器内核（PM/CM）状态尚未被污染，但随后经 `selectionchange` 采纳 DOM 选择，污染固化。
-- **修法（覆盖而非拦截）**：`contextmenu` 时 `posAtCoords` 求落点 → 落点在选区外则 dispatch 折叠选区到落点 → **再直接 `window.getSelection().collapse(view.domAtPos(head))` 把 DOM 选择压回光标**。内核随后同步到的就是光标。mousedown 快照/preventDefault 均无效已移除。
-- **注意**：`TextSelection.near` 找不到文本位置时会退回 NodeSelection；`domAtPos` 极端位置可能抛错（try/catch 忽略即可，内核侧选区仍正确）。
+- **Symptom**: GFM table cells commonly use `<br>` for line breaks (rendered as breaks by GitHub/Typora), but WYSIWYG displayed the literal characters. Preview markdown-it `html: true` already rendered them correctly.
+- **Mechanism**: Milkdown's commonmark preset includes an inline html atom (`htmlSchema`), whose default toDOM puts source into a span's textContent—literal display is preset behavior, not missing parsing.
+- **Fix**: `htmlView.ts` $view—attrs.value matching `/^<br\s*\/?\s*>$/i` (`<br>`/`<br/>`/`<br />`/any case) renders as a real `<br data-type="html" data-value=original>`; other inline html (`<b>`, etc.) remains a literal span. Serialization always uses original attrs.value (html nodes toMarkdown output unchanged), preserving round trips; when br/span forms switch, `update()` returns false so PM rebuilds.
+- **Readback support**: `strictBrParserPlugin` adds `br[data-type="html"]` → html node rule (priority 70, value read from data-value)—otherwise DOM reparsing (readDOMChange/clipboard) hits bare br's `ignore: true` rule and drops the node.
+- Tests live in the “inline html nodes” group in `wysiwygRoundtrip.test.ts`: table-cell round trips, three `<br>` variant renderings and source fidelity, literal display of other inline html, and second-pass fixed point.
 
-### 右键选区加固与剪贴板权限修复（2026-08-24，实机定位）
+### Admonition Closing-Fence Fusion (`<br />\n:::` Swallowed by an HTML Block)
 
-- **剪贴板权限根因**：见上「⚠️ 权限坑」——用户报「WYSIWYG 右键复制没作用」的主因是它，不是选区。
-- **选区加固（WysiwygEditor / CodeMirrorEditor 对称实现）**：WKWebView 右键手势**不派发 mousedown**（macOS WebKit 惯例），且抢选可能早于任何 JS 事件落地，contextmenu 时内核选区可能已被污染。对策两层：
-  1. **候选选区恢复**：持续 `selectionchange` 跟踪维护 cur/prev 双缓冲选区史（带 doc 身份校验，文档一变即作废）；contextmenu 时取「mousedown 快照（Chromium 有效）→ 当前选区 → 选区史」中首个**严格包含**落点（`from <= pos < to`，排除 head 被压到右键点的污染选区）的候选恢复（dispatch + `setBaseAndExtent` 双写 DOM）。
-  2. **菜单打开期间选区守卫**：打开时刻锚点存入 ref，期间任何 `selectionchange` 都把 DOM/内核选区锁回锚点（覆盖迟到的抢选与菜单项点击导致的 DOM 坍缩）；任一 `mousedown`（点菜单项/点外部关菜单）后即停用——内核本就忽略编辑器外的 DOM 选择，菜单动作读内核状态不受影响。
-- **Preview 区**：copy 改用菜单打开时刻快照的 `selectedText`（`PreviewMenuContext` 新字段），不再依赖点击时刻的实时 DOM 选择。
-- **已知边界**：若抢选形态是「词选择」（而非 head 截断/坍缩），候选会命中被污染的词选区（与旧行为持平，不算回归）。
+- **Mechanism**: when an admonition's last block is an empty paragraph, Milkdown's paragraph serializer encodes it as html node `<br />` immediately followed by the closing fence (`<br />\n:::`). On reparse, micromark treats `<br />` as the start of an html block, **and an html block continues until a blank line**—the closing fence is swallowed into the html node (`value: "<br />\n:::"`), so remarkPreserveEmptyLinePlugin's exact-match removal also fails and the whole admonition degrades to ordinary text. Related risk: when the last block is a blockquote, lazy continuation can swallow `:::`.
+- **Fix** (`admonitionToMarkdown`): ① drop trailing empty paragraphs before serialization (blank lines have no Markdown semantics); ② force a blank line before the closing fence (`\n\n:::` becomes canonical, and old syntax normalizes once after parsing). The fixed point for an empty admonition is `::: note\n:::`. Regression tests lock three forms (trailing empty paragraph/empty container/trailing blockquote).
 
-### 窗口级双滚动条（2026-08-24，实机定位）
+### explodeParagraph Newline Fidelity
 
-- **现象**：编辑器滚动条旁多出一条几乎满高的窗口级滚动条（WYSIWYG 下最明显）。
-- **根因**：状态栏 `h-6`（24px）扣 1px 上边框内容盒仅 23px，而视图模式 `Dropdown` 触发按钮 `p-1.5` + text-xs 行高达 28px——垂直居中后向下溢出 2.5px，把 document 撑出视口（`scrollHeight` 比视口高 ~3px），产生窗口级滚动。
-- **修法**：`Dropdown` 的 `triggerClassName` 提供时**替代**默认 `p-1.5`（避免依赖 Tailwind 冲突类的层叠顺序），状态栏传 `px-1.5 py-0.5`；App 根容器补 `overflow-hidden` 兜底，任何 chrome 区溢出都不再产生窗口滚动条。
+- When reassembling merged paragraphs, insert the **original break nodes** between paragraphs instead of creating new `isInline:true` soft breaks—previously hard breaks (`\`) passing through admonition parsing were rewritten as soft breaks, silently modifying content with hard breaks on every round trip.
 
-## 2026-08-07 P5：菜单补全 / Dock 菜单 / 文件关联 / 拖拽修复
+## 2026-08-04 Custom Dialog System
 
-### 标题栏无法拖拽的根因（双重）
+Native `confirm()`/`alert()` are unreliable in Tauri WKWebView (user report: clicking Cancel in the new-file confirmation still cleared content; the same logic worked in Chrome). All have been replaced with custom dialogs:
 
-1. **ACL 缺权限**：tauri 2.10 的窗口插件权限表中 `start_dragging` **不在** `core:default` 默认集（`build.rs` PLUGINS 里 `("start_dragging", false)`；而 `internal_toggle_maximize` 是 `true`——这解释了「双击能放大、按住拖不动」）。Tauri 注入的 `drag.js` 调 `plugin:window|start_dragging` 被 ACL 静默拒绝。修复：`capabilities/default.json` 显式加 `"core:window:allow-start-dragging"`。
-2. **drag.js 无上溯**：`e.target.getAttribute('data-tauri-drag-region')` 只查目标元素自身（无 `closest()`）。Toolbar 根节点带属性但被子元素（按钮组/分隔条）大面积覆盖，命中子元素即不拖。修复：左/右分组容器也挂 `data-tauri-drag-region`（按钮/SVG 无属性，点击不受影响）。
-
-### 段落/格式菜单与快捷键路由
-
-- 菜单 id 与右键菜单同源：`format:<FormatType>` → `editor-format` 事件总线；`insert:image` 走 `editorActions.insertImageFromPicker`、`insert:table|admonition` → `app-open-dialog` 事件（Toolbar 挂载对话框）、`insert:hr` → `editor-insert`。
-- **⌘B/I/K/1-6/⌘0 桌面端改由菜单事件驱动**（accelerator 被 OS 拦截，webview 收不到 keydown）；浏览器 dev/E2E 无原生菜单，CM keymap / Milkdown keymap / useKeyboardShortcuts 照旧——「互不重迭」模式同 ⌘O/S/N。
-- ⌘0 让位给段落菜单「正文」（剥块级前缀）；实际大小改 ⇧⌘0（MoreMenu 标注同步；Editor.tsx 浏览器侧两个组合都接）。
-- `FormatType` 扩 h4-h6/ol/paragraph：CM 侧 `matchBlockPrefix` 统一识别标题/`> `/`- [ ] `/`- `/`\d+. ` 前缀（修复任务项转格式残留 `[ ] ` 的旧 quirk；ol 按实际编号 toggle）；paragraph = 剥前缀专用路径（`formatTransaction` 前置分支，不经 isBlockFormat）。Milkdown 侧 `applyParagraph`：list_item→liftListItem、blockquote→lift、其他→setBlockType(paragraph)。
-
-### 菜单事件流与状态同步要点
-
-- 完整链路：`src-tauri/src/menu.rs` 构建系统菜单（macOS App/文件/编辑/段落/格式/视图/窗口；Windows/Linux 适配）→ `on_menu_event` 经 `emit_to_focused` 定向 emit `native-menu-event` → 前端 `src/lib/nativeMenu.ts` 以 `getCurrentWindow().listen` 只监听本窗口，再由 `handleMenuAction` 分发。**不能用全局 `listen`**：它会接收定向到其他窗口的菜单事件，导致多窗口同时保存/导出 PDF
-- `Menu::get` 只查顶层项；子菜单内的项必须走 lib.rs 的 `find_menu_item` 递归查找
-- muda 的 CheckMenuItem 点击会原生自动翻转勾选，最终态以前端同步（`set_menu_item_checked`/`set_menu_item_enabled`）为准
-- 菜单重建后所有 check/enabled 回到构建默认值，必须重新同步一轮
-- Edit 菜单的 Undo/Redo 用自定义菜单项（系统级 undo 会绕过 CM/Milkdown 的 history）
-- `editor-find` 事件：原生菜单 Find → 前端 → `@codemirror/search` 查找替换面板
-
-### macOS Dock 右键菜单（objc2）
-
-- Tauri 2.10 / muda 0.17 / tao 0.34 均无 Dock 菜单 API（仅 `set_dock_visibility`）。实现：setup 时取 `NSApplication.sharedApplication().delegate()`（tao 的 AppDelegate 实例）→ `class_addMethod(applicationDockMenu:, "@@:@")` 注入 IMP，返回全局缓存的 `NSMenu`（`Mutex<Option<Retained<NSMenu>>>`，unsafe Send/Sync 包装，全部主线程访问）。
-- 菜单项 target 是 `define_class!` 的 `VividMarkDockMenuTarget`（NSObject 子类，newDocument:/openDocument:/openRecent:/clearRecent:），点击 emit `native-menu-event` **复用前端全部分发**；最近文件路径不经 representedObject（避免 downcast），用 `NSMenuItem.tag` 索引全局路径表。
-- 菜单项动作复用 `native-menu-event` 通道，事件 id 为 `file-new` / `file-open` / `open-recent:*` / `clear-recent`（同样经 `emit_to_focused` 定向到焦点窗口）。
-- 防御：`class_respondsToSelector` 先检测，tao 未来若自带该方法则跳过不覆盖。**tao/tauri 升级需回归验证此点**。
-- 重建：前端 `rebuildMenu` 同订阅点调 `update_dock_menu`（非 macOS 注册 no-op 桩 command）；依赖版本与 tao 0.34 对齐（objc2 0.6 / objc2-app-kit 0.3 / objc2-foundation 0.3），避免双主版本。
-
-### 文件关联（Open With）
-
-- `tauri.conf.json` `bundle.fileAssociations`（md/markdown/mdown/mkd，role=Editor）→ 打包生成 macOS `CFBundleDocumentTypes`（Open With 列表出现，非默认 handler）、Windows 注册表项、Linux mime。**仅打包安装的 .app 生效**（LaunchServices 在安装/首次启动注册），`pnpm tauri:dev` 验证不了。
-- 运行时：macOS 双击/打开方式 → `RunEvent::Opened { urls }`（同一运行实例接收，不会另起进程）→ `route_open_paths` 窗口路由（聚焦/复用/新建；冷启动入 main 窗口的启动待打开队列）→ 前端 `src/lib/openWith.ts`；启动积压由 `take_startup_open_files` 命令按窗口 label 补取。Windows/Linux 是拉起新进程传 argv（无 Opened 事件）：setup 里 `collect_argv_files()` 解析 argv（跳过 `-` 开关与不存在的路径）→ 同样走 `route_open_paths`（冷启动必中「main 未就绪→入启动队列」分支，不会触发新建窗口——Windows 主线程建窗自死锁，见 window_router）。**未接单实例**：app 运行中再双击文件会拉起第二个进程（各自独立窗口注册表，功能可用但无跨进程「已打开→聚焦」），后续项。
-- **平台门控坑（v0.2.3 CI 实踩）**：`RunEvent::Opened` 变体本身是 `#[cfg(any(target_os = "macos", target_os = "ios"))]`，Windows/Linux 编译直接 E0599——macOS 本机打包发现不了。事件分支与 `handle_opened_urls` 都需 `#[cfg(target_os = "macos")]` 门控（闭包参数改 `_app/_event` 避免其他平台 unused 警告）。新增平台专属 API 时先在 registry 源码确认其 cfg 条件。
-- **冷启动 Opened 极早期到达（2026-09-15 修）**：macOS 冷启动「打开方式」时 `RunEvent::Opened` 可能**先于 log 插件注册、config 主窗口创建与前端上报**到达（marker 文件实证：handler 跑了但 log 全丢）。旧代码分支 2 要求 `get_webview_window("main").is_some()`，此时为 None → 直接掉进新建窗口分支 → 文件开进 doc-1，config main 随后照常创建 → 每次必现多一个欢迎页窗口。修复：新增 `APP_READY`（`RunEvent::Ready` 置位），**Ready 前即使 main 尚不存在也把路径入队 main 启动队列**（窗口马上会建，前端就绪按 label 取走）；Ready 后 main 不存在才是「已关闭」走新建。分支 3 复用候选同步加兜底：source → LAST_FOCUSED →（仅文件关联）main → 其余干净空窗口（Focused 事件到达前 LAST_FOCUSED 为空）。
-- **`take_startup_open_files` 必须传本窗口 label**：`label=None` 语义是「清空全部窗口队列」（仅 file-open-request 热路径的 HMR 清理用）。openWith.ts 曾不传 label——任何窗口启动都会抢走其他窗口排队中的文件（冷启动竞态下 main 抢走 doc-1 的队列，doc-1 只剩欢迎页）。
-- **tauri-plugin-log `Builder::default()` 自带 `Stdout + LogDir` 两个 target**：再显式 `.target(LogDir)` 会同一日志文件双写（每行重复、KeepOne 轮换跑两次）。要自定义只调 `.level()/.level_for()`，别再追加 target。
-
-### 2026-08-07 追加修复（右键误触 resize / 视图菜单混淆项）
-
-- **右键触发侧栏调宽**：`useResizable.handleMouseDown` 未检查 `e.button`，右键（button=2）按下也会进入 resize 态（contextmenu 与 mousedown 同序列）——侧栏右缘 4px 热区上右键打开菜单时同时开始调宽。修复：仅 `e.button === 0` 响应。同序问题：分隔条 `title` 硬编码英文 → 走 i18n（`sidebar.dragToResize`）。
-- **视图菜单「源代码模式」移除**：⌘/ 切换项与四个视图模式 check 项（所见即所得/源码/分屏/预览）并列引发歧义。Typora 只有双态所以没有这个问题；VividMark 四模式组的显式项已是权威入口。菜单项删除后 ⌘/ 桌面端无 accelerator 占用，keydown 直达 webview 由 `useKeyboardShortcuts` 处理（与改造前行为一致）。
-- **WYSIWYG 表格行高虚高**：Milkdown 表格单元格内容被 `<p>` 包裹，`.markdown-body p` 的 1em 段落下边距计入行高（58px vs 预览 47px）。修复：`th/td > p { margin: 0 }`（预览无 p 包裹不受影响），修后 44px。
-
-## 2026-08-13 多窗口（Typora 式 SDI）与菜单重建风暴排查
-
-### 架构要点（window_router.rs / windowManager.ts）
-
-- 每文档独立窗口 = 独立 webview/JS 上下文，单文档 store 无需重构；窗口注册表（`WINDOW_STATES`，前端 `report_window_state` 上报 filePath/isDirty）是「文件→窗口」路由的唯一事实来源
-- 菜单/Dock 事件经 `emit_to_focused` 定向 `LAST_FOCUSED`（tauri/muda 菜单事件不携带窗口来源；macOS 菜单点击不改 key window，Windows 点菜单必先聚焦——启发式两端成立）
-- 打开路径路由 `route_open_paths`：已打开→聚焦；干净空窗口→复用（定向 `file-open-request`）；否则新建。**新建分支有 pending 去重**（路径已在某新窗口启动队列则跳过）——防前端重复触发竞态建出重复窗口
-- 菜单 check/enabled 由焦点窗口驱动（nativeMenu.ts 焦点门控 + `onFocusChanged` 全量重同步）；`rebuildMenu` 按 payload 去重（内容未变不重建）——重建 = Rust 整树菜单 + Dock 菜单 + check/enabled 全量重同步，高频重建即风暴
-- `LAST_FOCUSED` 由 `on_window_event` 的 Focused/Destroyed 事件维护
-- 新建窗口走 `create_document_window`：macOS 融合标题栏三件套（titleBarStyle/hiddenTitle/trafficLightPosition）在 builder 里用 cfg 门控复制；新建前有 pending 去重，防重复触发建出重复窗口
-- capabilities 需配 `windows: ["*"]`（窗口 label 动态生成）
-- PDF 导出的隐藏窗口 label（`pdf-export`）排除在打开路由之外
-
-### 坑 1：React StrictMode 异步 cleanup 竞态 → listener 泄漏（关键）
-
-App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「async init → then 里赋值 cleanup」模式。StrictMode 双挂载时第二次 effect 的 cleanup 覆盖第一次的，**首个 listener 永不注销**——每个事件被处理两次。单窗口时代只是幂等浪费；多窗口下 open-recent 双调用 → route 竞态 → **同文件建出两个窗口**。修复：useRef 防重合并为单 effect，不做手动 cleanup（listener 生命周期跟随 webview 上下文，窗口销毁即释放）。**凡「async 注册 + cleanup」的 effect 都有此坑**。
-
-### 坑 2：vite HMR/全量重载 + 幽灵启动队列 = 风暴燃料
-
-新窗口创建时路径入 `STARTUP_OPEN_FILES[label]`，前端就绪后 `take_startup_open_files` 按 label 取走。若页面因 HMR 重载而窗口创建时前端未取走（或泄漏 listener 建出的重复窗口从未正常初始化），队列残留「幽灵条目」——页面每次重载都会把它取走重开文件（lastOpened 刷新 → 菜单重建），反复建窗/重开形成自续循环。修复：热路径收到 `file-open-request` 时 `take_startup_open_files { label: null }` 全清。
-
-### 坑 3：macOS WKWebView 多窗口 localStorage 不共享
-
-实测：多窗口各自独立 localStorage（storage 事件跨窗口不触发）——跨窗口偏好同步不能用 storage 事件，改为 tauri 事件广播（`prefs-sync`，themeMode/language/recentFiles 三字段；listener 值比较落地防回声）。诊断手段备忘：vite dev server 加临时 middleware（POST /\_\_diag 打印请求体）可把 webview 内不可见的 console 信息导入 dev 终端。
-
-### 风暴表现与定位路径
-
-现象：打开多个 md 后 app 主进程 + 各 webview 持续 30–90% CPU（活动监视器），kernel_task 飙升压频。日志表现为同窗口同毫秒数百次 `rebuild_menu`。定位路径：rebuild 调用方 label（命令加 window 参数打 label）→ 前端 DIAG fetch 埋点（发现 openFileByPath 被反复调用、lastOpened 持续刷新）→ take_startup 双窗口取同路径（发现 listener 泄漏双建窗口）→ StrictMode 竞态 + 幽灵队列。
-
-## 2026-08-13 导出为网站（静态站点包）
-
-打开文件夹 → 文件菜单/MoreMenu「导出为网站…」→ 选输出位置 → 生成 `<picked>/<文件夹名>-site/` 可直接部署的静态站点（mkdocs 风格：顶栏 + 左侧可折叠导航 + 浅/深色切换）。零外部依赖（不调 Python/mkdocs CLI）。前端入口 `exportSite.ts` 的 `exportSite()`（选输出目录 → `readDirectory` 原始树 → 渲染 → Rust 批量写盘）；Rust 侧参照 pdf.rs 拆分为 `src-tauri/src/site_export.rs`。
-
-### 关键设计
-
-- **镜像目录结构**：`guide/intro.md` → `guide/intro.html`，非 md 资产按原相对位置原样复制（Rust `export_site` 命令 fs::copy）——图片等相对 src **零重写**即可用，唯一要重写的是 `.md` 互链（换 `.html`，保留 #anchor；README/index 目标映射为 index.html）。这是整个方案的核心简化
-- **preserveImages 渲染**：预览用的 image rule 会把本地 src 转 convertFileSrc（asset://），导出站点里是死链。`parseMarkdownAsync(content, { preserveImages: true, inlinePlantUml: true })` 经 markdown-it render 的 env 参数透传到 image rule 跳过转换（不传 baseDir 故 base64 图片内联不触发——那仍是 PDF 单文件场景专用）；`inlinePlantUml` 把 UML 图本地渲染为内联 SVG（2026-08-14 起，此前是 plantuml.com 远程图需联网）
-- **导航推导**（siteGenerator.ts，纯函数）：数字前缀 `01-`/`01_`/`01.` 排序且显示名剥离；README.md/index.md 成为所在目录 index.html 且导航恒排最前（回退标题用目录名；根的无 H1 时注入「首页/Home」）；无根 index 页时生成 meta-refresh 重定向首页；纯资产目录不进导航
-- **页面框架**（siteTemplate.ts）：共享 CSS 文件 `vividmark-site/site.css` = `collectDocumentCss()`（应用同款 .markdown-body/hljs/主题变量，从 exportPdf.ts 导出复用）+ 框架样式（复用 --editor-bg 等变量，`:root`/`.dark` 双定义随收集 CSS 自动带上）；有公式才 `inlineKatexFonts`；`<html>.dark` 切换 + localStorage `vividmark-site-theme` + head 内联防闪烁脚本；目录折叠用 `<details>/<summary>` 零 JS；附 `.nojekyll` 兼容 GitHub Pages
-- **标题 id**：GitHub 风格 slug（Unicode 字母/数字保留、标点剔除、空格转连字符、重名 -1 去重），DOMParser 后处理加到 h1–h6，页内与跨页 `#anchor` 因此可用
-- **菜单接线**：`export-site` 菜单项初始禁用，`syncMenuEnabled` 按 `openedFolder` 同步（仿 file-reveal）；handleMenuAction 直接调 `exportSite()`（文件夹级动作不走 editor-\* 事件总线，同 file-open-folder 模式）
-
-### 已知限制（首版接受）
-
-- read_directory 深度上限 10；覆盖写不清理旧文件（重复导出残留已删源文件的 HTML）；无站内搜索/页内 TOC；指向导出集合外 `.md` 的链接同样换后缀（部署后本就失效）
-
-### 配置感知（2026-08-14 P1，`siteConfig.ts`）
-
-- 风味探测优先级：mkdocs > vuepress > plain。根 `mkdocs.yml` → mkdocs 风味，`docs_dir` 收敛导出范围；上一级目录的 mkdocs 配置若 `docs_dir` 指回打开目录也采信；存在 `.vuepress` 目录 → vuepress 风味
-- mkdocs 风味的侧边导航 = nav 配置原文（`buildNavFromMkdocsNav`）：策展白名单——不自动追加未收录页面；外链条目新窗口打开；缺文件的条目跳过并记日志
-- 标题链：nav > frontmatter > H1 > 文件名；frontmatter 剥离不渲染；导出成功提示带配置来源
+- `src/stores/dialogStore.ts`: Promise-based `ask(kind, message)` suspension + `answer(value)`
+- `src/lib/dialog.ts`: `confirmDialog(message): Promise<boolean>` / `alertDialog(message): Promise<void>`
+- `src/components/Dialog.tsx`: global singleton dialog (mounted by App), styled like TableDialog; Esc/overlay cancels and Enter confirms
+- All six call sites (Toolbar/useKeyboardShortcuts/Sidebar/FileTree/useFileDragDrop) now use `await confirmDialog(...)`; no native confirm/alert remains in production code
 
 ---
 
-## 2026-08-13 窗口无法关闭（tauri 2.10 ACL 收紧：allow-destroy 非默认权限）
+## 2026-08-05 Logo Redesign (V + Caret)
 
-> 影响版本：0.4.0（macOS）。红灯 / Cmd+W / 文件菜单 Close Window 全部静默无效；黄绿灯正常。
+New logo: purple gradient (#6366F1→#8B5CF6→#D946EF) + white V + amber caret underline. Vector source is `src-tauri/icons/icon.svg`; comparison concepts and masters are in `docs/images/logo-concepts/`.
 
-### 症状
-
-用户点红灯无法关闭窗口，Cmd+W 与菜单 Close 同样无效；但通过无障碍（AX）方式触发关闭却正常。安装版 0.4.0 同样复现，排除当时未提交的前端改动。
-
-### 根因链
-
-1. macOS 上用户触发的关闭（红灯 / Cmd+W / 菜单）走 `performClose:` → tao 的 `windowShouldClose:` → 发出 `CloseRequested` 并**返回 NO**（窗口不直接关，交给应用层）。
-2. Tauri 发现前端注册了 `onCloseRequested` 监听器（`src/lib/windowManager.ts` 脏确认），于是拦截默认关闭，把 `tauri://close-requested` 事件发给 webview。
-3. 前端 handler 判定不脏、不调 `preventDefault` 后，由 `@tauri-apps/api` 的封装执行 `await this.destroy()` 真正销毁窗口（见 `node_modules/@tauri-apps/api/window.js` onCloseRequested 实现）。
-4. **tauri 2.10 起 `core:window:allow-destroy` 不再包含在默认权限集**（同批被移出的还有 allow-start-dragging / allow-set-title，之前已踩过），`destroy()` 的 invoke 被 ACL 静默拒绝 → Promise reject 无人处理 → 窗口永远留着。
-
-为什么其他路径都正常，极具迷惑性：
-
-- AX（System Events 点按钮）触发的是更直接的关闭路径，**绕过 `windowShouldClose:`**，不进 JS 门禁 → 能关。
-- 黄灯（最小化）/ 绿灯（全屏）不经 `CloseRequested` 门禁 → 正常。
-- webview 内点击、菜单栏展开均正常——只有「关闭窗口」这一个动作被门禁吞掉。
-
-### 修复
-
-- `src-tauri/capabilities/default.json` 增加 `core:window:allow-destroy`（与已有的 allow-start-dragging / allow-set-title 并列）。
-- 顺带修复文件菜单 Close Window 显示英文：`PredefinedMenuItem::close_window(app, None)` 的默认文案不跟随系统语言（应用 bundle 无本地化 lproj），改为显式传入 `Labels.close_window`（中「关闭窗口」/ 英 "Close Window"）。
-
-### 经验
-
-- **tauri 升级后，凡是前端经 JS API 调用的窗口方法，都要对照 `tauri/permissions/*/autogenerated/reference.md` 的 default 集合逐个数**——ACL 拒绝是完全静默的（invoke reject，无 UI 反馈），症状与「点了没反应」无异。
-- 排查「点了没反应」类问题的有效手段：AX 触发（System Events）与合成鼠标事件（CGEvent）对照——AX 走动作直发、合成点击走完整命中链，两者差异能快速切分故障层。注意合成点击对 Tauri 窗口的原生按钮有效（黄灯可触发），对 Finder 也有效，方法本身可信。
-- 附带行为确认：经 destroy() 关闭**最后一个**窗口时应用随之退出（Tauri 默认；未接 `RunEvent::ExitRequested`）。当前接受此行为；若日后要 Typora 式「关窗不退出、驻留 Dock」，在 run 回调里拦 ExitRequested + prevent_exit 即可。
+**macOS icon safe area**: since Big Sur, icon content should occupy only ~80% of the canvas (824 within 1024); full-bleed icons look a size larger than other Dock apps. When regenerating icons, use the master with 80% padding (`docs/images/logo-concepts/a-vivid-v-padded-1024.png`) and run `pnpm tauri icon <master>`.
 
 ---
 
-## 2026-08-14 macOS 红绿灯「先居中、后跳高」（setTitle 触发 AppKit 重置按钮位置）
+## 2026-08-05 P4 Sidebar/Toolbar Improvements and Related P3 Items (Theme/Menus/Titlebar/File Tree)
 
-### 症状
+### Root Cause of dark Variant Failure and @custom-variant Fix
 
-窗口刚创建时红绿灯垂直居中于 48px 工具栏，约 1.8s 后（用户感知为「一会上移了」）按钮跳回 AppKit 默认位置（偏上）。AX 实测按钮中心从 {131,45} 跳到 {128,38}（窗口原点 {120,30}）。
+- **Root cause**: Tailwind CSS 4's `dark:` variant defaults to a `prefers-color-scheme` media query, so manually toggling the application's `.dark` class had no effect on `dark:` styles—dark mode appeared “half broken.”
+- **Fix**: declare `@custom-variant dark (&:where(.dark, .dark *))` at the top of `globals.css`, redefining `dark:` to follow `.dark`; App.tsx's effect attaches `.dark` to `documentElement` (previously attached to the root div, where Portal/overlay components could not inherit dark mode).
+- **Variable consolidation**: added `--hover-bg` / `--active-bg` / `--color-text-muted` (defined under both :root and .dark), replacing all hardcoded Tailwind grays in Sidebar/FileTree/Toolbar/App. **Convention: new components must not hardcode Tailwind grays; all colors use CSS variables.**
 
-### 根因链
+### Persist v0 → v1 Migration Notes
 
-1. `tauri.conf.json` 的 `trafficLightPosition {x:12, y:25.5}` 只在**窗口创建时**由 tao 应用一次，初始居中正确。（tao 语义：标题栏高 = 按钮高 14pt + y，按钮贴容器底部；红绿灯垂直居中公式 y = 目标按钮顶距 + 8.5pt，故 48px 工具栏对应 y = 25.5。）
-2. 前端 `Toolbar.tsx` 每次渲染后调 `@tauri-apps/api/window` 的 `setTitle` 同步 Typora 式标题（文件名 ●）。AppKit 的 `setTitle:` 会触发标题栏布局，把 standardWindowButton 重置回默认 frame——trafficLightPosition 的效果被抹掉。
-3. tao 0.34.5 的 `inset_traffic_lights` 逻辑只在 `drawRect` 里重放一次 inset，且只调了按钮容器的 frame、不改按钮 y（实测无法自愈）；tauri 没有运行时重排红绿灯的公开 API。
+- Persisted `themeMode: 'light'|'dark'|'system'` (default system) replaces persisted `isDarkMode` bool; `isDarkMode` becomes a derived non-persisted field (`resolveTheme(themeMode, getSystemDark())`, see `src/lib/theme.ts`).
+- `version: 1` + `migrate`: old persisted `isDarkMode: true/false` maps to `themeMode: 'dark'/'light'`.
+- Custom `merge`: during rehydration, recompute `isDarkMode` from persisted themeMode + current system preference instead of reusing the snapshot's old value.
+- System-theme changes write back through `setSystemDark`, following live when `themeMode: 'system'`; `toggleDarkMode` now means explicit light↔dark switching.
 
-### 修复
+### Menu Primitives (src/components/Menu/)
 
-新增 `src-tauri/src/titlebar.rs`，导出 `set_window_title` 命令替代前端直调 setTitle：
+- `Dropdown`: trigger + panel, outside-click/Escape close, `align: left|right`; `ContextMenu`: controlled component, fixed coordinates + boundary flipping, props `{x, y, items, onSelect, onClose}`; `MenuPanel`: consistently renders items (`{id,label,icon?,shortcut?,checked?,disabled?} | {divider:true}`); `resolveContextMenuPosition` in `menuPosition.ts` is a pure, unit-testable function.
+- **Pitfall**: ContextMenu `onClose` must be stabilized with `useCallback`, or parent rerenders unexpectedly close the menu.
+- MoreMenu was refactored to reuse Dropdown; **do not copy the outside-click pattern for another custom menu**. (FormatMenu / HeadingDropdown / InsertMenu were deleted during toolbar simplification and merged into MenuBar / MoreMenu—only MoreMenu.tsx remains under Toolbar.)
 
-- `with_webview` 拿到主线程的 NSWindow，先 `setTitle:`，再 `layout_traffic_lights` 显式重排：按钮容器（superview）高 = 按钮高 14pt + 25.5、置顶放置，三个按钮 x = 12 + i×间距、顶距 16pt（经 `convertRect:toView:nil` 换算到容器坐标系，因为标题栏视图是 flipped）。
-- 前端 `Toolbar.tsx` 改为 `invoke('set_window_title', { title })`，任何后续 setTitle 都会顺带把红绿灯压回居中位，形成自愈。
-- `Cargo.toml` 的 objc2-app-kit 需加 `NSView` feature。
+### Integrated macOS Titlebar Notes
 
-### 经验
+- `tauri.conf.json` window config `"titleBarStyle": "Overlay", "hiddenTitle": true` (macOS only; ignored on Windows/Linux).
+- With `hiddenTitle`, the system no longer draws a title, so Toolbar renders a custom centered filename (including dirty marker ●); `hidden min-[760px]:block` yields to controls in narrow windows. Render only on macOS + Tauri runtime (`isMacOSDesktop` in `src/lib/platform.ts`; App also adds `is-macos` to documentElement).
+- Dragging and traffic lights: Toolbar root has `data-tauri-drag-region`; macOS left side uses `pl-[78px]` to reserve traffic-light space.
 
-- **macOS 上凡是动 NSWindow 原生属性（标题、样式）的调用，都可能触发 AppKit 重排标题栏**，tauri 层的配置只在创建时生效一次，之后要自己在原生源码里重放布局。
-- 排查窗口 chrome 布局问题的趁手工具：`osascript` + System Events 读 `position of button N of window 1`（button 1/2/3 = 红/黄/绿），轮询可抓「先对后跳」这类时序问题。
-- 同类现象若出现在 Windows/Linux 不适用本条（红绿灯是 macOS 概念；本条代码整体 cfg 门控在 macOS）。
+### File-Tree Collect/Apply Refresh Strategy
+
+- File-management operations (create/rename/delete) require a new `read_directory`, but rebuilding loses expansion state. Solution: `collectExpandedPaths()` before an operation collects expanded-directory paths, and `applyExpandedPaths()` after refresh restores them by path; the current file's parent chain is forcibly expanded.
+- Filter search: non-empty query uses `filterTreeByQuery` (retains ancestor chains) and temporarily expands all; clearing returns to “first level + current-file parent chain expanded” (`expandFirstLevel`).
+- Renaming the currently open file must synchronize store `filePath`/`fileName` and call `renameRecentFile`, or auto-save writes to the old path.
+
+## 2026-08-06 Editor Context Menus (Source / Preview / WYSIWYG)
+
+After the file tree, context menus expanded to all three editor areas. Layers: menu construction is pure, actions dispatch by id prefix, and each area retains only a thin “open menu → render → dispatch” shell.
+
+### Layered Structure
+
+- **`src/lib/contextMenu.ts` (pure, unit-testable)**: `buildSourceMenuItems` / `buildWysiwygMenuItems` / `buildPreviewMenuItems` output `MenuItem[]` (id, i18n labels, `disabled`, dividers, shortcut labels); `getShortcutLabels(isMac)` produces ⌘/Ctrl+ label sets (display only—desktop accelerator keys are handled by native menus/OS). The WYSIWYG builder receives a `WysiwygMenuContext` snapshot (inTable/inTableHeader/linkHref/onImage/inCodeBlock), puts contextual groups first, and deduplicates trailing dividers.
+- **`src/hooks/useContextMenu.ts`**: controlled state (coordinates + context snapshot data at open time), `openMenu` performs preventDefault/stopPropagation, and `closeMenu` is useCallback-stabilized (the long-standing Menu-primitive convention).
+- **Action dispatch (inside each editor component)**: `format:*` → existing editor-format channel (CM `runFormat` / `applyWysiwygFormat`, matching toolbar behavior); `undo/redo` → respective histories; clipboard → `src/lib/clipboard.ts`.
+
+### Clipboard (src/lib/clipboard.ts + New Dependency)
+
+- WKWebView desktop does not support `navigator.clipboard.readText`, so it requires **`@tauri-apps/plugin-clipboard-manager`** (npm 2.3.2 + Cargo `tauri-plugin-clipboard-manager = "2"` + registration in `lib.rs` + explicit capabilities); browser dev/E2E falls back to `navigator.clipboard`. Failures return null/false and log, so callers need no try/catch.
+- **⚠️ Permission pitfall (real-device diagnosis, 2026-08-24)**: plugin 2.3.2's `default.toml` permission set is **empty** ("Clipboard interaction needs to be explicitly enabled")—writing `clipboard-manager:default` in capabilities grants nothing, and ACL silently denies all reads/writes (frontend catch → warn → null/false with no visible UI), appearing as “context-menu copy/cut/paste all do nothing.” Explicitly write `clipboard-manager:allow-read-text` + `clipboard-manager:allow-write-text`. Browser-dev navigator.clipboard fallback works, so this appears only in packaged/dev Tauri apps.
+- WYSIWYG copy/cut serializes as **plain text** (`doc.textBetween`)—format-preserving clipboard serialization is not connected and remains a known limitation; paste reads the clipboard and parses it as Markdown (matching native Milkdown paste through `insertWysiwygSnippet`), falling back to plain text for invalid input.
+
+### WYSIWYG Context (wysiwygContextMenu.ts)
+
+- **Cursor first**: contextmenu uses `posAtCoords` to translate the click; outside the selection, first move the `TextSelection.near` cursor there (standard editor behavior), then resolve context and actions against the new cursor.
+- **Links**: `getLinkRange` hits when the cursor is inside a text node carrying the link mark (including the right boundary), then expands across same-mark nodes on both sides—custom rather than tiptap's `getMarkRange`, because the latter misses nodes at the `parentOffset=0` boundary.
+- **Tables**: row/column **insertion** reuses milkdown gfm commands (`addRowBeforeCommand`, etc., acting on the current selection); row/column/whole-table **deletion** uses custom PM transactions (row index from `$from.index(tableDepth)`, collect cell deletion ranges per row, then delete back-to-front)—not milkdown's `selectRowCommand` + `deleteSelectedCellsCommand` index-semantic combination. Schema note: the header is a distinct `table_header_row` node, and Markdown tables require a header → header-row deletion is forbidden (disabled menu + action-layer guard); deleting the last remaining column degrades to deleting the whole table.
+- **Images**: atom nodes have no internal cursor; context click uses `nodeBefore/nodeAfter` for hit detection and deletion.
+- **E2E pitfall**: Preview's `.markdown-body` selector also matches the mounted-but-hidden `.markdown-body.wysiwyg-editor`; tests must distinguish `.markdown-body.p-8`.
+
+### Typora-Style Context-Menu Reorganization and Paragraph Insertion (2026-08-07 Update)
+
+- **MenuPanel submenus**: `MenuSubmenuItem { children: MenuItem[] }` (one nesting level). The submenu panel lives inside the trigger row's relative container (`left-full -ml-1` slight overlap, so hover transition has no gap); on open, the trigger row's `getBoundingClientRect` corrects position: flip left (`right-full`) if the right edge lacks space and shift upward at bottom overflow. Hovering ordinary items/dividers closes an open submenu; clicking a submenu trigger only opens it and does not dispatch an id.
+- **Menu structure aligned with Typora**: Source = base group + Paragraph▸ (format:h1-h3/quote/list/tasklist/codeblock, all reusing existing formatTransaction) + Format▸; WYSIWYG = context group + base group + Paragraph▸ (adds Body Text `block:paragraph` = setBlockType paragraph) + Format▸ + Insert▸ (image/table/code block/horizontal rule + insert paragraph above/below).
+- **insert:\* actions**: `insertWysiwygSnippet` parses and inserts Markdown (table snippet reuses `generateTable(2,2)`); note that Milkdown serializes horizontal rules as `***`.
+- **Insert paragraph above/below**: `$from.before(1)` / `$from.after(1)` locate the current **top-level block** boundary, insert an empty paragraph, and place the cursor with `TextSelection.near(pos+1)`—solving the inability to insert a paragraph when tables/code blocks touch document edges or one another.
+
+### Empty Paragraphs Serialized as `<br />` (2026-08-07)
+
+- **Symptom**: empty paragraphs remaining between WYSIWYG block elements (code blocks/tables) serialized as standalone `<br />` lines, polluting source.
+- **Root cause**: Milkdown's commonmark preset includes `remark-preserve-empty-line`—the paragraph serializer outputs a `<br />` html node for an empty paragraph (when not the document's last node; see `shouldPreserveEmptyLine(ctx)` in preset-commonmark `paragraphSchema.toMarkdown`); the parser's `visitEmptyLine` removes standalone `<br />` lines from mdast. This is Milkdown's “lossless blank lines” design but appears as garbage lines to users.
+- **Fix**: `wysiwygPlugins.ts` removes that plugin from the commonmark preset by tuple reference identity (`commonmark.filter(p => !preserveEmptyLineParts.has(p))`). Afterward: empty paragraphs serialize as ordinary blank lines (Markdown rendering collapses them anyway, and reload removes them naturally); existing source `<br />` lines parse as preserved html nodes; empty table cells serialize as `|  |` (valid GFM).
+- **Note**: `$remark` returns a `[pluginCtx, plugin]` tuple, and commonmark stores these as two independent entries; filtering must remove both.
+
+### WebKit Context-Click Selection Theft (2026-08-07, Probe Diagnosis)
+
+- **Symptom**: right-clicking at the start of a WYSIWYG/Source line selected the adjacent first word, and right-clicking a blank line selected the whole line (menu actions then acted on the wrong selection).
+- **Probe findings** (`save_file` wrote /tmp logs with event-level timing): WebKit/WKWebView writes word/line selection into DOM between right-button `mousedown`→`contextmenu`—**an uncancellable internal step** (preventDefault on `mousedown`/`contextmenu` has no effect). Editor-kernel (PM/CM) state is not yet polluted at that moment, but a subsequent `selectionchange` adopts the DOM selection and makes the pollution permanent.
+- **Fix (override rather than intercept)**: on `contextmenu`, compute the click position through `posAtCoords` → if outside the selection, dispatch a collapsed selection there → **then directly `window.getSelection().collapse(view.domAtPos(head))` to force DOM selection back to the caret**. The kernel subsequently synchronizes to that caret. Ineffective mousedown snapshots/preventDefault were removed.
+- **Note**: when `TextSelection.near` cannot find a text position it falls back to NodeSelection; `domAtPos` can throw at extreme positions (try/catch and ignore; kernel selection remains correct).
+
+### Context-Click Selection Hardening and Clipboard Permission Fix (2026-08-24, Real-Device Diagnosis)
+
+- **Clipboard permission root cause**: see “⚠️ Permission pitfall” above—this, not selection, was the main cause of the user report that “WYSIWYG context-menu copy does nothing.”
+- **Selection hardening (symmetric WysiwygEditor / CodeMirrorEditor implementations)**: WKWebView context-click gestures **do not dispatch mousedown** (macOS WebKit convention), and selection theft may occur before any JS event, so kernel selection may already be polluted by contextmenu. Two layers:
+  1. **Candidate-selection restoration**: continuous `selectionchange` tracking maintains cur/prev double-buffered selection history (validated against doc identity and invalidated on any document change); on contextmenu, select the first candidate from “mousedown snapshot (works in Chromium) → current selection → selection history” that **strictly contains** the click (`from <= pos < to`, excluding polluted selections whose head has been collapsed to the right-click point), restoring through dispatch + `setBaseAndExtent` DOM write.
+  2. **Selection guard while menu is open**: store the opening anchor in a ref; every `selectionchange` while open locks DOM/kernel selection back to that anchor (covering late selection theft and DOM collapse caused by menu-item clicks); any `mousedown` (menu item/outside to close) disables it—the kernel already ignores DOM selection outside the editor, and menu actions read kernel state unaffected.
+- **Preview area**: copy now uses `selectedText` snapshotted when the menu opens (new `PreviewMenuContext` field), no longer depending on live DOM selection at click time.
+- **Known boundary**: if selection theft takes the form of a “word selection” (rather than head truncation/collapse), the polluted word selection can be selected as a candidate (same as old behavior, not a regression).
+
+### Window-Level Double Scrollbars (2026-08-24, Real-Device Diagnosis)
+
+- **Symptom**: an almost full-height window-level scrollbar appeared beside the editor scrollbar (most visible in WYSIWYG).
+- **Root cause**: status bar `h-6` (24px) minus its 1px top border leaves a 23px content box, while the view-mode `Dropdown` trigger's `p-1.5` + text-xs line height reaches 28px—vertical centering overflows 2.5px downward and expands the document beyond the viewport (`scrollHeight` ~3px taller), producing window-level scrolling.
+- **Fix**: supplied `Dropdown` `triggerClassName` **replaces** default `p-1.5` (avoiding dependence on Tailwind conflicting-class cascade order), and the status bar passes `px-1.5 py-0.5`; App root adds `overflow-hidden` as a fallback so no chrome-area overflow can produce a window scrollbar.
+
+## 2026-08-07 P5: Menu Completion / Dock Menu / File Associations / Drag Fixes
+
+### Root Causes of an Undraggable Titlebar (Two)
+
+1. **ACL permission missing**: in Tauri 2.10's window-plugin permission table, `start_dragging` is **not** in the `core:default` set (`("start_dragging", false)` in build.rs PLUGINS; `internal_toggle_maximize` is `true`—explaining “double-click maximizes but hold-and-drag does nothing”). Tauri-injected `drag.js` calling `plugin:window|start_dragging` is silently denied by ACL. Fix: explicitly add `"core:window:allow-start-dragging"` to `capabilities/default.json`.
+2. **drag.js does not walk ancestors**: `e.target.getAttribute('data-tauri-drag-region')` checks only the target itself (no `closest()`). The Toolbar root had the attribute but was largely covered by children (button groups/dividers), so hitting a child did not drag. Fix: left/right group containers also carry `data-tauri-drag-region` (buttons/SVGs lack the attribute, so clicks are unaffected).
+
+### Paragraph/Format Menu and Shortcut Routing
+
+- Menu IDs share the context-menu convention: `format:<FormatType>` → `editor-format` event bus; `insert:image` uses `editorActions.insertImageFromPicker`; `insert:table|admonition` → `app-open-dialog` (Toolbar mounts dialogs); `insert:hr` → `editor-insert`.
+- **⌘B/I/K/1-6/⌘0 on desktop are menu-event-driven** (the OS intercepts accelerators, so the webview receives no keydown); browser dev/E2E has no native menu, so CM keymap / Milkdown keymap / useKeyboardShortcuts remain—the same “non-overlapping” model as ⌘O/S/N.
+- ⌘0 yields to Paragraph → Body Text (strip block prefix); Actual Size moved to ⇧⌘0 (MoreMenu label updated; both combinations handled by browser-side Editor.tsx).
+- `FormatType` expanded to h4-h6/ol/paragraph: CM `matchBlockPrefix` consistently recognizes headings/`> `/`- [ ] `/`- `/`\d+. ` prefixes (fixing the old quirk where formatting a task item left `[ ] `; ol toggles using actual numbering); paragraph uses a dedicated strip-prefix path (early branch in `formatTransaction`, not isBlockFormat). Milkdown `applyParagraph`: list_item→liftListItem, blockquote→lift, others→setBlockType(paragraph).
+
+### Menu Event Flow and State Synchronization
+
+- Complete chain: `src-tauri/src/menu.rs` builds the system menu (macOS App/File/Edit/Paragraph/Format/View/Window; adapted Windows/Linux) → `on_menu_event` emits `native-menu-event` through `emit_to_focused` → frontend `src/lib/nativeMenu.ts` listens only to its own window through `getCurrentWindow().listen`, then `handleMenuAction` dispatches. **Do not use global `listen`**: it receives menu events targeted to other windows, causing multiple windows to save/export PDF simultaneously.
+- `Menu::get` checks only top-level items; submenu items must be found recursively through lib.rs `find_menu_item`.
+- muda CheckMenuItem clicks natively toggle checks; the authoritative final state comes from frontend sync (`set_menu_item_checked`/`set_menu_item_enabled`).
+- After a menu rebuild, all check/enabled values return to construction defaults and must be fully resynchronized.
+- Edit Undo/Redo use custom items (system-level undo would bypass CM/Milkdown history).
+- `editor-find`: native Find → frontend → `@codemirror/search` find/replace panel.
+
+### macOS Dock Context Menu (objc2)
+
+- Tauri 2.10 / muda 0.17 / tao 0.34 have no Dock-menu API (only `set_dock_visibility`). Implementation: during setup, get `NSApplication.sharedApplication().delegate()` (tao's AppDelegate instance) → `class_addMethod(applicationDockMenu:, "@@:@")` injects an IMP returning a globally cached `NSMenu` (`Mutex<Option<Retained<NSMenu>>>`, unsafe Send/Sync wrapper, all access on main thread).
+- Menu-item target is `VividMarkDockMenuTarget`, an NSObject subclass defined with `define_class!` (newDocument:/openDocument:/openRecent:/clearRecent:); clicks emit `native-menu-event` and **reuse all frontend dispatch**. Recent-file paths use `NSMenuItem.tag` to index a global path table rather than representedObject (avoiding downcast).
+- Item actions reuse the `native-menu-event` channel with IDs `file-new` / `file-open` / `open-recent:*` / `clear-recent` (also targeted to the focused window through `emit_to_focused`).
+- Defensive behavior: `class_respondsToSelector` checks first; if a future tao provides the method, injection skips it instead of overriding. **Tao/Tauri upgrades require regression verification here**.
+- Rebuild: frontend `rebuildMenu` calls `update_dock_menu` at the same subscription point (non-macOS registers a no-op stub command); dependency versions align with tao 0.34 (objc2 0.6 / objc2-app-kit 0.3 / objc2-foundation 0.3) to avoid duplicate major versions.
+
+### File Associations (Open With)
+
+- `tauri.conf.json` `bundle.fileAssociations` (md/markdown/mdown/mkd, role=Editor) → packaging generates macOS `CFBundleDocumentTypes` (appears in Open With, not default handler), Windows registry entries, and Linux mime. **Works only for a packaged, installed .app** (LaunchServices registers on installation/first launch); `pnpm tauri:dev` cannot verify it.
+- Runtime: macOS double-click/Open With → `RunEvent::Opened { urls }` (received by the same running instance without starting another process) → `route_open_paths` window routing (focus/reuse/create; cold start queues in main's startup-open queue) → frontend `src/lib/openWith.ts`; `take_startup_open_files` drains startup backlog by window label. Windows/Linux start a new process with argv (no Opened event): setup `collect_argv_files()` parses argv (skipping `-` switches and nonexistent paths) → same `route_open_paths` (cold start always hits “main not ready → startup queue,” never creates a window—Windows main-thread creation self-deadlocks; see window_router). **Single-instance is not implemented**: double-clicking a file while the app runs starts a second process (independent window registries; functional, but no cross-process “already open → focus”), a future item.
+- **Platform-gating pitfall (v0.2.3 CI)**: the `RunEvent::Opened` variant itself is `#[cfg(any(target_os = "macos", target_os = "ios"))]`, so Windows/Linux compilation directly fails with E0599—local macOS packaging cannot detect this. Both the event branch and `handle_opened_urls` need `#[cfg(target_os = "macos")]` (closure params become `_app/_event` to avoid unused warnings on other platforms). Check registry-source cfg conditions before adding platform-specific APIs.
+- **Cold-start Opened arrives extremely early (fixed 2026-09-15)**: on macOS cold-start Open With, `RunEvent::Opened` may arrive **before log-plugin registration, config main-window creation, and frontend reporting** (marker-file evidence: handler ran but all logs were lost). Old branch 2 required `get_webview_window("main").is_some()`; at that point it was None → fell directly into create-window → file opened into doc-1, config main was subsequently created as usual → an extra welcome window every time. Fix: new `APP_READY` (set at `RunEvent::Ready`); **before Ready, queue paths in main's startup queue even when main does not yet exist** (it will be created shortly, and the ready frontend drains by label); only after Ready does missing main mean “closed” and require creation. Branch 3 reuse candidates also gained fallbacks: source → LAST_FOCUSED → (file associations only) main → other clean empty windows (LAST_FOCUSED is empty before a Focused event arrives).
+- **`take_startup_open_files` must receive this window's label**: `label=None` means “clear every window's queue” (used only for HMR cleanup in the file-open-request hot path). openWith.ts once omitted the label—any window starting could steal files queued for other windows (under cold-start races, main stole doc-1's queue, leaving doc-1 with only the welcome page).
+- **tauri-plugin-log `Builder::default()` includes `Stdout + LogDir` targets**: explicitly adding `.target(LogDir)` writes the same log file twice (duplicate lines and KeepOne rotation runs twice). For customization, call only `.level()/.level_for()`; do not append another target.
+
+### Additional Fixes (2026-08-07): Context Click Triggering Resize / Confusing View Menu Item
+
+- **Context click triggered sidebar resize**: `useResizable.handleMouseDown` did not check `e.button`, so right button (button=2) also entered resize state (contextmenu and mousedown share a sequence)—right-clicking the sidebar's 4px right-edge hit area opened the menu and started resizing simultaneously. Fix: respond only to `e.button === 0`. Related issue: divider `title` hardcoded English → moved to i18n (`sidebar.dragToResize`).
+- **Removed View menu “Source Code Mode”**: placing the ⌘/ toggle beside four view-mode check items (WYSIWYG/Source/Split/Preview) was ambiguous. Typora has only two states and avoids this; VividMark's explicit four-mode group is the authoritative entry. After removing the item, ⌘/ has no desktop accelerator and keydown reaches the webview for `useKeyboardShortcuts` (same behavior as before the change).
+- **Excess WYSIWYG table-row height**: Milkdown wraps table-cell content in `<p>`, and `.markdown-body p`'s 1em bottom margin contributed to row height (58px vs preview 47px). Fix: `th/td > p { margin: 0 }` (preview has no p wrapper and is unaffected), resulting in 44px.
+
+## 2026-08-13 Multi-Window (Typora-Style SDI) and Menu-Rebuild Storm Investigation
+
+### Architecture Notes (window_router.rs / windowManager.ts)
+
+- One window per document = independent webview/JS context, so the single-document store needs no refactor; the window registry (`WINDOW_STATES`, frontend reports filePath/isDirty through `report_window_state`) is the sole source of truth for file→window routing.
+- Menu/Dock events target `LAST_FOCUSED` through `emit_to_focused` (tauri/muda menu events carry no source window; macOS menu clicks do not change key window, while Windows menu clicks focus first—the heuristic works on both).
+- Open-path routing `route_open_paths`: already open→focus; clean empty window→reuse (targeted `file-open-request`); otherwise create. **Creation has pending deduplication** (skip if the path is already in a new window's startup queue)—prevents duplicate windows from repeated frontend trigger races.
+- Focused window drives menu check/enabled (nativeMenu.ts focus gating + full resync in `onFocusChanged`); `rebuildMenu` deduplicates by payload (no rebuild when content is unchanged)—rebuild means the entire Rust menu tree + Dock menu + full check/enabled resync, so frequent rebuilding becomes a storm.
+- `LAST_FOCUSED` is maintained by Focused/Destroyed in `on_window_event`.
+- New windows use `create_document_window`: the three integrated-macOS-titlebar settings (titleBarStyle/hiddenTitle/trafficLightPosition) are copied into the builder behind cfg gates; pending deduplication before creation prevents duplicate windows.
+- Capabilities require `windows: ["*"]` (window labels are dynamic).
+- The PDF-export hidden-window label (`pdf-export`) is excluded from open routing.
+
+### Pitfall 1: React StrictMode Async Cleanup Race → Listener Leak (Critical)
+
+App.tsx's three initializers (initNativeMenu/initOpenWith/initWindowManager) originally used “async init → assign cleanup inside then.” During StrictMode's double mount, the second effect's cleanup overwrote the first, **so the first listener was never unregistered**—every event was handled twice. In the single-window era this was only idempotent waste; with multiple windows, duplicate open-recent calls → route race → **two windows for the same file**. Fix: useRef guards reentry and consolidates into one effect with no manual cleanup (listener lifetime follows the webview context and is released when the window is destroyed). **Every effect using “async registration + cleanup” has this pitfall**.
+
+### Pitfall 2: Vite HMR/Full Reload + Ghost Startup Queue = Storm Fuel
+
+When a window is created, its path enters `STARTUP_OPEN_FILES[label]`, and the ready frontend drains it by label through `take_startup_open_files`. If HMR reloads the page before the initial frontend drains it (or a duplicate window created by a leaked listener never initializes correctly), a “ghost entry” remains—every page reload drains it and reopens the file (lastOpened refresh → menu rebuild), creating a self-sustaining create/reopen loop. Fix: the hot path receiving `file-open-request` clears all through `take_startup_open_files { label: null }`.
+
+### Pitfall 3: macOS WKWebView Windows Do Not Share localStorage
+
+Measured: each window has independent localStorage (storage events do not fire across windows)—cross-window preference sync cannot use storage events and instead broadcasts Tauri events (`prefs-sync`, fields themeMode/language/recentFiles; listeners compare values before writing to prevent echoes). Diagnostic note: temporary Vite dev-server middleware (POST /\_\_diag printing the request body) can route otherwise invisible webview console information into the dev terminal.
+
+### Storm Symptoms and Diagnosis Path
+
+Symptoms: after opening multiple md files, the app main process + every webview sustained 30–90% CPU (Activity Monitor), and kernel_task spiked and throttled the system. Logs showed hundreds of `rebuild_menu` calls in the same millisecond for the same window. Diagnosis path: rebuild caller label (add a window parameter to the command and log its label) → frontend DIAG fetch instrumentation (found repeated openFileByPath calls and continuous lastOpened refreshes) → take_startup returning the same path in two windows (found leaked listener creating duplicate windows) → StrictMode race + ghost queue.
+
+## 2026-08-13 Export as Website (Static Site Package)
+
+Open folder → File menu/MoreMenu “Export as Website…” → choose output location → generate `<picked>/<folder-name>-site/` as a deployable static site (MkDocs style: top bar + collapsible left navigation + light/dark toggle). Zero external dependencies (no Python/mkdocs CLI). Frontend entry is `exportSite()` in `exportSite.ts` (choose output directory → raw `readDirectory` tree → render → Rust batch disk writes); Rust follows pdf.rs separation in `src-tauri/src/site_export.rs`.
+
+### Key Design
+
+- **Mirror directory structure**: `guide/intro.md` → `guide/intro.html`; non-md assets copy unchanged to their original relative locations (Rust `export_site` fs::copy)—relative image src values need **zero rewriting**. Only `.md` cross-links rewrite (to `.html`, preserving #anchor; README/index targets map to index.html). This is the design's core simplification.
+- **preserveImages rendering**: preview's image rule converts local src through convertFileSrc (asset://), which is a dead link in an exported site. `parseMarkdownAsync(content, { preserveImages: true, inlinePlantUml: true })` passes through markdown-it render's env parameter to skip conversion in the image rule (no baseDir, so base64 image inlining does not trigger—that remains PDF single-file-only); `inlinePlantUml` renders UML locally into inline SVG (since 2026-08-14; previously remote plantuml.com images required network).
+- **Navigation inference** (siteGenerator.ts, pure): numeric prefixes `01-`/`01_`/`01.` sort and are stripped from display; README.md/index.md become their directory's index.html and always sort first (fallback title is directory name; root without H1 injects “Home”); with no root index, a meta-refresh redirect home page is generated; asset-only directories do not enter navigation.
+- **Page shell** (siteTemplate.ts): shared CSS `vividmark-site/site.css` = `collectDocumentCss()` (the app's .markdown-body/hljs/theme variables, exported from exportPdf.ts for reuse) + shell styles (reuse --editor-bg and other variables, with `:root`/`.dark` definitions automatically included in collected CSS); `inlineKatexFonts` only when formulas exist; `<html>.dark` toggle + localStorage `vividmark-site-theme` + inline head anti-flash script; directory collapsing uses `<details>/<summary>` with zero JS; `.nojekyll` supports GitHub Pages.
+- **Heading IDs**: GitHub-style slugs (preserve Unicode letters/numbers, strip punctuation, spaces to hyphens, duplicate suffix -1), post-processed into h1–h6 through DOMParser so in-page and cross-page `#anchor` links work.
+- **Menu wiring**: `export-site` starts disabled, and `syncMenuEnabled` synchronizes it from `openedFolder` (following file-reveal); handleMenuAction calls `exportSite()` directly (folder-level actions do not use the editor-\* bus, following file-open-folder).
+
+### Known Limitations (Accepted in First Version)
+
+- read_directory depth limit 10; overwrite does not clean old files (repeated exports leave HTML from deleted sources); no site search or per-page TOC; links to `.md` outside the export set also change extension (they would be broken after deployment anyway).
+
+### Config Awareness (2026-08-14 P1, `siteConfig.ts`)
+
+- Flavor detection priority: mkdocs > vuepress > plain. Root `mkdocs.yml` → mkdocs flavor, with `docs_dir` narrowing export scope; a parent directory's MkDocs config is accepted if its `docs_dir` points back to the opened directory; a `.vuepress` directory → vuepress flavor.
+- MkDocs side navigation = original nav config (`buildNavFromMkdocsNav`): curated allowlist—unlisted pages are not automatically appended; external entries open in a new window; entries with missing files are skipped and logged.
+- Title chain: nav > frontmatter > H1 > filename; frontmatter is stripped without rendering; export-success notice includes the config source.
 
 ---
 
-## 2026-08-14 PlantUML 本地渲染（@plantuml/core TeaVM 引擎，替代在线服务）
+## 2026-08-13 Window Cannot Close (Tauri 2.10 ACL Tightening: allow-destroy Is Non-Default)
 
-### 选型
+> Affected version: 0.4.0 (macOS). Red light / Cmd+W / File menu Close Window all silently failed; yellow/green lights worked.
 
-- **采用**：官方 `@plantuml/core@1.2026.6`（plantuml/plantuml#2715，TeaVM 编译的纯 JS 引擎；**≥1.2026.6 才是 MIT 许可，更早版本是 GPL**）。plantuml.js 7.15MB + viz-global.js 1.44MB（Graphviz/Viz.js，WASM 已内联 base64，零额外 fetch）+ openiconic.js 51KB；emoji.js（1.88MB，`<:emoji:>` sprite）未打包，需要时后补。
-- **排除 CheerpJ 路线**（plantuml/plantuml.js、sakirtemel/plantuml-wasm）：其许可强制要求 Leaning Technologies 云端 runtime，不是真离线。
-- **排除 plantuml.jar + JRE**：依赖用户机器装 Java，与「轻量、不依赖外部运行时」的约束冲突。
+### Symptoms
 
-### 资产与加载
+Clicking the red light did not close the window; Cmd+W and menu Close also failed. Closing through accessibility (AX) worked. The installed 0.4.0 reproduced it too, ruling out then-uncommitted frontend changes.
 
-- vite-plugin-static-copy 把 `node_modules/@plantuml/core/{plantuml.js,viz-global.js,openiconic.js,LICENSE}` 拷到 `vendor/plantuml/`（不进 git，版本随 package.json）；dist 体积 5.1MB → ~14MB。
-- `src/lib/plantuml.ts` 懒加载：首个 UML 图出现才 `loadScript(viz-global.js) → loadScript(openiconic.js) → import(plantuml.js)`（前两个是 classic script，注册 `window.Viz` / `window.PLANTUML_OPENICONIC` 全局，必须先于渲染；动态 import 用 `/* @vite-ignore */` 绕过打包分析）。
+### Root-Cause Chain
 
-### 引擎行为要点（本机实测 + 官方文档）
+1. User-triggered macOS close (red light / Cmd+W / menu) goes through `performClose:` → tao `windowShouldClose:` → emits `CloseRequested` and **returns NO** (the window does not close directly; the application layer handles it).
+2. Tauri sees a frontend `onCloseRequested` listener (`src/lib/windowManager.ts` dirty confirmation), intercepts default close, and sends `tauri://close-requested` to the webview.
+3. After the frontend handler determines the document is clean and does not call `preventDefault`, the `@tauri-apps/api` wrapper executes `await this.destroy()` to actually destroy the window (see onCloseRequested in `node_modules/@tauri-apps/api/window.js`).
+4. **Since Tauri 2.10, `core:window:allow-destroy` is no longer in the default permission set** (allow-start-dragging / allow-set-title were removed in the same batch and had already caused issues), so ACL silently denies `destroy()`'s invoke → Promise rejects unhandled → the window remains forever.
 
-- **同一 JS 上下文必须串行渲染**（引擎共享内部状态，并发静默互相覆盖，官方明示）——封装层 Promise 队列强制串行；另有结果缓存（Map，LRU 上限 200）+ inflight 去重。
-- `dark` 选项只有 `render(lines, targetId, {dark})` 文档化（renderToString 没有）→ 统一 detached div（离屏绝对定位，**不用 display:none** 以免影响引擎内部测量）+ MutationObserver 等 `<svg>` 出现取 innerHTML，15s 超时 reject。
-- 语法错误也会产出「错误示意图」SVG（与在线服务行为一致），reject 只发生在引擎级故障/超时 → 调用方回退 plantuml.com 在线 img（保留旧展示路径，离线环境下与旧版表现相同，不算回归）。
-- 引擎需要 canvas 2D 测文本：**jsdom 跑不了**（实测卡在 getContext 超时），单测用 `setPlantUmlEngineForTests` 注入假引擎；真引擎冒烟在 `e2e/plantuml.spec.ts`（Playwright 拦截 plantuml.com 外发请求，证明纯离线渲染）。
-- 多窗口各 webview 独立加载引擎副本（内存换隔离，接受）。
+Why every other path worked, making this misleading:
 
-### 管线改造
+- AX (System Events clicking the button) triggers a more direct close path that **bypasses `windowShouldClose:`**, avoiding the JS gate → closes.
+- Yellow (minimize) / green (fullscreen) do not pass the `CloseRequested` gate → normal.
+- Webview clicks and menubar opening work—only “close window” is swallowed by the gate.
 
-- markdown-it `highlight` 回调必须同步 → fence 与 `@startuml` 行内（parser.ts）只产 `<div class="plantuml-diagram" data-plantuml-src="encodeURIComponent(源码)"><div class="plantuml-loading">` 占位符（顺带消除了 preprocessPlantUML 手拼 URL 的重复实现）。
-- 预览（Editor.tsx）：`renderPlantUmlPlaceholders(container, {dark})` DOM 渐进渲染（文本先出、SVG 后补）；占位 div 渲染后保留 data 属性，主题切换按新 dark 重跑即可（SVG 颜色渲染期确定，CSS 变量管不到 SVG 内部）。
-- 导出（PDF/站点）：`parseMarkdownAsync` 签名从 `(content, baseDir?)` 改为 `(content, { baseDir?, preserveImages?, inlinePlantUml? })`；`inlinePlantUml: true` 时对 HTML 字符串替换占位符为内联 SVG——PDF 隐藏窗口与导出站点从此零网络依赖（同时修复站点「部署后需联网」的首版限制）。
-- WYSIWYG（plantUmlCodeBlockView.ts）：预览+源码双区不变，预览改本地渲染（500ms 防抖 + 渲染序号防陈旧覆盖 + editorStore `isDarkMode` 订阅重渲染，destroy 时取消订阅并递增序号使进行中渲染失效）。
-- WYSIWYG 侧裸 `@startuml`（非围栏包裹的行内写法）不做特殊处理。
+### Fix
 
-### 试用回归暴露的两个 bug（当日修复）
+- Add `core:window:allow-destroy` to `src-tauri/capabilities/default.json` (alongside existing allow-start-dragging / allow-set-title).
+- Also fixed File menu Close Window displaying English: `PredefinedMenuItem::close_window(app, None)` default text does not follow system language (the app bundle has no localized lproj), so it now explicitly receives `Labels.close_window` (Chinese “关闭窗口” / English "Close Window").
 
-- **切换视图模式后图不显示**：预览容器只在 preview/split 模式挂载（Editor.tsx JSX 条件渲染），占位渲染 effect 依赖只有 `[renderedHtml, isDarkMode]`——从 WYSIWYG/Source 切入时容器是新挂载但依赖未变，effect 不重跑，占位符永远停在加载态。首版 e2e 能过纯属 120ms 防抖让 renderedHtml 落在切换之后的时序运气。修复：deps 补 `viewMode`；回归测试「内容就绪后静置再切模式」。**教训：effect 依赖必须覆盖「容器可用性」的来源。**
-- **行内正则破坏围栏/行内代码**：`@startuml...@enduml` 行内替换正则不理解 Markdown 结构——围栏代码块里的 plantuml 源码（带标记是常态写法）和行内代码里的 `@startuml` 提及（如语法说明文档）都会被误匹配、嵌套破坏（此问题在在线服务时代就潜伏，测试从未覆盖「围栏内含标记」场景）。修复：替换前 `FENCE_BLOCK_REGEX`（```/~~~ 围栏）+ `INLINE_CODE_REGEX`（单反引号单行 span）掩码代码区，替换后还原（编码进占位符 data 属性前先还原）；未闭合围栏不掩码（罕见用户错误，接受）。
+### Lessons
+
+- **After a Tauri upgrade, compare every window method called through the frontend JS API against the default set in `tauri/permissions/*/autogenerated/reference.md`**—ACL denial is completely silent (invoke rejects with no UI feedback), indistinguishable from “click does nothing.”
+- Useful diagnosis for “click does nothing”: compare AX triggering (System Events) with synthesized mouse events (CGEvent)—AX dispatches an action directly while synthesized clicks follow the complete hit chain, and their difference quickly isolates the failing layer. Synthesized clicks work on native Tauri-window buttons (yellow light can trigger) and Finder, so the method itself is reliable.
+- Related behavior confirmation: destroying the **last** window through destroy() also exits the app (Tauri default; `RunEvent::ExitRequested` is not connected). This is currently accepted; for future Typora-style “close window without quitting, remain in Dock,” intercept ExitRequested + prevent_exit in the run callback.
 
 ---
 
-## 2026-08-14 SEO 与推广运营笔记
+## 2026-08-14 macOS Traffic Lights “Centered First, Then Jump Up” (setTitle Makes AppKit Reset Button Positions)
 
-非技术实现，属发布/运营知识，随发布流程一并参考：
+### Symptoms
 
-- **Search Console 资源 URL 必须填站点根目录**（`https://scottli139.github.io/vividmark/`）；误填 `.../sitemap.xml/` 会导致 HTML 验证文件/meta 无处可放。验证 meta token 全账号通用，重开资源不用换 token。提交 sitemap 后 "Couldn't fetch" 是过渡态，数小时~数天自动转 Success，不用重提。
-- **Pages 站点 SEO 件**：`docs/index*.html` 头部（关键词 title/description、OG/Twitter 卡片、JSON-LD SoftwareApplication、中英 hreflang）+ `docs/sitemap.xml`（含 hreflang 注解）+ `docs/robots.txt` + `docs/images/og-image.png`（1200×630，`sips -Z 1200` 后 `-c 630 1200` 从截图裁）。**坑：JSON-LD 里有 `softwareVersion` 字段，发版 bump 三处版本号时需同步这两处。**
-- **AlternativeTo**：新注册账号须满 7 天才能 "Suggest new application"（反垃圾）；listing 审核数天~一周；通过后到 Typora/Obsidian/MarkText 等页面 "Suggest alternative" 挂载。外链 dofollow、DR≈80，是 "typora alternative" 搜索词的主要入口。
-- **awesome-markdown-editors 2026 新政策**：新条目一律先加 `UPCOMING.md`（不再直接进 README），必须附源码链接；无源码项目进 `COMMERCIAL.md`。
-- **Baidu 对 github.io 收录极差**（爬虫基本不抓）。中文流量主渠道是 HelloGitHub（GitHub issue 自荐，人工月刊，选中后 1~2 期刊出）与社区投稿（V2EX/掘金/少数派）；若需 Baidu 收录中文站点，得用 Gitee Pages 或自有域名镜像。
+Immediately after window creation, traffic lights were vertically centered in the 48px toolbar; about 1.8s later (perceived as “they moved up after a while”), buttons jumped back to AppKit's default higher position. AX measured button centers moving from {131,45} to {128,38} (window origin {120,30}).
+
+### Root-Cause Chain
+
+1. `trafficLightPosition {x:12, y:25.5}` in `tauri.conf.json` is applied by tao only **at window creation**, initially centered correctly. (Tao semantics: titlebar height = button height 14pt + y, with buttons attached to the container bottom; traffic-light vertical-centering formula y = target button-top offset + 8.5pt, so a 48px toolbar corresponds to y = 25.5.)
+2. After every render, frontend `Toolbar.tsx` called `setTitle` from `@tauri-apps/api/window` to synchronize the Typora-style title (filename ●). AppKit `setTitle:` triggers titlebar layout and resets standardWindowButton to its default frame—erasing trafficLightPosition.
+3. tao 0.34.5's `inset_traffic_lights` logic replays the inset only once in `drawRect`, changing only the button container's frame and not button y (measured: cannot self-heal); Tauri exposes no public API for runtime traffic-light rearrangement.
+
+### Fix
+
+Added `src-tauri/src/titlebar.rs`, exporting `set_window_title` to replace direct frontend setTitle:
+
+- `with_webview` obtains NSWindow on the main thread, calls `setTitle:`, then `layout_traffic_lights` explicitly rearranges: button container (superview) height = button height 14pt + 25.5, pinned to the top; three buttons x = 12 + i×spacing and top offset 16pt (converted into container coordinates through `convertRect:toView:nil`, because the titlebar view is flipped).
+- Frontend `Toolbar.tsx` now uses `invoke('set_window_title', { title })`; every later setTitle also restores centered traffic lights, providing self-healing.
+- Cargo.toml's objc2-app-kit needs the `NSView` feature.
+
+### Lessons
+
+- **On macOS, any call that changes a native NSWindow property (title, style) can trigger AppKit titlebar relayout**; Tauri-layer configuration applies only once at creation, and later layout must be replayed in native source.
+- Useful tools for window-chrome layout diagnosis: `osascript` + System Events reading `position of button N of window 1` (button 1/2/3 = red/yellow/green); polling catches timing issues such as “correct first, then jumps.”
+- Similar symptoms on Windows/Linux do not use this note (traffic lights are a macOS concept; this code is entirely cfg-gated to macOS).
 
 ---
 
-## 2026-08-17 vuepress best-effort（站点导出配置感知 P3，管线定型）
+## 2026-08-14 PlantUML Local Rendering (@plantuml/core TeaVM Engine Replacing Online Service)
 
-方案 `docs/site-export-config-plan.md` P3。两件小事，站点导出管线至此定型（Mermaid 导出侧内联解锁）：
+### Selection
 
-- **`.vuepress/public/*` → 站点根**：vuepress 风味下 exportSite 额外直读 `<docsRoot>/.vuepress/public`。**检查点结论：Rust `read_directory` 的隐藏文件/目录跳过只作用于列出的子项，直接读隐藏目录本身可行**——零新增 Rust 命令；`export_site` 写盘也不过滤点开头路径。`collectPublicAssets`（siteGenerator.ts）把 public 树全量文件（含 .md，public 约定就是原样镜像）映射为站点根资产。撞名规则：public 覆盖同 relPath 普通资产（warn 日志）；与页面 htmlPath 撞名的 public 条目丢弃（页面优先）。导航仍退回目录推导（sidebar 是可执行 JS 不解析，方案决策 2）。
-- **config title 正则提取**：`vuepressSiteTitle`（siteConfig.ts）先剥块注释与整行 `//` 注释（案例仓库实测有注释掉的配置项），再取首个 `title: '...'/"..."/\`...\`` 匹配（`.`不跨行；themeConfig 内的 title 因排在顶层后自然不赢）；转义引号还原、空白裁剪。探测侧`readVuepressSiteName`按 config.ts → config.js → config.mjs 命中即停，读取失败仅 warning 降级（best-effort 不阻断导出）。站点名链变为：mkdocs`site_name` → vuepress config title → 目录名。
+- **Adopted**: official `@plantuml/core@1.2026.6` (plantuml/plantuml#2715, pure JS engine compiled with TeaVM; **only ≥1.2026.6 is MIT-licensed; earlier versions are GPL**). plantuml.js 7.15MB + viz-global.js 1.44MB (Graphviz/Viz.js, WASM already base64-inlined, zero extra fetch) + openiconic.js 51KB; emoji.js (1.88MB, `<:emoji:>` sprite) is not bundled and can be added if needed.
+- **Rejected CheerpJ routes** (plantuml/plantuml.js, sakirtemel/plantuml-wasm): their licenses require Leaning Technologies' cloud runtime, so they are not truly offline.
+- **Rejected plantuml.jar + JRE**: requires Java on the user's machine, conflicting with “lightweight, no external runtime.”
 
-**devdocs 实仓验收**（一次性集成探针：invoke 用 node:fs 复刻 Rust 语义跑真实 `exportSite()`，38 页 40 资产全绿；探针用完即删）：范围收敛 docs/、nav 原文 + 外链、rn/ 与旧版 API 隐藏页导出但不进导航、frontmatter 剥离、24 处 `!!!` 渲染、PlantUML 内联接线、`.md` 互链重写、图片资产镜像、`.vuepress`/`.DS_Store` 零泄漏。实仓验证顺带暴露两个单测盲区（均已修复）：
+### Assets and Loading
 
-- **`file_exists` 只认文件不认目录**：Rust 原实现返回 `exists && is_file`，而风味探测的 `docs_dir` 存在性检查、`.vuepress` 探测、`.vuepress/public` 检查、文件树「创建副本」重名预检全部传目录——真机恒 false，mkdocs 范围收敛与 vuepress 风味整体失效（单测 fakeIo 把目录当存在，完全掩盖）。已改为存在即 true（文件或目录）。**教训：路径类 mock 的语义必须与 Rust 命令实现逐条对齐，本次靠真实仓库端到端才暴露。**
-- **站点导出曾「意外正确」地依赖 readFile 失败回退**：`isLocalPath` 认 `./` 前缀，导致 `parseMarkdownAsync` 无 baseDir 时也对相对图片尝试 base64 内联（PDF 专属路径），站点导出只是靠相对路径 readFile 必失败的兜底才保住相对 src。已在 `preserveImages` 时整体跳过 `preprocessImages`（parser.test.ts 有回归测试）。
+- vite-plugin-static-copy copies `node_modules/@plantuml/core/{plantuml.js,viz-global.js,openiconic.js,LICENSE}` to `vendor/plantuml/` (not committed; version follows package.json); dist size 5.1MB → ~14MB.
+- `src/lib/plantuml.ts` lazy-loads: the first UML diagram triggers `loadScript(viz-global.js) → loadScript(openiconic.js) → import(plantuml.js)` (the first two are classic scripts registering `window.Viz` / `window.PLANTUML_OPENICONIC` globals and must precede rendering; dynamic import uses `/* @vite-ignore */` to bypass bundle analysis).
 
-## 2026-08-17 MkDocs `!!!` admonition 双端支持 + exclude_docs（站点导出配置感知 P2）
+### Engine Behavior (Local Measurements + Official Documentation)
 
-方案 `docs/site-export-config-plan.md` P2。`!!!`（Python-Markdown 风格）与 `:::` 的关键差异：**无结束围栏，内容范围由「后续 4 空格/tab 缩进的行」决定**（空行悬挂：空行后仍是缩进行则归属容器）。
+- **Rendering within one JS context must be serial** (the engine shares internal state and concurrent calls silently overwrite one another, officially documented)—the wrapper enforces a Promise queue, plus result cache (Map, LRU cap 200) + inflight deduplication.
+- The `dark` option is documented only for `render(lines, targetId, {dark})` (not renderToString) → consistently use a detached div (offscreen absolute positioning, **not display:none**, to avoid affecting internal measurements) + MutationObserver waiting for `<svg>` before reading innerHTML, rejecting after 15s.
+- Syntax errors also produce an “error diagram” SVG (same as the online service), so reject occurs only for engine failures/timeouts → callers fall back to an online plantuml.com img (retaining the old display path; behavior in offline environments matches the old version and is not a regression).
+- The engine needs canvas 2D to measure text: **jsdom cannot run it** (measured hanging at getContext until timeout), so unit tests inject a fake engine through `setPlantUmlEngineForTests`; real-engine smoke coverage is `e2e/plantuml.spec.ts` (Playwright intercepts outbound plantuml.com requests, proving fully offline rendering).
+- Each window's webview loads an independent engine copy (memory traded for isolation, accepted).
 
-**预览/分栏（`src/lib/markdown/bangAdmonitionPlugin.ts`）**：自写块级 rule（`md.block.ruler.before('fence')`，alt 同 markdown-it-container 因此可中断段落、可嵌于引用/列表）——不能复用 markdown-it-container（成对围栏定界）。命中标记行后收集缩进内容行（`sCount - blkIndent >= 4` 或空行），dedent 一级（4 空格或 1 tab），`state.md.block.parse` 完整块级解析递归（嵌套 `!!!`、容器内围栏代码块走标准机制）。产出 HTML 与 `:::` 容器逐字节同构（CSS/测试锁定该结构）。**未知类型（mkdocs 扩展类型 abstract/question/...）显示降级 note 主题、默认标题取原类型名**。
+### Pipeline Changes
 
-**WYSIWYG（文本预处理路线）**：缩进信息到 mdast 层已被 commonmark 抹掉（`!!!` 块变成「标记行融合段落 + 缩进代码块兄弟节点」），故解析不在 remark 变换里做——`src/lib/markdown/bangAdmonition.ts` 的 `preprocessBangAdmonitions` 在 Milkdown 解析前把 `!!!` 缩进块转成**内部 `:::!` 形式**（bang 来源编码），挂在 `WysiwygEditor.tsx` 两个 markdown 入口（`defaultValueCtx` / 两处 `replaceAll`，测试里需手动同款包裹）。admonitionPlugin 的扩展 START_MARKER 识别 `:::!` 后置 PM 节点 `syntax: 'bang'` attr；序列化按 attr 分支输出 `!!! type "title"` + 内容每行 4 空格缩进——**语法保持往返（!!! 进 !!! 出），不归一成 `:::`**（否则会弄坏用户的 mkdocs 构建）。
+- markdown-it's `highlight` callback must be synchronous → fenced and `@startuml` inline forms (parser.ts) emit only `<div class="plantuml-diagram" data-plantuml-src="encodeURIComponent(source)"><div class="plantuml-loading">` placeholders (also eliminating preprocessPlantUML's duplicated hand-built URL implementation).
+- Preview (Editor.tsx): `renderPlantUmlPlaceholders(container, {dark})` progressively renders DOM (text first, SVG later); placeholder divs retain data attributes after rendering, so theme changes rerun with the new dark value (SVG colors are fixed at render time and CSS variables cannot reach inside SVG).
+- Export (PDF/site): `parseMarkdownAsync` signature changed from `(content, baseDir?)` to `(content, { baseDir?, preserveImages?, inlinePlantUml? })`; with `inlinePlantUml: true`, placeholders in the HTML string are replaced with inline SVG—PDF hidden windows and exported sites now need zero network (also fixing the first-version site limitation of “requires network after deployment”).
+- WYSIWYG (plantUmlCodeBlockView.ts): preview+source dual panes unchanged; preview now renders locally (500ms debounce + render sequence preventing stale overwrites + editorStore `isDarkMode` subscription for rerender; destroy unsubscribes and increments the sequence to invalidate in-flight renders).
+- Bare WYSIWYG `@startuml` (inline form not wrapped in a fence) receives no special handling.
 
-防坑要点：
+### Two Bugs Exposed by Trial Regression (Fixed Same Day)
 
-- **`:::!` 泄漏防腐**：内部形式只在瞬态文本存在。bang 配对用深度计数（colon 用最近端对齐 markdown-it-container 等长围栏行为）；**内容含 `:::` 标记的 bang 块预处理器直接不转换**（colon 嵌入 bang 的配对会错乱，降级原文优于改写源码）；手写 `:::!` 未配对时整体降级为段落原文。均有测试锁定。
-- **预处理器跳过**：围栏代码块内部（跟踪 fence 状态）、`:::` 容器内部整体透传；引用/列表内的 `!!!` 是已知边界（行首有 `>`/列表标记不转换，保持原文不损坏；预览侧经 markdown-it 块级机制正常渲染）。
-- **fence 掩码放宽**：parser.ts 的 FENCE_BLOCK_REGEX 缩进从 ` {0,3}` 放宽到 `[ \t]*`——`!!!` 内容整体缩进 4 空格，其内围栏不进掩码会被行内 `@startuml` 正则误替换；掩码在渲染前原样还原，放宽对顶层渲染无影响（顺带修复顶层缩进代码块内 `@startuml` 被误替换的旧边界）。
-- **nodeview 未知类型**：class 用 `admonitionDisplayClass`（未知 → note 主题），data attr 与 PM attr 保留原类型名，序列化不丢。
-- 标题序列化恒用引号形式（无引号标题首次往返被规范化）；含双引号的标题退回无引号原文。空容器输出仅标记行（`!!! note`）。
+- **Diagrams disappeared after switching view modes**: the preview container mounts only in preview/split (conditional Editor.tsx JSX), while the placeholder-render effect depended only on `[renderedHtml, isDarkMode]`—entering from WYSIWYG/Source mounts a new container with unchanged deps, so the effect does not rerun and placeholders stay loading forever. The first E2E passed only because the 120ms debounce happened to place renderedHtml after the switch. Fix: add `viewMode` to deps; regression test “wait after content is ready, then switch modes.” **Lesson: effect deps must cover the source of “container availability.”**
+- **Inline regex damaged fenced/inline code**: the `@startuml...@enduml` inline replacement regex did not understand Markdown structure—PlantUML source inside fenced code blocks (markers are normal there) and `@startuml` mentions inside inline code (for example, syntax documentation) were mismatched and nested incorrectly (this existed in the online-service era too; tests never covered “marker inside fence”). Fix: before replacement, mask code regions with `FENCE_BLOCK_REGEX` (```/~~~ fences) + `INLINE_CODE_REGEX` (single-backtick single-line spans), then restore afterward (restore before encoding into placeholder data attributes); unclosed fences are not masked (rare user error, accepted).
 
-**exclude_docs（mkdocs 1.5+，P2.3）**：`parseMkdocsConfig` 解析（官方多行字符串 + 兼容 YAML 数组；剥行内注释/空行）；`compileExcludePatterns`/`isExcludedPath`（siteConfig.ts）实现 .gitignore 语义（`!` 取反最后命中决定、`/` 锚定、`*`/`?` 不跨段、`**` 跨段、尾部 `/` 仅目录）；`filterFileTreeByExcludes`（siteGenerator.ts）在 exportSite 读树后过滤——**页面与资产同滤，路径相对 docs_dir**。这是唯一删减导出内容的配置（nav 只是导航白名单）；nav 指向被排除文件时走既有 missingPaths 跳过 + 日志。mkdocs 隐式默认（`.*`、`/templates/`）未复制：点文件 Rust 侧读目录已跳过，`/templates/` 是 mkdocs 主题概念、对内置生成器无意义。
+---
 
-## 2026-08-18 图表/图片全屏查看器（ImageLightbox，GitHub 式放大查看）
+## 2026-08-14 SEO and Outreach Operations Notes
 
-需求：Mermaid 图放大查看（对标 GitHub 图上的缩放/全屏控件）。定型方案：**全屏查看器（lightbox）**，范围覆盖 Mermaid + PlantUML + 普通 Markdown 图片，预览与 WYSIWYG 双端。
+Non-technical release/operations knowledge, referenced alongside the release process:
 
-**架构**：全局单例 `src/components/ImageLightbox.tsx` 挂 App.tsx，走既有 CustomEvent 总线打开——`app-open-image-viewer`，`detail: { html }`（被查看 svg/img 的 outerHTML）。纯逻辑全部在 `src/lib/diagramZoom.ts`（fitScale/clampScale/zoomAtPoint 锚点数学/resolveViewerTarget 命中判定/naturalSizeOf 尺寸读取），可单测。
+- **Search Console property URL must be the site root** (`https://scottli139.github.io/vividmark/`); entering `.../sitemap.xml/` leaves nowhere to place the HTML verification file/meta. Verification meta tokens are shared across the account, so recreating a property does not require a new token. After sitemap submission, "Couldn't fetch" is transitional and automatically becomes Success within hours to days; do not resubmit.
+- **Pages-site SEO assets**: `docs/index*.html` heads (keyword title/description, OG/Twitter cards, JSON-LD SoftwareApplication, bilingual hreflang) + `docs/sitemap.xml` (including hreflang annotations) + `docs/robots.txt` + `docs/images/og-image.png` (1200×630, crop from screenshot with `sips -Z 1200` then `-c 630 1200`). **Pitfall: JSON-LD contains `softwareVersion`; synchronize these two places when bumping the three release version numbers.**
+- **AlternativeTo**: newly registered accounts must be 7 days old before "Suggest new application" (anti-spam); listing review takes several days to a week; after approval, use "Suggest alternative" on Typora/Obsidian/MarkText pages. The external link is dofollow, DR≈80, and a major entry for the "typora alternative" search term.
+- **awesome-markdown-editors 2026 policy**: new entries go into `UPCOMING.md` first (no longer directly into README) and must include a source link; projects without source go into `COMMERCIAL.md`.
+- **Baidu indexes github.io very poorly** (its crawler mostly does not fetch it). Main Chinese-traffic channels are HelloGitHub (self-submission through GitHub issue, manual monthly selection, appearing within 1–2 issues if selected) and community posts (V2EX/Juejin/SSPai); if Baidu indexing of a Chinese site is needed, use Gitee Pages or a custom-domain mirror.
 
-**三个入口**：
+---
 
-- 预览点击：`Editor.tsx handlePreviewClick` 在链接分支**之后**加图表/图片分支（链接先行 return，mermaid 图内 `<a>`、链接包裹的 img 自然优先，不会误开查看器）。命中规则（`resolveViewerTarget`）：图表容器（`.mermaid-diagram`/`.plantuml-diagram`）取内联 svg，无 svg 取未破图 img（PlantUML 在线回退态），loading/error/破图态 null；否则取 `.markdown-body` 内普通 img。
-- WYSIWYG 图表块：`plantUmlCodeBlockView.ts` 在块容器（contentDOM 外）加 hover 放大按钮，点击时预览区有可查看内容才 dispatch；`stopEvent` 覆盖按钮（PM 不拦截点击）。
-- WYSIWYG 图片：`imageView.ts` 同款按钮（`viewerZoomButton.ts` 共享创建器）；**不劫持图片点击**（保留 PM 选中节点行为），破图占位态不打开。
-- 按钮 i18n 走命令式 `i18n.t()`（nodeview 非 React）；测试 setup.ts 的 react-i18next mock 表需同步加 `imageViewer.*` 键。
+## 2026-08-17 VuePress Best-Effort (Site-Export Config Awareness P3, Pipeline Finalized)
 
-**交互**：初始 fit（大图缩进 92%vw×88%vh，小图 1:1 不放大，下限 MIN_SCALE）；滚轮以光标为锚点缩放（0.1×–8×，**必须 `passive: false` + preventDefault**，坐标系以视口中心为原点、transform origin center）；pointer capture 拖拽平移；双击/按钮/键盘 0 重置；Esc 或点空白关闭（位移 >4px 的拖拽后 click 不关）。**缩放平移状态走 ref + 直写 DOM transform**——滚轮/拖拽高频操作不触发 React 重渲染，仅百分比显示走 state。打开时 focus 遮罩（tabIndex -1），键盘 +/-/0/Esc 不落入背景编辑器。
+Plan: `docs/site-export-config-plan.md` P3. Two small items finalized the site-export pipeline (unlocking Mermaid inlining on export):
 
-**注入规格化**（`naturalSizeOf` + 打开 effect）：svg 移除 width/height attr、`maxWidth: none`，按 viewBox → 数值属性 → getBBox（try/catch，jsdom 无布局）读原始尺寸并显式设像素宽高；img `maxWidth: none`（盖掉 Tailwind preflight 的 `max-width: 100%`，否则放大超不出视口宽），naturalWidth 未就绪挂 once load——**仅用户未手动缩放/平移时才自动 refit**。克隆的 mermaid SVG 与原文档共用 `url(#id)` marker 引用（原体仍在 DOM、定义相同，渲染一致，业界通用做法）。
+- **`.vuepress/public/*` → site root**: in vuepress flavor, exportSite additionally reads `<docsRoot>/.vuepress/public` directly. **Checkpoint finding: Rust `read_directory` hidden-file/directory skipping applies only to listed children; directly reading a hidden directory itself works**—zero new Rust commands; `export_site` disk writes also do not filter dot-prefixed paths. `collectPublicAssets` (siteGenerator.ts) maps every file in the public tree (including .md—the public convention is verbatim mirroring) to site-root assets. Collision rules: public overrides an ordinary asset with the same relPath (warn log); a public entry colliding with a page htmlPath is dropped (page wins). Navigation still falls back to directory inference (sidebar is executable JS and is not parsed, plan decision 2).
+- **Regex extraction of config title**: `vuepressSiteTitle` (siteConfig.ts) first strips block comments and full-line `//` comments (the case repository had commented-out config entries), then takes the first `title: '...'/"..."/\`...\`` match (`.` does not cross lines; a title inside themeConfig appears after top level and therefore does not win); escaped quotes are restored and whitespace trimmed. Detection `readVuepressSiteName` tries config.ts → config.js → config.mjs and stops on the first hit; read failures degrade to warning only (best-effort does not block export). Site-name chain: mkdocs `site_name` → vuepress config title → directory name.
 
-**CSS（globals.css 末节）**：预览侧 `cursor: zoom-in` + 图表卡片 hover 放大镜角标（`::after` 纯装饰、`pointer-events: none`、`:has()` 排除 loading/error 态）；**作用域必须限定 `.markdown-body:not(.wysiwyg-editor)`**——WYSIWYG 根同时带 `.markdown-body` 与 `.wysiwyg-editor` 两个 class，图表/图片在 WYSIWYG 走按钮、不要角标与 zoom-in 光标。lightbox 自身 z-index 60（Dialog 是 50），工具栏/遮罩全走 CSS 变量双主题。**内容必须套实体卡片底（`--editor-bg` + padding 16，fit 计算计入 padding）**——mermaid/plantuml 的 SVG 背景透明，直接压在半透遮罩上会透出下方文档内容、线条文字看不清（验收发现；GitHub 查看器同样是实体底）。
+**devdocs real-repository acceptance** (one-off integration probe: invoke replicated Rust semantics with node:fs to run real `exportSite()`; all 38 pages and 40 assets passed; probe deleted afterward): scope narrowed to docs/, original nav + external links, rn/ and old API hidden pages exported but not in nav, frontmatter stripped, 24 `!!!` renderings, PlantUML inlining connected, `.md` cross-links rewritten, image assets mirrored, zero `.vuepress`/`.DS_Store` leakage. Real-repository verification exposed two unit-test blind spots (both fixed):
 
-**jsdom 测试适配**：viewport clientWidth 为 0 → 组件回退 `window.innerWidth`（1024×768）；img 异步路径用 `Object.defineProperty(naturalWidth/Height)` + `fireEvent.load` 触发 refit。
+- **`file_exists` recognized files but not directories**: the original Rust implementation returned `exists && is_file`, while flavor detection's `docs_dir` existence check, `.vuepress` detection, `.vuepress/public` check, and file-tree Create Copy name precheck all pass directories—always false on real devices, completely breaking MkDocs scope narrowing and VuePress flavor detection (unit-test fakeIo treated directories as existing and hid this). Changed to true for any existing path (file or directory). **Lesson: path-mock semantics must align with the Rust command implementation one by one; only real-repository end-to-end testing exposed this.**
+- **Site export had been “accidentally correct” through a readFile-failure fallback**: `isLocalPath` recognizes `./` prefixes, so `parseMarkdownAsync` without baseDir also attempted base64 inlining for relative images (the PDF-specific path); site export retained relative src only because relative-path readFile necessarily failed and fell back. With `preserveImages`, `preprocessImages` is now skipped entirely (regression test in parser.test.ts).
 
-测试：diagramZoom.test.ts（数学 + 命中全分支 + 尺寸读取）、ImageLightbox.test.tsx（打开/关闭三路径/按钮与键盘缩放/img 异步 refit）、nodeview 两侧各加按钮用例；E2E `e2e/mermaid.spec.ts` 追加真机用例（点击开查看器 → 放大 125% → 重置 → Esc → 重开点空白关闭）。
+## 2026-08-17 MkDocs `!!!` Admonitions in Both Editors + exclude_docs (Site-Export Config Awareness P2)
 
-## 2026-08-18 文件变更监控（外部修改自动重载，Phase 5 收尾）
+Plan: `docs/site-export-config-plan.md` P2. Key difference between `!!!` (Python-Markdown style) and `:::`: **no closing fence; content extends across subsequent lines indented by 4 spaces/tab** (blank lines can hang: if an indented line follows a blank line, both belong to the container).
 
-需求：外部程序（VS Code/git checkout/脚本）改动当前打开文件时自动感知。冲突策略与多窗口、自动保存同期设计。
+**Preview/Split (`src/lib/markdown/bangAdmonitionPlugin.ts`)**: custom block rule (`md.block.ruler.before('fence')`, same alt as markdown-it-container so it can interrupt paragraphs and nest in quotes/lists)—markdown-it-container cannot be reused (it requires paired fences). After matching the marker line, collect indented content lines (`sCount - blkIndent >= 4` or blank), dedent one level (4 spaces or 1 tab), and recursively parse full blocks through `state.md.block.parse` (nested `!!!` and fenced code inside containers use standard mechanisms). Output HTML is byte-structurally identical to `:::` containers (CSS/tests lock that structure). **Unknown types (MkDocs extension types abstract/question/...) degrade visually to the note theme, with the original type name as default title**.
 
-**架构**：Rust 定制模块 `src-tauri/src/file_watch.rs`（`notify = "6.1"`，不引 tauri-plugin-fs-watch——需要按窗口定向 emit 与受控防抖，插件是全局广播且无防抖控制）。每窗口一个 watcher（SDI 单文档），label → WatchEntry 注册表；命令 `watch_file` / `unwatch_file`；窗口 `Destroyed` 钩子（lib.rs on_window_event）释放。
+**WYSIWYG (text-preprocessing route)**: indentation information is already erased at mdast level by commonmark (a `!!!` block becomes “marker-line merged paragraph + indented-code-block sibling”), so parsing does not occur in the remark transform—`preprocessBangAdmonitions` in `src/lib/markdown/bangAdmonition.ts` converts `!!!` indented blocks to **internal `:::!` form** before Milkdown parsing (encoding bang origin), connected at both Markdown entries in `WysiwygEditor.tsx` (`defaultValueCtx` / both `replaceAll` calls; tests need the same manual wrapping). admonitionPlugin's extended START_MARKER recognizes `:::!` and sets PM node attr `syntax: 'bang'`; serialization branches on that attr to output `!!! type "title"` + every content line indented 4 spaces—**syntax-preserving round trip (!!! in, !!! out), never normalized to `:::`** (which would break the user's MkDocs build).
 
-**关键决策**：
+Pitfall controls:
 
-- **监听父目录（NonRecursive）再按目标路径过滤**，不直接监听文件——FSEvents 本就目录级，且原子保存（write tmp + rename swap inode）场景直盯文件会丢监视。事件路径与传入路径形态可能不同（symlink），canonicalize 前后两份都比对。
-- **防抖在 Rust**：事件进 mpsc，专属线程 300ms 静默期后按 `fs::metadata` 重新分类 changed/removed——不依赖 notify 事件类型，rename-away 等边界自然归 removed。watcher drop → 发送端断开 → 线程自行退出，无需显式停止信号。
-- **回声抑制在前端**（`src/lib/fileWatcher.ts`）：`lastKnownContent` = 我最后读过或写过的磁盘内容，open/save 成功/reload/冲突选保留 四个时机更新（fileOps.ts 埋点 `markFileContentKnown`）。监听事件先 `read_file` 读盘比对，相等即自身写入回声，忽略。Rust 侧零配合。
+- **Internal `:::!` leak prevention**: internal form exists only in transient text. Bang pairing uses depth counting (colon uses nearest-end alignment, matching markdown-it-container's equal-length fence behavior); **a bang block whose content contains `:::` markers is not converted at all** (colon-in-bang pairing can become incorrect; degrading to source is better than rewriting user source); hand-written unmatched `:::!` degrades entirely to literal paragraphs. Tests lock all of these.
+- **Preprocessor skips**: inside fenced code blocks (fence-state tracking), and passes through entire `:::` containers; `!!!` inside quotes/lists is a known boundary (lines beginning `>`/list markers are not converted and remain undamaged; preview renders them normally through markdown-it's block mechanism).
+- **Fence-mask relaxation**: FENCE_BLOCK_REGEX indentation in parser.ts widened from ` {0,3}` to `[ \t]*`—`!!!` content is indented 4 spaces overall, and fences inside it would otherwise escape masking and be incorrectly replaced by the inline `@startuml` regex; masks restore verbatim before rendering, so widening has no effect on top-level rendering (also fixing the old boundary where `@startuml` inside a top-level indented code block was replaced).
+- **Unknown-type nodeview**: class uses `admonitionDisplayClass` (unknown → note theme), while data attrs and PM attrs preserve the original type name for lossless serialization.
+- Title serialization always uses quoted form (unquoted titles normalize on first round trip); titles containing double quotes fall back to unquoted source. Empty containers output only the marker line (`!!! note`).
 
-**分流**（纯函数 `decideWatchAction`，单测主体）：磁盘==lastKnown → 忽略；外部修改+干净 → 静默重载（setContent+setDirty(false)，复用打开文件的 store→编辑器同步链，CM/WYSIWYG 既有 effect 兜底）；外部修改+脏 → 冲突弹窗「重新加载/保留我的更改」（Dialog 首次支持自定义按钮文案，dialogStore.ask 第三参 labels）；外部删除 → alert 提示一次（removedNotified 幂等，保存重建后复位），不清 filePath，下次保存经 save_file 的 create_dir_all+write 重建。
+**exclude_docs (MkDocs 1.5+, P2.3)**: `parseMkdocsConfig` parses it (official multiline strings + compatible YAML arrays; strips inline comments/blank lines); `compileExcludePatterns`/`isExcludedPath` (siteConfig.ts) implement .gitignore semantics (`!` negation decided by last match, `/` anchored, `*`/`?` do not cross segments, `**` does, trailing `/` directories only); `filterFileTreeByExcludes` (siteGenerator.ts) filters after exportSite reads the tree—**pages and assets are both filtered, with paths relative to docs_dir**. This is the only config that removes exported content (nav is only a navigation allowlist); when nav points to an excluded file, existing missingPaths skipping + logging applies. MkDocs implicit defaults (`.*`, `/templates/`) are not replicated: Rust directory reads already skip dotfiles, and `/templates/` is an MkDocs theme concept with no meaning for the built-in generator.
 
-**自动保存竞态**：冲突弹窗未决期间 `useAutoSave` 跳过（`isWatchConflictPending()`）——否则 2s 定时器会在用户抉择前静默覆盖外部版本。跳过后不重排定时器，下次击键自然恢复（抉择期间本就不该落盘）。冲突选「重新加载」时**重读磁盘**（弹窗期间可能又变），选「保留」时把当前磁盘版记为 lastKnown——下次保存覆盖它，且该事件的重复突发不再弹窗。
+## 2026-08-18 Fullscreen Diagram/Image Viewer (ImageLightbox, GitHub-Style Zoom)
 
-**边界**：常开无设置项；只监听当前文档（文件树/文件夹不监听）；浏览器 dev/E2E 无 watcher（isTauri 门控）；重载不保持光标/滚动（同打开文件路径，后续可迭代）。
+Requirement: enlarged Mermaid viewing (matching GitHub's diagram zoom/fullscreen controls). Final design: **fullscreen viewer (lightbox)** covering Mermaid + PlantUML + ordinary Markdown images in both Preview and WYSIWYG.
 
-测试：fileWatcher.test.ts 13 例（decideWatchAction 全分支 + 事件流集成——重载/回声/冲突两分支/未决忽略/删除幂等/路径过滤/watch 切换）。
+**Architecture**: global singleton `src/components/ImageLightbox.tsx` mounted in App.tsx, opened through the existing CustomEvent bus—`app-open-image-viewer`, `detail: { html }` (outerHTML of the viewed svg/img). All pure logic lives in `src/lib/diagramZoom.ts` (fitScale/clampScale/zoomAtPoint anchor math/resolveViewerTarget hit detection/naturalSizeOf dimension reading), unit-testable.
 
-## 2026-10-18 MkDocs `???` 可折叠提示框（预览/导出）
+**Three entries:**
 
-`src/lib/markdown/collapsibleAdmonitionPlugin.ts` 为 `??? type ["title"]` 注册独立 markdown-it 块级规则。内容边界沿用 MkDocs 的 4 空格/tab 缩进和递归块级解析，HTML 使用未带 `open` 属性的原生 `<details>` / `<summary>`，内容复用 `.admonition-content` 与现有类型配色。该规则只挂在预览/导出解析器；WYSIWYG 适配不在本次范围。覆盖默认/自定义标题、未知类型、嵌套列表/围栏代码、异步导出和错误标记的单测位于 `src/lib/markdown/__tests__/collapsibleAdmonitionPlugin.test.ts`。
+- Preview click: `Editor.tsx handlePreviewClick` adds diagram/image branches **after** the link branch (links return first; `<a>` inside Mermaid and link-wrapped img naturally take priority and do not accidentally open the viewer). Hit rules (`resolveViewerTarget`): diagram containers (`.mermaid-diagram`/`.plantuml-diagram`) use inline svg, falling back to an unbroken img without svg (PlantUML online-fallback state); loading/error/broken-image states return null; otherwise use an ordinary img inside `.markdown-body`.
+- WYSIWYG diagram block: `plantUmlCodeBlockView.ts` adds a hover zoom button to the block container (outside contentDOM), dispatching only when preview has viewable content; `stopEvent` covers the button (PM does not intercept the click).
+- WYSIWYG image: same button in `imageView.ts` (shared creator `viewerZoomButton.ts`); **image clicks are not hijacked** (retaining PM node selection), and broken-image placeholders do not open.
+- Button i18n uses imperative `i18n.t()` (nodeviews are not React); the react-i18next mock table in test setup.ts must add matching `imageViewer.*` keys.
+
+**Interaction**: initial fit (large images shrink into 92%vw×88%vh, small images stay 1:1 without enlargement, lower bound MIN_SCALE); wheel zoom anchors at the cursor (0.1×–8×, **must use `passive: false` + preventDefault**, coordinates originate at viewport center with transform origin center); pointer capture drag-pans; double-click/button/keyboard 0 resets; Esc or blank-area click closes (click after a >4px drag does not). **Zoom/pan state uses refs + direct DOM transform writes**—high-frequency wheel/drag operations do not trigger React rerenders; only percentage display uses state. On open, focus the overlay (tabIndex -1) so keyboard +/-/0/Esc do not reach the background editor.
+
+**Injected-content normalization** (`naturalSizeOf` + open effect): svg removes width/height attrs and sets `maxWidth: none`, reading original dimensions from viewBox → numeric attributes → getBBox (try/catch; jsdom has no layout) and setting explicit pixel width/height; img uses `maxWidth: none` (overriding Tailwind preflight `max-width: 100%`, otherwise zoom cannot exceed viewport width), with once load attached if naturalWidth is not ready—**automatic refit occurs only before the user manually zooms/pans**. The cloned Mermaid SVG shares `url(#id)` marker references with the original document (the original remains in DOM with identical definitions, rendering consistently; common industry practice).
+
+**CSS (last section of globals.css)**: preview `cursor: zoom-in` + diagram-card hover magnifier corner badge (`::after` purely decorative, `pointer-events: none`, `:has()` excludes loading/error states); **scope must be limited to `.markdown-body:not(.wysiwyg-editor)`**—the WYSIWYG root has both `.markdown-body` and `.wysiwyg-editor`, and its diagrams/images use buttons rather than badge/zoom-in cursor. Lightbox z-index 60 (Dialog is 50), toolbar/overlay use CSS variables in both themes. **Content must sit on an opaque card (`--editor-bg` + padding 16, included in fit calculation)**—Mermaid/PlantUML SVG backgrounds are transparent, and placing them directly over the translucent overlay reveals document content underneath and makes lines/text hard to read (found during acceptance; GitHub's viewer likewise uses an opaque background).
+
+**jsdom test adaptation**: viewport clientWidth 0 → component falls back to `window.innerWidth` (1024×768); async img path uses `Object.defineProperty(naturalWidth/Height)` + `fireEvent.load` to trigger refit.
+
+Tests: diagramZoom.test.ts (math + all hit branches + dimension reading), ImageLightbox.test.tsx (open/three close paths/button and keyboard zoom/async img refit), button cases in both nodeviews; E2E `e2e/mermaid.spec.ts` adds real-engine coverage (click to open viewer → zoom 125% → reset → Esc → reopen and click blank area to close).
+
+## 2026-08-18 File Watching (Automatic Reload on External Changes, Phase 5 Completion)
+
+Requirement: automatically detect changes to the currently open file made by external programs (VS Code/git checkout/scripts). Conflict strategy was designed alongside multi-window and auto-save.
+
+**Architecture**: custom Rust module `src-tauri/src/file_watch.rs` (`notify = "6.1"`, not tauri-plugin-fs-watch—per-window targeted emit and controlled debounce were required, while the plugin broadcasts globally without debounce control). One watcher per window (SDI single document), label → WatchEntry registry; commands `watch_file` / `unwatch_file`; window `Destroyed` hook (lib.rs on_window_event) releases it.
+
+**Key decisions:**
+
+- **Watch the parent directory (NonRecursive) and filter by target path**, rather than watching the file directly—FSEvents is directory-level anyway, and atomic saves (write tmp + rename swapping inode) lose direct file watchers. Event paths and input paths may differ in form (symlink), so compare both before and after canonicalization.
+- **Debounce in Rust**: events enter mpsc, and a dedicated thread waits for a 300ms quiet period before reclassifying changed/removed through `fs::metadata`—not relying on notify event types, so boundaries such as rename-away naturally become removed. Watcher drop → sender disconnects → thread exits by itself, with no explicit stop signal.
+- **Echo suppression in frontend** (`src/lib/fileWatcher.ts`): `lastKnownContent` = the disk content we most recently read or wrote, updated at four points: successful open/save/reload/conflict-keep (fileOps.ts instrumentation `markFileContentKnown`). A watch event first reads disk through `read_file` and compares; equality means our own write echo and is ignored. No Rust cooperation is needed.
+
+**Routing** (pure function `decideWatchAction`, main unit-test target): disk==lastKnown → ignore; external modification + clean → silent reload (setContent+setDirty(false), reusing the open-file store→editor sync chain, with existing CM/WYSIWYG effects as fallback); external modification + dirty → conflict dialog “Reload/Keep My Changes” (Dialog's first custom button labels through dialogStore.ask's third labels argument); external deletion → alert once (removedNotified idempotent, reset after save recreates), retaining filePath so the next save recreates through save_file's create_dir_all+write.
+
+**Auto-save race**: while a conflict dialog is unresolved, `useAutoSave` skips (`isWatchConflictPending()`)—otherwise its 2s timer could silently overwrite the external version before the user chooses. Skipping does not reschedule the timer; the next keystroke resumes naturally (nothing should be written while the decision is pending anyway). “Reload” **rereads disk** (it may have changed again during the dialog); “Keep” records the current disk version as lastKnown—the next save overwrites it, and duplicate bursts of that event do not reopen the dialog.
+
+**Boundaries**: always on with no setting; watches only the current document (not file tree/folder); no watcher in browser dev/E2E (isTauri gate); reload preserves neither cursor nor scroll (same as opening a file; can be iterated later).
+
+Tests: 13 cases in fileWatcher.test.ts (all decideWatchAction branches + event-flow integration—reload/echo/both conflict branches/ignore-while-pending/idempotent deletion/path filtering/watch switching).
+
+## 2026-10-18 MkDocs `???` Collapsible Admonitions (Preview/Export)
+
+`src/lib/markdown/collapsibleAdmonitionPlugin.ts` registers an independent markdown-it block rule for `??? type ["title"]`. Content boundaries follow MkDocs's 4-space/tab indentation and recursive block parsing; HTML uses native `<details>` / `<summary>` without an `open` attribute, and content reuses `.admonition-content` and existing type colors. This rule is attached only to the preview/export parser; WYSIWYG adaptation is outside this scope. Unit tests covering default/custom titles, unknown types, nested lists/fenced code, async export, and error markers live in `src/lib/markdown/__tests__/collapsibleAdmonitionPlugin.test.ts`.

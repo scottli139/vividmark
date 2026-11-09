@@ -4,7 +4,7 @@
 
 感谢你有兴趣参与贡献！VividMark 是一个开源的类 Typora Markdown 编辑器，基于 Tauri 2 + React 19 + TypeScript。欢迎各种形式的贡献——bug 报告、新功能、文档、测试、翻译。
 
-> 🤖 **欢迎使用 AI 辅助贡献。** 本项目 100% 由 AI 构建。你可以自由使用 Claude Code、Kimi CLI、Cursor 等工具——仓库根目录的 `AGENTS.md` 就是为 AI 助手准备好的上下文文件。唯一的标准是 CI 通过。
+> 🤖 **欢迎使用 AI 辅助贡献。** 本项目 100% 由 AI 构建。你可以自由使用 Claude Code、Kimi CLI、Cursor 等工具——仓库根目录的 `AGENTS.md`（中文镜像 `AGENTS.zh-CN.md`）就是为 AI 助手准备好的上下文文件。唯一的标准是 CI 通过。
 
 ## 环境搭建
 
@@ -39,11 +39,11 @@ pnpm test:e2e     # Playwright E2E，UI 改动建议跑
 
 ## Commit 规范
 
-约定式前缀 + 简要描述（中英文均可，与现有提交记录保持一致）：
+约定式前缀 + 简明英文描述。Commit message 统一使用英文：
 
 ```
-feat: WYSIWYG 查找替换接入
-fix: 修复大纲混入代码块注释
+feat: integrate find and replace into WYSIWYG
+fix: exclude code block comments from the outline
 docs: update README screenshots
 test / chore / style / refactor: ...
 ```
@@ -60,14 +60,14 @@ test / chore / style / refactor: ...
 ## 值得了解的约定
 
 - **Markdown 源码是唯一事实来源。** WYSIWYG（Milkdown/ProseMirror）与源码（CodeMirror 6）之间必须往返无损——有测试锁定这一点
-- **双语同步约定**：`README.md` ↔ `README.zh-CN.md`、`docs/index.html` ↔ `docs/index.zh-CN.html` 必须成对更新；UI 文案要同时进 `src/i18n/locales/en.json` 和 `zh-CN.json`
+- **双语同步约定**：`README.md`、`PLAN.md`、`AGENTS.md`、`docs/implementation-notes.md`、`docs/DESIGN_SYSTEM.md` 与各自的 `.zh-CN` 版本必须成对更新；`docs/index.html` ↔ `docs/index.zh-CN.html` 也必须同步；UI 文案要同时进 `src/i18n/locales/en.json` 和 `zh-CN.json`
 - **新语法 / 新渲染能力** → 同步在 `examples/` 下添加示例文件（kebab-case，参考 `math-formulas.md`）
-- 架构细节、已知踩坑、Tauri 命令与快捷键一览表都在 `docs/implementation-notes.md`——动编辑器代码前先读相关章节
+- 架构细节、已知踩坑、Tauri 命令与快捷键一览表都在 `docs/implementation-notes.zh-CN.md`——动编辑器代码前先读相关章节
 
 ## 从哪里开始
 
 - [`good first issue`](https://github.com/scottli139/vividmark/labels/good%20first%20issue) 标签下的 issue——边界清晰、带实现提示、对新人友好
 - [`help wanted`](https://github.com/scottli139/vividmark/labels/help%20wanted) 标签——维护者希望有人帮忙的较大事项
-- 想看路线图或提议新方向：`PLAN.md`
+- 想看路线图或提议新方向：`PLAN.zh-CN.md`
 
 有疑问？开一个带 `question` 标签的 issue。

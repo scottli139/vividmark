@@ -39,8 +39,8 @@ describe('SettingsDialog', () => {
       render(<SettingsDialog />)
 
       const systemButton = screen.getByRole('button', { name: 'System' })
-      // 当前 themeMode=system，高亮按钮带 --active-bg 类
-      expect(systemButton.className).toContain('bg-[var(--active-bg)]')
+      // 当前 themeMode=system，高亮按钮使用 active 语义色
+      expect(systemButton.className).toContain('bg-active')
     })
 
     it('should call setThemeMode when theme option is clicked', () => {

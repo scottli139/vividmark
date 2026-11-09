@@ -267,7 +267,7 @@ vividmark/
 
 ## 开发状态
 
-查看 [PLAN.md](./PLAN.md) 了解详细的开发进度。
+查看 [PLAN.zh-CN.md](./PLAN.zh-CN.md) 了解详细的开发进度。
 
 ### 已完成
 
@@ -294,7 +294,7 @@ vividmark/
 
 - 初次参与？从 [`good first issue`](https://github.com/scottli139/vividmark/labels/good%20first%20issue) 标签下的 issue 开始
 - 🪟🐧 **Windows / Linux 用户**：我们需要真机测试志愿者，见 [#1](https://github.com/scottli139/vividmark/issues/1)
-- 🤖 本项目 100% 由 AI 构建，**欢迎 AI 辅助贡献**——`AGENTS.md` 是为你的 AI 编程助手准备好的上下文文件
+- 🤖 本项目 100% 由 AI 构建，**欢迎 AI 辅助贡献**——`AGENTS.zh-CN.md` 是为你的 AI 编程助手准备好的中文上下文文件（工具默认读取英文主版本 `AGENTS.md`）
 - 参与请遵守 [行为准则](CODE_OF_CONDUCT.md)
 
 ## 许可证

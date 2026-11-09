@@ -39,11 +39,11 @@ Tips:
 
 ## Commit Convention
 
-Conventional prefix + concise summary (Chinese or English both fine, matching the existing log):
+Use a conventional prefix and a concise English summary. Commit messages must be written in English:
 
 ```
-feat: WYSIWYG 查找替换接入
-fix: 修复大纲混入代码块注释
+feat: integrate find and replace into WYSIWYG
+fix: exclude code block comments from the outline
 docs: update README screenshots
 test / chore / style / refactor: ...
 ```
@@ -60,7 +60,7 @@ Version bumps and releases are maintainer-only (`chore: bump version` + `v*` tag
 ## House Rules Worth Knowing
 
 - **Single source of truth is Markdown source.** WYSIWYG (Milkdown/ProseMirror) and Source (CodeMirror 6) must round-trip losslessly — there are tests locking this in
-- **Bilingual by convention**: `README.md` ↔ `README.zh-CN.md` and `docs/index.html` ↔ `docs/index.zh-CN.html` must be updated together. UI strings go into `src/i18n/locales/en.json` **and** `zh-CN.json`
+- **Bilingual by convention**: update these pairs together: `README.md`, `PLAN.md`, `AGENTS.md`, `docs/implementation-notes.md`, and `docs/DESIGN_SYSTEM.md` with their `.zh-CN` counterparts; also `docs/index.html` ↔ `docs/index.zh-CN.html`. UI strings go into `src/i18n/locales/en.json` **and** `zh-CN.json`
 - **New syntax / rendering capability** → also add an example file under `examples/` (kebab-case, see `math-formulas.md`)
 - Deep architecture notes, known pitfalls and the full Tauri command/shortcut tables live in `docs/implementation-notes.md` — read the relevant section before touching editor code
 
