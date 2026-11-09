@@ -11,7 +11,7 @@ Key features:
 - Four view modes: WYSIWYG (default, Milkdown/ProseMirror) / Source / Split / Preview
 - CodeMirror 6 source editor: Markdown highlighting, smart list continuation, find & replace
 - Real-time Markdown preview (markdown-it + highlight.js)
-- Markdown extensions: admonitions（`:::` / `!!!` / GitHub Alerts `> [!NOTE]`）, footnotes（`[^id]`）, 排版增强（`==`高亮/`^`上标/`~`下标/emoji 短码）, PlantUML（本地引擎离线渲染）, Mermaid（懒加载离线渲染）, task lists, tables, math formulas (KaTeX), YAML frontmatter
+- Markdown extensions: admonitions（`:::` / `!!!` / `???`（可折叠提示框，仅预览/导出） / GitHub Alerts `> [!NOTE]`）, footnotes（`[^id]`）, 排版增强（`==`高亮/`^`上标/`~`下标/emoji 短码）, PlantUML（本地引擎离线渲染）, Mermaid（懒加载离线渲染）, task lists, tables, math formulas (KaTeX), YAML frontmatter
 - File operations with native dialogs, auto-save (2s idle), drag & drop, recent files
 - Multi-window (Typora-style SDI): one window per document with smart open routing (focus / reuse / new window)
 - Native menubar (File/Edit/Paragraph/Format/View), macOS Dock menu & file associations (Open With)

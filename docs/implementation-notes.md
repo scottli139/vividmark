@@ -1743,3 +1743,7 @@ App.tsx 三个 init（initNativeMenu/initOpenWith/initWindowManager）原为「a
 **边界**：常开无设置项；只监听当前文档（文件树/文件夹不监听）；浏览器 dev/E2E 无 watcher（isTauri 门控）；重载不保持光标/滚动（同打开文件路径，后续可迭代）。
 
 测试：fileWatcher.test.ts 13 例（decideWatchAction 全分支 + 事件流集成——重载/回声/冲突两分支/未决忽略/删除幂等/路径过滤/watch 切换）。
+
+## 2026-10-18 MkDocs `???` 可折叠提示框（预览/导出）
+
+`src/lib/markdown/collapsibleAdmonitionPlugin.ts` 为 `??? type ["title"]` 注册独立 markdown-it 块级规则。内容边界沿用 MkDocs 的 4 空格/tab 缩进和递归块级解析，HTML 使用未带 `open` 属性的原生 `<details>` / `<summary>`，内容复用 `.admonition-content` 与现有类型配色。该规则只挂在预览/导出解析器；WYSIWYG 适配不在本次范围。覆盖默认/自定义标题、未知类型、嵌套列表/围栏代码、异步导出和错误标记的单测位于 `src/lib/markdown/__tests__/collapsibleAdmonitionPlugin.test.ts`。

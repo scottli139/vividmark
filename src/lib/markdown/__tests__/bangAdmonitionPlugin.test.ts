@@ -118,10 +118,7 @@ describe('!!! admonition（mkdocs 风格）', () => {
     expect(html).toContain('内层内容')
   })
 
-  it('??? 可折叠语法与 !!!! 不渲染（保持可读原文）', () => {
-    const html = parseMarkdown('??? note\n    折叠内容')
-    expect(html).not.toContain('admonition')
-    expect(html).toContain('??? note')
+  it('额外的感叹号不渲染为提示框', () => {
     expect(parseMarkdown('!!!! note\n    文本')).not.toContain('admonition note')
   })
 

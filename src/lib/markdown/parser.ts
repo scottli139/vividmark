@@ -11,6 +11,7 @@ import { convertFileSrc } from '@tauri-apps/api/core'
 import { isLocalPath, isUrl } from '../imageUtils'
 import { admonitionTypes, getAdmonitionDisplayTitle } from './admonitionTypes'
 import { bangAdmonitionPlugin } from './bangAdmonitionPlugin'
+import { collapsibleAdmonitionPlugin } from './collapsibleAdmonitionPlugin'
 import { githubAlertPlugin } from './githubAlertPlugin'
 import { parseFrontmatter } from './frontmatter'
 import { getPlantUmlSvgUrl, renderPlantUmlSvg } from '../plantuml'
@@ -240,6 +241,9 @@ md.use(mathPlugin)
 
 // MkDocs `!!!` admonition（自写块级 rule，缩进定界；产出复用现有 admonition HTML/CSS）
 md.use(bangAdmonitionPlugin)
+
+// MkDocs `???` admonition（预览/导出侧的原生 details/summary 折叠提示框）
+md.use(collapsibleAdmonitionPlugin)
 
 // GitHub Alerts（`> [!NOTE]`，core rule 后处理 blockquote token；产出复用现有 admonition HTML/CSS）
 md.use(githubAlertPlugin)

@@ -1,9 +1,10 @@
 # Admonitions 提示框
 
-演示 VividMark 的两种提示框语法，双端（WYSIWYG / 预览 / 分屏）均可渲染：
+演示 VividMark 的提示框语法：`:::` 和 `!!!` 支持双端（WYSIWYG / 预览 / 分屏），`???` 在预览与导出中渲染为可折叠提示框。
 
 - `:::` 容器（VividMark 原生，markdown-it-container 风格）
 - `!!!` 容器（MkDocs / Python-Markdown 风格，无结束围栏，内容由 4 空格缩进定界）
+- `???` 可折叠容器（MkDocs 风格，预览与导出支持；WYSIWYG 适配暂未包含）
 
 在 WYSIWYG 中编辑 `!!!` 提示框后保存，源码围栏保持 `!!!` 不变（不会被改写为 `:::`）。
 
@@ -108,10 +109,23 @@ caution
     这只是代码示例，不是提示框
 ```
 
-### `???` 可折叠语法（暂不支持）
+## `???` 可折叠语法（MkDocs）
 
 ??? note
-    可折叠提示框是独立语法构造（details/summary），当前按原文渲染。
+    这是默认折叠的提示框。点击标题展开内容。
+
+??? warning "嵌套 Markdown"
+    内容支持常规 Markdown：
+
+    - 列表条目一
+    - 列表条目二
+
+    ```js
+    const answer = 42
+    ```
+
+??? abstract
+    未知类型使用 note 配色，默认标题保留原类型名。
 
 ### 引用块中的提示框
 

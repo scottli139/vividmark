@@ -103,6 +103,13 @@ Turn any opened folder into a deployable documentation site with one click — n
       Content indented by 4 spaces (no closing fence needed).
   ```
 
+  MkDocs-style `???` collapsible admonitions use the same callout styling in preview and exports; WYSIWYG editing support is not included yet:
+
+  ```markdown
+  ??? note "Optional title"
+      Content starts collapsed and opens when you click the title.
+  ```
+
   GitHub-style alerts (`> [!NOTE]` / `[!TIP]` / `[!IMPORTANT]` / `[!WARNING]` / `[!CAUTION]`) render with the same callout styling — in WYSIWYG the marker line stays visible and editable (change `[!NOTE]` to `[!TIP]` to switch themes), with zero source rewriting:
 
   ```markdown

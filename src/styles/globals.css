@@ -486,6 +486,12 @@ body {
   color: var(--admonition-color, #333);
 }
 
+details.admonition > summary.admonition-title {
+  display: list-item;
+  list-style-position: inside;
+  cursor: pointer;
+}
+
 .admonition-title::before {
   content: '';
   display: inline-block;
