@@ -113,6 +113,7 @@ describe('exportPdf', () => {
       expect(html).toContain('class="markdown-body"')
       expect(html).toContain('@page')
       expect(html).toContain('<title>test-document</title>')
+      expect(html).toMatch(/\.markdown-body img \{[^}]*display: block;[^}]*max-height: 360px;/s)
       expect(html).not.toContain('class="dark"')
     })
 

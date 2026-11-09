@@ -798,7 +798,7 @@ Typora 式直存：保存对话框 → 静默生成 PDF 文件，无打印对话
 2. **平台检查** - `pdf_export_supported` 命令（macOS 检查 `WKWebView.printOperationWithPrintInfo` 可用性；Windows 恒 true；Linux false）。不支持 → 直接回退 `print_pdf` 打印对话框
 3. **保存对话框** - 前端 `@tauri-apps/plugin-dialog` 的 `save()`，默认 `<文件名>.pdf`
 4. **生成导出 HTML**（`src/lib/exportPdf.ts buildPdfExportHtml`）：
-   - `parseMarkdownAsync(content, baseDir)` 渲染（与预览同管线，本地图片转 `asset://`）
+   - `parseMarkdownAsync(content, { baseDir })` 渲染（与预览同管线，本地图片读取为 base64 data URL 内联）
    - `document.styleSheets` + `adoptedStyleSheets` 序列化为内联 `<style>`（Tailwind/hljs/.markdown-body 全套，与预览像素级一致；不带 `.dark` class → PDF 恒浅色）
    - 追加导出专用 CSS（`@page` 边距、`page-break-inside: avoid`、`print-color-adjust: exact` 保留背景色等）
 5. **Rust 渲染与写盘**（`src-tauri/src/pdf.rs export_pdf_file`）：
@@ -848,6 +848,9 @@ Typora 式直存：保存对话框 → 静默生成 PDF 文件，无打印对话
 
 ### 分页 CSS 的实测结论（与 Typora 对比调试）
 
+- **打印图片必须是块级并限制高度**：WebKit 对行内 `img` 使用 `page-break-inside: avoid` 可能只留下
+  分页占位而不绘制图片；导出 CSS 用 `display: block` 修复。另设 `max-height: 360px` + `width/height: auto`
+  等比缩小高截图，降低整图推到下一页造成的大片空白（实仓 17 图文档由 16 页降为 14 页，首图恢复）
 - **长表格禁止整表 `page-break-inside: avoid`**：超出一页剩余空间的表会被整体推到下一页，
   前页留大片空白（对比 Typora 时页数 6 vs 3 的主因）。正确做法：表格允许跨页 +
   `tr/td/th { break-inside: avoid }` + `thead { display: table-header-group }`（跨页自动重复表头）

@@ -144,7 +144,15 @@ html, body {
 }
 /* 末元素 margin 在内容恰好满页时会溢出产生尾部空白页 */
 .markdown-body > :last-child { margin-bottom: 0 !important; }
-.markdown-body img { max-width: 100%; height: auto; }
+/* WebKit 对行内 img 的 break-inside: avoid 会留下占位却不绘制图片；
+   改为块级并限制高度，既避免缺图，也让文字与两张截图更容易排在同页 */
+.markdown-body img {
+  display: block;
+  max-width: 100%;
+  max-height: 360px;
+  width: auto;
+  height: auto;
+}
 /* WebKit 打印在页面可打印区边界裁掉表格外凸的半宽边框（collapse 网格右/下外边线超出
    表格盒模型外半侧），100% 宽表格的右边线因此缺失；收窄 2px 让外凸半侧留在可打印区内 */
 .markdown-body table { width: calc(100% - 2px) !important; }
