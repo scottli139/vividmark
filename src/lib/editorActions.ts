@@ -1,6 +1,6 @@
-import { open } from '@tauri-apps/plugin-dialog'
 import { useEditorStore } from '../stores/editorStore'
 import { selectLocalImage, createImageMarkdown } from './imageUtils'
+import { openFolderDialog } from './openFolderDialog'
 
 /**
  * 编辑器动作共享入口：工具栏按钮与原生菜单（nativeMenu.ts）复用同一套流程，
@@ -22,14 +22,7 @@ export async function insertImageFromPicker(): Promise<void> {
   window.dispatchEvent(new CustomEvent('editor-insert', { detail: { text: markdown } }))
 }
 
-/** 打开文件夹选择器并设为文件树根目录（Sidebar 入口与原生菜单「打开文件夹」共用） */
+/** 原生菜单与快捷键复用统一的打开文件夹流程 */
 export async function openFolderFromPicker(): Promise<void> {
-  const selected = await open({
-    directory: true,
-    multiple: false,
-  })
-
-  if (selected && typeof selected === 'string') {
-    useEditorStore.getState().setOpenedFolder(selected)
-  }
+  await openFolderDialog()
 }
