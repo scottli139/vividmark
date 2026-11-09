@@ -194,9 +194,9 @@ logger.error('Failed to sync:', error)
 - [ ] Editor 组件核心逻辑测试
   - [ ] content 同步逻辑测试 (外部更新 vs 用户编辑)
   - [ ] 边界情况测试 (空文件、大文件、特殊字符)
-- [ ] fileOps 集成测试
-  - [ ] mock Tauri invoke 测试文件操作流程
-  - [ ] 错误处理测试
+- [x] fileOps 集成测试
+  - [x] mock Tauri invoke 测试文件操作流程
+  - [x] 错误处理测试
 - [ ] E2E 测试增强
   - [ ] 打开文件 -> 编辑 -> 保存 完整流程
   - [ ] 拖拽打开文件
