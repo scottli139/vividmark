@@ -80,10 +80,13 @@ jobs:
           releaseDraft: true
           prerelease: false
 
-      - name: Verify macOS signature and notarization
+      - name: Verify macOS signature and notarize DMG
         if: matrix.platform == 'macos-latest'
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           APP_PATH="$(find src-tauri/target/release/bundle/macos -maxdepth 1 -name 'VividMark.app' -print -quit)"
           DMG_PATH="$(find src-tauri/target/release/bundle/dmg -maxdepth 1 -name '*.dmg' -print -quit)"
@@ -94,7 +97,10 @@ jobs:
           grep -F "Authority=$APPLE_SIGNING_IDENTITY" "$RUNNER_TEMP/vividmark-codesign.txt"
           grep -E 'flags=.*\(runtime\)' "$RUNNER_TEMP/vividmark-codesign.txt"
           spctl -a -vv -t exec "$APP_PATH"
+          xcrun notarytool submit "$DMG_PATH" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple "$DMG_PATH"
           xcrun stapler validate "$DMG_PATH"
+          gh release upload "$GITHUB_REF_NAME" "$DMG_PATH" --clobber
 
   # 玲珑（Linglong）打包：面向 UOS 20 等老系统的 arm64 交付路径，见 linglong/README.md。
   # 构建全程在玲珑容器（Deepin 23 base）内进行，不依赖 runner 上的 Node/Rust。
